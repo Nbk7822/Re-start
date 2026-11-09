@@ -215,8 +215,17 @@ public static class Growth
     {
         if (IsEnding(from)) return false;
         if (to is ArcStage.Failed or ArcStage.Abandoned) return true;
-        return (int)to == (int)from + 1;
+        return to == NextStage(from);
     }
+
+    /// <summary>The stage an arc moves on to, spelled out rather than read from the enum's values, so adding a stage cannot silently change which moves are allowed.</summary>
+    private static ArcStage? NextStage(ArcStage stage) => stage switch
+    {
+        ArcStage.Want => ArcStage.Obstacle,
+        ArcStage.Obstacle => ArcStage.TurningPoint,
+        ArcStage.TurningPoint => ArcStage.Resolution,
+        _ => null,
+    };
 
     /// <summary>
     /// The one way an arc moves. Refuses a move without the event that caused it, a person with no

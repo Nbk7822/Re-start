@@ -47,7 +47,8 @@ public enum WantStatus
 
 /// <summary>
 /// The shape of a person's arc toward their want: want, obstacle, turning point, resolution, or an
-/// ending without it (failed, abandoned). Values are serialised by name.
+/// ending without it (failed, abandoned). Values are serialised by name; the order an arc moves in is
+/// spelled out in <see cref="Systems.Growth.CanMove"/>, not taken from the values.
 /// </summary>
 public enum ArcStage
 {
