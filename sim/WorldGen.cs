@@ -15,7 +15,7 @@ public static class WorldGen
 {
     private const int TreeTarget = 24;
     private const int BushClusters = 3;
-    private const int BushesPerCluster = 3;
+    private const int BushesPerCluster = 4;
     private const int StartBerriesOnBush = 4;
 
     public static World Create(ContentDb content, ulong seed)

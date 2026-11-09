@@ -26,6 +26,20 @@ public enum DiceId : ushort
     WanderTarget = 6,
     WanderWait = 7,
     AccidentRoll = 8,
+    ArrivalEdge = 9,
+    ArrivalFood = 10,
+    RainStart = 11,
+    RainLength = 12,
+    WindfallRoll = 13,
+    WindfallKind = 14,
+    WindfallRow = 15,
+    SpoilRoll = 16,
+    SpoilLoss = 17,
+    ThiefRoll = 18,
+    ThiefEdge = 19,
+    AccidentDamage = 20,
+    CombatHit = 21,
+    CombatDamage = 22,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>

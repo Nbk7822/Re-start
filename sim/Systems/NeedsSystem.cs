@@ -18,12 +18,17 @@ public static class NeedsSystem
     public const int FedAt = 450;
     public const int DownedBelow = 150;
     public const int RecoverAt = 300;
+    public const int StarvationDamagePerHour = 10;
 
     public static void Hourly(World w)
     {
         WorldDef def = w.Content.World;
         bool daylight = Calendar.IsDaylight(w.Tick, def);
-        if (Calendar.IsDayStart(w.Tick, def)) RotFood(w);
+        if (Calendar.IsDayStart(w.Tick, def))
+        {
+            RotFood(w);
+            if (w.Tick % def.TicksPerSeason == 0) SeasonTurns(w);
+        }
 
         foreach (Character c in w.Characters)
         {
@@ -40,7 +45,7 @@ public static class NeedsSystem
             string deathKey = "event.needs.died";
             if (c.Food == 0)
             {
-                damage += 20;
+                damage += StarvationDamagePerHour;
                 deathKey = sp.DrinksBlood ? "event.needs.died_blood" : "event.needs.died_starving";
                 c.LastHealthEvent = c.LastFoodEvent;
             }
@@ -115,6 +120,7 @@ public static class NeedsSystem
     private static void UpdateHunger(World w, Character c, SpeciesDef sp)
     {
         bool blood = sp.DrinksBlood;
+        if (c.LastFoodEvent == 0 && !blood && w.WinterEvent != 0 && c.Food < HungryBelow) c.LastFoodEvent = w.WinterEvent;
         if (c.HungerStage < 1 && c.Food < HungryBelow)
         {
             SimEvent e = w.Log.Emit(w, SystemTag.Needs, blood ? "event.needs.thirsting" : "event.needs.hungry",
@@ -127,11 +133,29 @@ public static class NeedsSystem
             SimEvent e = w.Log.Emit(w, SystemTag.Needs, blood ? "event.needs.blood_starved" : "event.needs.starving",
                 new[] { c.Id }, new[] { c.LastFoodEvent }, null, EventArg.Char("a", c.Id));
             c.HungerStage = 2;
+            c.StarvingSince = w.Tick;
             c.LastFoodEvent = e.Id;
         }
         if (c.Food >= FedAt) c.HungerStage = 0;
         if (c.HungerStage == 1) MoodSystem.AddThought(w, c, blood ? "thirsting" : "hungry", 0, c.LastFoodEvent);
         else if (c.HungerStage == 2) MoodSystem.AddThought(w, c, "starving", 0, c.LastFoodEvent);
+    }
+
+    /// <summary>
+    /// Each season opens with an event. Winter stops the bushes bearing, so it becomes the cause of the
+    /// hunger that follows for everyone who eats berries and has no more recent cause.
+    /// </summary>
+    private static void SeasonTurns(World w)
+    {
+        WorldDef def = w.Content.World;
+        int season = Calendar.Season(w.Tick, def);
+        bool lean = season == def.SeasonsPerYear - 1;
+        SimEvent e = w.Log.Emit(w, SystemTag.World, lean ? "event.world.winter_begins" : "event.world.season_begins",
+            Array.Empty<int>(), Array.Empty<long>(), null, EventArg.Key("season", def.SeasonKeys[season]));
+        w.WinterEvent = lean ? e.Id : 0;
+        if (!lean) return;
+        foreach (Character m in w.Members())
+            if (m.LastFoodEvent == 0 && w.Content.SpeciesById(m.SpeciesId).FoodSource == "berries") m.LastFoodEvent = e.Id;
     }
 
     private static int JobRestCost(World w, Character c)

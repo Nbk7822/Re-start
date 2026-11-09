@@ -11,11 +11,25 @@ public static class EventText
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
+    /// <summary>
+    /// A character placeholder that does not open the sentence uses the name's "_mid" variant when the
+    /// loc table has one (so the otherworlder reads "You asked…" but "…asked you"), keeping grammar in
+    /// the loc files rather than in code.
+    /// </summary>
     public static string Describe(World w, SimEvent e)
     {
+        LocTable loc = w.Content.Loc;
+        string template = loc.Get(e.Key);
         var args = new List<KeyValuePair<string, string>>(e.Args.Count);
-        foreach (EventArg a in e.Args) args.Add(new KeyValuePair<string, string>(a.Name, Resolve(w, a.Value)));
-        return w.Content.Loc.Format(e.Key, args);
+        foreach (EventArg a in e.Args)
+        {
+            string value = Resolve(w, a.Value);
+            if (a.Value.StartsWith("c:", StringComparison.Ordinal) && !template.StartsWith("{" + a.Name + "}", StringComparison.Ordinal)
+                && int.TryParse(a.Value.AsSpan(2), NumberStyles.Integer, Inv, out int id) && w.Find(id) is { } c && loc.Has(c.NameKey + "_mid"))
+                value = loc.Get(c.NameKey + "_mid");
+            args.Add(new KeyValuePair<string, string>(a.Name, value));
+        }
+        return loc.Format(e.Key, args);
     }
 
     public static string Resolve(World w, string value)

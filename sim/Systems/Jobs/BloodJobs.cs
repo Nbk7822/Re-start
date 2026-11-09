@@ -38,19 +38,23 @@ public static class BloodJobs
         foreach (Character v in w.Characters)
         {
             if (v.Status != CharStatus.Member || v.Id == donor.Id || !Places.Species(w, v).DrinksBlood) continue;
-            if (v.Food >= 170 || BeingFed(w, v) || RefusedRecently(v, donor.Id)) continue;
+            if (v.Food >= 170 || BeingFed(w, v) || RefusedRecently(v, donor.Id) || InSun(w, v)) continue;
             int d = donor.Pos.ChebyshevTo(v.Pos);
             if (d < bestDist) { best = v; bestDist = d; }
         }
         return best;
     }
 
-    public static bool Consents(World w, Character donor, Character vampire)
+    public static bool Consents(World w, Character donor, Character vampire) => RefusalKey(w, donor, vampire) == null;
+
+    /// <summary>Null if the donor agrees; otherwise the loc key for why they refuse (hungry, weak, low mood, or simply unwilling).</summary>
+    public static string? RefusalKey(World w, Character donor, Character vampire)
     {
-        if (donor.Downed || donor.Mood < 35) return false;
-        if (donor.Health < Math.Max(600, Traits.Max(w, donor, t => t.RiskyWorkHealthBelow) + 100)) return false;
+        if (donor.HungerStage >= 1) return "event.social.blood_refused_hungry";
+        if (donor.Downed || donor.Health < Math.Max(600, Traits.Max(w, donor, t => t.RiskyWorkHealthBelow) + 100)) return "event.social.blood_refused_weak";
+        if (donor.Mood < 35) return "event.social.blood_refused_mood";
         int required = -Traits.Sum(w, donor, t => t.ConsentBias);
-        return Relations.Opinion(w, donor.Id, vampire.Id) >= required;
+        return Relations.Opinion(w, donor.Id, vampire.Id) >= required ? null : "event.social.blood_refused";
     }
 
     public static bool Request(World w, Character vampire, Job j)
@@ -62,9 +66,10 @@ public static class BloodJobs
             if (!JobRunner.Near(w, vampire, j, donor)) return JobRunner.Failed(j);
             SimEvent ask = JobRunner.Emit(w, SystemTag.Social, "event.social.blood_request", new[] { vampire.Id, donor.Id }, new[] { j.CauseEvent },
                 EventArg.Char("a", vampire.Id), EventArg.Char("b", donor.Id));
-            if (!Consents(w, donor, vampire))
+            string? refusal = RefusalKey(w, donor, vampire);
+            if (refusal != null)
             {
-                Refuse(w, vampire, donor, ask.Id);
+                Refuse(w, vampire, donor, ask.Id, refusal);
                 return true;
             }
             WorkSystem.Drop(w, donor);
@@ -86,6 +91,7 @@ public static class BloodJobs
         if (vampire == null || vampire.Status != CharStatus.Member) return true;
         if (j.Stage >= 1)
             return vampire.Job is not { Kind: JobKind.RequestBlood } vj || vj.TargetId != donor.Id;
+        if (InSun(w, vampire)) return true;
         if (!JobRunner.Near(w, donor, j, vampire)) return JobRunner.Failed(j);
         SimEvent offer = JobRunner.Emit(w, SystemTag.Social, "event.social.blood_offered", new[] { donor.Id, vampire.Id }, new[] { vampire.LastFoodEvent },
             EventArg.Char("a", donor.Id), EventArg.Char("b", vampire.Id));
@@ -116,9 +122,15 @@ public static class BloodJobs
         return e;
     }
 
-    private static void Refuse(World w, Character vampire, Character donor, long askId)
+    private static void Refuse(World w, Character vampire, Character donor, long askId, string key)
     {
-        SimEvent no = JobRunner.Emit(w, SystemTag.Social, "event.social.blood_refused", new[] { vampire.Id, donor.Id }, new[] { askId },
+        long because = key switch
+        {
+            "event.social.blood_refused_hungry" => donor.LastFoodEvent,
+            "event.social.blood_refused_weak" => donor.LastHealthEvent,
+            _ => 0,
+        };
+        SimEvent no = JobRunner.Emit(w, SystemTag.Social, key, new[] { vampire.Id, donor.Id }, new[] { askId, because },
             EventArg.Char("a", vampire.Id), EventArg.Char("b", donor.Id));
         MoodSystem.AddThought(w, vampire, "was_refused", donor.Id, no.Id, Traits.ScalePct(w, vampire, t => t.InsultOpinionScalePct));
         MoodSystem.AddThought(w, donor, "refused_someone", vampire.Id, no.Id);
@@ -126,6 +138,21 @@ public static class BloodJobs
         if (Relations.Opinion(w, vampire.Id, donor.Id) <= SocialSystem.GrudgeAtOpinion)
             Relations.FormGrudge(w, vampire, donor, 25, no.Id);
     }
+
+    public const int RebuffCooldownHours = 2;
+
+    /// <summary>After a refusal a vampire lets a couple of hours pass before asking anyone else.</summary>
+    public static bool RecentlyRebuffed(World w, Character vampire)
+    {
+        ThoughtDef def = w.Content.ThoughtById("was_refused");
+        long window = (long)(def.DurationHours - RebuffCooldownHours) * w.Content.World.TicksPerHour;
+        foreach (Thought t in vampire.Thoughts)
+            if (t.DefId == "was_refused" && t.ExpiresTick - w.Tick > window) return true;
+        return false;
+    }
+
+    /// <summary>A vampire caught outside in (or just before) daylight must reach cover first; feeding waits.</summary>
+    private static bool InSun(World w, Character v) => Places.BurnsInDaylight(w, v) && Places.SunDanger(w) && !w.Map.Covered(v.Pos);
 
     private static bool RefusedRecently(Character asker, int otherId)
     {

@@ -133,6 +133,7 @@ public static class CampJobs
             return false;
         }
         j.Progress++;
-        return Places.Daylight(w) || c.Rest < 120 || c.Food < NeedsSystem.StarvingBelow;
+        bool sun = Places.BurnsInDaylight(w, c) ? Places.SunDanger(w) : Places.Daylight(w);
+        return sun || c.Rest < 120 || c.Food < NeedsSystem.StarvingBelow;
     }
 }

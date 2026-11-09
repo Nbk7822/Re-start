@@ -51,6 +51,7 @@ public sealed class Character
     public bool Asleep { get; set; }
     public int Mood { get; set; } = 50;
     public int HungerStage { get; set; }
+    public long StarvingSince { get; set; }
     public bool SkippedRation { get; set; }
 
     public List<Thought> Thoughts { get; set; } = new();

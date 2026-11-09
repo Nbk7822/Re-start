@@ -22,8 +22,7 @@ public static class JobPicker
         if (c.Downed || c.Status != CharStatus.Member) return null;
         SpeciesDef sp = Places.Species(w, c);
         bool burns = sp.DaylightBurnPerHour > 0;
-        bool daylight = Places.Daylight(w);
-        bool sunBlocked = burns && daylight;
+        bool sunBlocked = burns && Places.SunDanger(w);
 
         if (sunBlocked && !w.Map.Covered(c.Pos))
         {
@@ -33,7 +32,7 @@ public static class JobPicker
 
         if (c.Food < NeedsSystem.HungryBelow)
         {
-            if (sp.DrinksBlood)
+            if (sp.DrinksBlood && !BloodJobs.RecentlyRebuffed(w, c))
             {
                 Character? donor = BloodJobs.PickDonor(w, c);
                 if (donor != null && !(sunBlocked && !w.Map.Covered(donor.Pos)))
@@ -57,6 +56,8 @@ public static class JobPicker
 
         if (Traits.Sum(w, c, t => t.CareUrgency) > 0 || PriorityOf(c, "care") == 1)
         {
+            Job? rescue = RescueJob(w, c, sunBlocked);
+            if (rescue != null) return rescue;
             Job? care = CareJob(w, c, sunBlocked);
             if (care != null) return care;
         }
@@ -151,6 +152,31 @@ public static class JobPicker
         return best == null ? null : new Job { Kind = JobKind.Care, TargetId = best.Id, Target = best.Pos, CauseEvent = best.LastHealthEvent };
     }
 
+    /// <summary>Someone has fallen where they cannot be tended (in the open, not in a bed): carry them to safety.</summary>
+    private static Job? RescueJob(World w, Character c, bool sunBlocked)
+    {
+        if (c.Health < InjuredBelow) return null;
+        Character? best = null;
+        int bestDist = int.MaxValue;
+        foreach (Character p in w.Characters)
+        {
+            if (p.Id == c.Id || p.Status != CharStatus.Member || !p.Downed) continue;
+            if (OnBed(w, p.Pos) || (w.Map.Covered(p.Pos) && !Places.BurnsInDaylight(w, p))) continue;
+            if (Places.Targeted(w, JobKind.Rescue, p.Id, c.Id)) continue;
+            if (sunBlocked && !w.Map.Covered(p.Pos)) continue;
+            int d = c.Pos.ChebyshevTo(p.Pos);
+            if (d < bestDist) { best = p; bestDist = d; }
+        }
+        return best == null ? null : new Job { Kind = JobKind.Rescue, TargetId = best.Id, Target = best.Pos, CauseEvent = best.LastHealthEvent };
+    }
+
+    private static bool OnBed(World w, Point p)
+    {
+        foreach (Bed b in w.Map.Beds)
+            if (b.Pos == p) return true;
+        return false;
+    }
+
     private static Job? WorkJob(World w, Character c, bool sunBlocked)
     {
         int respect = Traits.ScalePct(w, c, t => t.PriorityRespectPct);
@@ -207,7 +233,7 @@ public static class JobPicker
             }
             case "keep_watch":
             {
-                if (Places.Daylight(w) || Places.SomeoneOnWatch(w, c.Id)) return null;
+                if (Places.Daylight(w) || sunBlocked || Places.SomeoneOnWatch(w, c.Id)) return null;
                 if (c.Health < Traits.Max(w, c, t => t.FleeHealthBelow)) return null;
                 Point post = w.Map.Passable(w.Map.WatchPost) ? w.Map.WatchPost : Places.Adjacent(w, w.Map.WatchPost, c.Pos);
                 return post == Point.None ? null : new Job { Kind = JobKind.KeepWatch, Target = post };

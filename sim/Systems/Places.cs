@@ -7,10 +7,26 @@ namespace Return.Sim.Systems;
 public static class Places
 {
     public const int BushMax = 6;
+    public const int BushRegrowPerDay = 2;
 
     public static bool Daylight(World w) => Calendar.IsDaylight(w.Tick, w.Content.World);
 
     public static bool BurnsInDaylight(World w, Character c) => w.Content.SpeciesById(c.SpeciesId).DaylightBurnPerHour > 0;
+
+    /// <summary>Daylight, or the last hour before dawn, when those who burn should already be under cover.</summary>
+    public static bool SunDanger(World w)
+    {
+        WorldDef def = w.Content.World;
+        int h = Calendar.Hour(w.Tick, def);
+        return h >= def.DawnHour - 1 && h < def.DuskHour;
+    }
+
+    /// <summary>Bushes regrow in every season but the last (winter), so the year has a lean stretch (ADR-0013).</summary>
+    public static bool GrowingSeason(World w)
+    {
+        WorldDef def = w.Content.World;
+        return Calendar.Season(w.Tick, def) != def.SeasonsPerYear - 1;
+    }
 
     /// <summary>Usual sleeping hours: night for humans, daylight for vampires.</summary>
     public static bool SleepHours(World w, Character c)

@@ -69,17 +69,24 @@ public static class WorkSystem
     private static bool ShouldInterrupt(World w, Character c)
     {
         Job j = c.Job!;
-        if (Places.BurnsInDaylight(w, c) && Places.Daylight(w) && !w.Map.Covered(c.Pos)
-            && j.Kind is not (JobKind.SeekCover or JobKind.RequestBlood or JobKind.GiveBlood))
+        if (j.Kind is JobKind.Arrive or JobKind.Fight or JobKind.Flee or JobKind.Rescue) return false;
+        if (Places.BurnsInDaylight(w, c) && Places.SunDanger(w) && !w.Map.Covered(c.Pos) && j.Kind != JobKind.SeekCover)
             return true;
         if (c.Food < NeedsSystem.StarvingBelow && j.Kind is not (JobKind.Eat or JobKind.RequestBlood or JobKind.GiveBlood or JobKind.Sleep or JobKind.Forage))
             return true;
-        return c.Rest < 60 && j.Kind is not (JobKind.Sleep or JobKind.Eat or JobKind.SeekCover);
+        return c.Rest < 60 && j.Kind is not (JobKind.Sleep or JobKind.Eat or JobKind.SeekCover or JobKind.RequestBlood or JobKind.GiveBlood);
     }
 
     private static void RegrowBushes(World w)
     {
+        if (!Places.GrowingSeason(w)) return;
         foreach (Bush b in w.Map.Bushes)
-            if (b.Berries < Places.BushMax) b.Berries++;
+            b.Berries = Math.Min(Places.BushMax, b.Berries + Places.BushRegrowPerDay);
+    }
+
+    /// <summary>Bushes regrow in every season but the last; exposed for tests.</summary>
+    internal static void RegrowForTest(World w)
+    {
+        RegrowBushes(w);
     }
 }

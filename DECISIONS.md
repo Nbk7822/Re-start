@@ -81,6 +81,14 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
   3. `content/roles.json` (role → default work priorities) was added in Task 3 alongside the other schemas.
 
 ## ADR-0013 — M0 tuning constants live in code (for now)
-- **Status:** accepted for M0 (2026-11-08); proposal for founder review.
-- **Context:** Some numbers are tuning, not content: conversation odds (start 60‰ per check, insult 50‰ base, +250‰ in a low mood, +300‰ toward a grudge target, deep talk 300‰), thresholds (hungry < 300, starving < 150, fed ≥ 450, collapse < 150, recover ≥ 300, grudge at opinion −40, leave at −45). Putting them in `/content` needs new schema fields, which needs approval.
-- **Decision:** Keep them as named constants (`NeedsSystem`, `SocialSystem`) during M0 so soak tuning can move fast. Proposal: after the M0 soak settles the values, add a `tuning` block to `world.json` and its schema.
+- **Status:** accepted for M0 (2026-11-08); proposal for founder review. Values updated 2026-11-09 after soak probing.
+- **Context:** Some numbers are tuning, not content. Putting them in `/content` needs new schema fields, which needs approval.
+- **Decision:** Keep them as named constants (`NeedsSystem`, `SocialSystem`, `Places`, `BloodJobs`, `CombatSystem`) during M0 so soak tuning can move fast. Proposal: after the M0 soak settles the values, add a `tuning` block to `world.json` and its schema.
+- **Current values:**
+  - Conversation: start 25‰ per 30-tick check (400‰ when seeking company); insult 30‰ base, +250‰ in a low mood (< 25), +300‰ toward a grudge target; deep talk 300‰. (Started at 60‰ / 50‰; probes logged ~400 insults per 40 days, which drowned every other story.)
+  - Needs: hungry < 300, starving < 150, fed ≥ 450, collapse < 150, recover ≥ 300. Starvation costs 10 health per hour, so starving lasts days, not hours, and leaves room for rescue, theft and departure.
+  - Departure: opinion of You ≤ −45 with a grudge or hunger; or starving for 24 h with mood < 20; or two active grudges with mood < 20.
+  - Food: 12 berry bushes (3 clusters of 4), at most 6 berries each, regrowing 2 per day, none in winter. Winter opens with an event that becomes the cause of the hunger that follows. (9 bushes starved every camp; 16 bushes at 2 per day meant nothing ever happened.)
+  - Sun: "sun danger" runs from one hour before dawn until dusk. A vampire outside is pulled off any job to seek cover; a vampire on watch stops at sun danger.
+  - Blood: after a refusal a vampire waits 2 h before asking anyone else. Donors refuse while hungry, weak (health below max(600, their risky-work threshold + 100)), in a low mood (< 35), or when their opinion of the vampire is below their consent bias. Each reason has its own log line and cites its cause.
+  - Incidents: night thief 12‰ per night hour × pressure / 50, from day 3; food spoils 120‰ at 06:00 × pressure / 50 when the stockpile holds ≥ 4 berries; majors at least 6 h apart and cost 30 pressure.

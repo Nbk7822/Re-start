@@ -24,6 +24,10 @@ public static class JobRunner
         JobKind.KeepPromise => CareJobs.KeepPromise(w, c, j),
         JobKind.RequestBlood => BloodJobs.Request(w, c, j),
         JobKind.GiveBlood => BloodJobs.Give(w, c, j),
+        JobKind.Arrive => IncidentJobs.Arrive(w, c, j),
+        JobKind.Fight => IncidentJobs.Fight(w, c, j),
+        JobKind.Flee => IncidentJobs.Flee(w, c, j),
+        JobKind.Rescue => IncidentJobs.Rescue(w, c, j),
         _ => true,
     };
 

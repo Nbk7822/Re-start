@@ -33,6 +33,7 @@ public sealed class World
     public List<Command> CommandLog { get; set; } = new();
     public long NextCommandSeq { get; set; } = 1;
     public long PolicyEvent { get; set; }
+    public long WinterEvent { get; set; }
 
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;

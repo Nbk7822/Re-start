@@ -166,6 +166,31 @@
   "event.needs.went_without": "{a} went without so others could eat.",
   "event.needs.food_rotted": "{n} {item} rotted in the stockpile.",
 
+  "npc.thief.name": "A thief",
+
+  "event.incident.wanderer_arrives": "{a} wandered in from the wilds, hungry and alone.",
+  "event.incident.rain": "Rain began to fall.",
+  "event.incident.food_spoils": "{n} {item} spoiled in the damp.",
+  "event.incident.work_accident": "{a} was hurt in an accident while working.",
+  "event.incident.died_accident": "{a} died of their injuries.",
+  "event.incident.night_thief": "{a} crept toward the camp in the dark.",
+  "event.incident.stolen": "A thief made off with {n} {item}.",
+  "event.incident.windfall_berries": "{n} {item} turned up by the river.",
+  "event.incident.windfall_timber": "The river washed up {n} {item}.",
+
+  "event.combat.thief_spotted": "{a} spotted a thief.",
+  "event.combat.fight": "{a} fought the thief.",
+  "event.combat.downed": "{a} was struck down by the thief.",
+  "event.combat.died_wounds": "{a} died of their wounds.",
+  "event.combat.fled": "{a} fled from the fight.",
+  "event.combat.thief_fled": "The thief fled, wounded.",
+  "event.combat.thief_killed": "The thief was killed.",
+
+  "event.social.joined_promised_meal": "{a} agreed to stay after {b} promised them a meal within two days.",
+  "event.social.joined_promised_rest": "{a} agreed to stay after {b} promised them safe rest within two days.",
+  "event.social.joined_alone": "{a} settled in the empty camp.",
+  "event.work.rescued": "{a} carried {b} to safety.",
+
   "event.work.foraged": "{a} picked {n} {item}.",
   "event.work.felled_tree": "{a} felled a tree for timber.",
   "event.work.roof_repaired": "{a} repaired a section of the shelter roof ({n} of {total} now sound).",
@@ -176,6 +201,9 @@
 
   "event.social.blood_request": "{a} asked {b} for blood.",
   "event.social.blood_refused": "{b} refused to give {a} blood.",
+  "event.social.blood_refused_hungry": "{b}, hungry themselves, refused to give {a} blood.",
+  "event.social.blood_refused_weak": "{b} was too weak to give {a} blood.",
+  "event.social.blood_refused_mood": "{b} was in no state to give {a} blood.",
   "event.social.blood_offered": "{a} offered {b} their blood.",
   "event.social.took_meal": "{a} took the meal set aside for {b}.",
   "event.social.insulted": "{a} insulted {b}.",
@@ -192,10 +220,13 @@
   "event.social.promise_broken": "{a} broke their promise to {b}.",
   "event.social.left_camp": "{a} left the camp.",
 
+  "event.world.season_begins": "{season} began.",
+  "event.world.winter_begins": "Winter came, and the berry bushes stopped bearing.",
   "event.world.ration_policy": "You decided that when food runs short, {policy}.",
   "event.world.work_priority": "{a}'s priority for {work} is now {n}.",
 
   "cast.you.name": "You",
+  "cast.you.name_mid": "you",
   "cast.mira.name": "Mira",
   "cast.oren.name": "Oren",
   "cast.ilex.name": "Ilex",

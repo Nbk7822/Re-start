@@ -67,7 +67,7 @@ public class NeedsMoodTests
         SimEvent spoiled = w.Log.Emit(w, SystemTag.Incident, "event.test.spoiled", Array.Empty<int>(), Array.Empty<long>());
         you.LastFoodEvent = spoiled.Id;
         you.Food = 0;
-        you.Health = 60;
+        you.Health = NeedsSystem.StarvationDamagePerHour * 3 - 5;
         for (int h = 0; h < 3; h++)
         {
             NeedsSystem.Hourly(w);

@@ -3,6 +3,6 @@
   { "id": "rain", "textKey": "incident.rain", "kind": "minor", "params": { "startPermillePerHour": 15, "minHours": 3, "maxHours": 10, "soakRestPerHour": 20 } },
   { "id": "food_spoils", "textKey": "incident.food_spoils", "kind": "major", "params": { "dailyPermille": 120, "minBerries": 4, "lossMin": 2, "lossMax": 4 } },
   { "id": "work_accident", "textKey": "incident.work_accident", "kind": "major", "params": { "damageMin": 150, "damageMax": 300 } },
-  { "id": "night_thief", "textKey": "incident.night_thief", "kind": "major", "params": { "nightPermillePerHour": 20, "earliestDay": 3, "health": 600, "stealMax": 3, "fleeHealthBelow": 300 } },
+  { "id": "night_thief", "textKey": "incident.night_thief", "kind": "major", "params": { "nightPermillePerHour": 12, "earliestDay": 3, "health": 600, "stealMax": 3, "fleeHealthBelow": 300 } },
   { "id": "windfall", "textKey": "incident.windfall", "kind": "good", "params": { "dailyPermille": 100, "amount": 2 } }
 ]

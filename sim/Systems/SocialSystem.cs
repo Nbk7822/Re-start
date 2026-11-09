@@ -10,15 +10,17 @@ namespace Return.Sim.Systems;
 /// </summary>
 public static class SocialSystem
 {
-    public const int InitiatePermille = 60;
+    public const int InitiatePermille = 25;
     public const int SeekingCompanyPermille = 400;
     public const int NeighbourRange = 6;
-    public const int BaseInsultPermille = 50;
+    public const int BaseInsultPermille = 30;
     public const int LowMoodInsultPermille = 250;
     public const int GrudgeInsultPermille = 300;
     public const int DeepTalkPermille = 300;
     public const int GrudgeAtOpinion = -40;
     public const int LeaveAtOpinion = -45;
+    public const int StarvingLeaveHours = 24;
+    public const int StarvingLeaveMood = 20;
 
     public static void Step(World w)
     {
@@ -130,6 +132,9 @@ public static class SocialSystem
                 if (grudge != null) cause = grudge.FormedEvent;
                 else if (c.HungerStage >= 1) cause = c.LastFoodEvent;
             }
+            if (cause == 0 && c.HungerStage >= 2 && c.Mood < StarvingLeaveMood
+                && w.Tick - c.StarvingSince >= (long)StarvingLeaveHours * w.Content.World.TicksPerHour)
+                cause = c.LastFoodEvent;
             if (cause == 0 && c.Mood < 20)
             {
                 Grudge? first = null;
