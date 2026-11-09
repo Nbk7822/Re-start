@@ -53,6 +53,9 @@ public sealed class SpeciesDef
     /// <summary>False for those who never tire or sleep (the undead): rest stays full (ADR-0022).</summary>
     public bool Tires { get; init; } = true;
 
+    /// <summary>Needs from needs.json that this species' nature adds to food, rest and company (ADR-0022).</summary>
+    public List<string> Needs { get; init; } = new();
+
     public bool DrinksBlood => FoodSource == "blood";
 
     /// <summary>foodSource "none": they eat nothing from the stores and never go hungry (ADR-0022).</summary>
@@ -146,6 +149,46 @@ public sealed class IncidentDef
 
     public int Param(string name) =>
         Params.TryGetValue(name, out int v) ? v : throw new ContentException($"incidents.json: '{Id}' has no param '{name}'.");
+}
+
+/// <summary>
+/// A need that comes from a species' nature, beyond food, rest and company (ADR-0022). Thresholds,
+/// thoughts, threshold events, harm and departure are shared code driven by these fields; how the
+/// need is met or wounded is the behaviour named by its id (like incidents), tuned by params.
+/// </summary>
+public sealed class NeedDef
+{
+    public string Id { get; init; } = "";
+    public string NameKey { get; init; } = "";
+    public int Start { get; init; }
+    public int DecayPerHour { get; init; }
+    public int LowBelow { get; init; }
+    public int CriticalBelow { get; init; }
+    public int SatisfiedAt { get; init; }
+    public string LowThought { get; init; } = "";
+    public string CriticalThought { get; init; } = "";
+    public string LowEventKey { get; init; } = "";
+    public string CriticalEventKey { get; init; } = "";
+
+    /// <summary>Health lost each hour while the need is critical; 0 = it does not harm.</summary>
+    public int CriticalHealthPerHour { get; init; }
+
+    /// <summary>The death text when that harm kills.</summary>
+    public string DeathKey { get; init; } = "";
+
+    /// <summary>Hours critical (and still low) after which they leave the camp; 0 = it never drives them away.</summary>
+    public int LeavesAfterCriticalHours { get; init; }
+
+    /// <summary>Works the need can be bound to (one is chosen per person from Truths).</summary>
+    public List<string> BondWorks { get; init; } = new();
+
+    /// <summary>Items the need can ask for (one is chosen per person from Truths).</summary>
+    public List<string> BondItems { get; init; } = new();
+
+    public Dictionary<string, int> Params { get; init; } = new();
+
+    public int Param(string name) =>
+        Params.TryGetValue(name, out int v) ? v : throw new ContentException($"needs.json: '{Id}' has no param '{name}'.");
 }
 
 public sealed class CastDef

@@ -84,6 +84,8 @@ public static class WorldGen
         };
         foreach (RolePriority p in w.Content.RoleById(cd.Role).Priorities)
             c.Priorities.Add(new WorkPriority { WorkId = p.Work, Priority = p.Priority });
+        if (w.Content.SpeciesById(cd.Species).EatsNothing) c.Food = 1000;
+        Systems.NatureNeeds.Init(w, c);
         return c;
     }
 

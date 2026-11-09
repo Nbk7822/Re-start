@@ -50,9 +50,17 @@ public static class JobPicker
             }
         }
 
+        // A need of their nature at its critical mark comes before rest; one that is merely low, after it (ADR-0022).
+        bool nature = c.NatureNeeds.Count > 0;
+        Job? urgent = nature ? NatureNeeds.Job(w, c, critical: true, sunBlocked) : null;
+        if (urgent != null) return urgent;
+
         if (c.Health < InjuredBelow) return SleepJob(w, c);
         int restAt = 200 + Traits.Sum(w, c, t => t.RestThresholdAdd);
         if (sp.Tires && (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700))) return SleepJob(w, c);
+
+        Job? natural = nature ? NatureNeeds.Job(w, c, critical: false, sunBlocked) : null;
+        if (natural != null) return natural;
 
         Job? promise = PromiseJob(w, c);
         if (promise != null) return promise;

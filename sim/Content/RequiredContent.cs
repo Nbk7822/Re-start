@@ -35,4 +35,9 @@ public static class RequiredContent
         ("night_thief", new[] { "nightPermillePerHour", "earliestDay", "health", "stealMax", "fleeHealthBelow" }),
         ("windfall", new[] { "dailyPermille", "amount" }),
     };
+
+    /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>
+    public static readonly IReadOnlyList<(string Id, string[] Params)> Needs = new (string, string[])[]
+    {
+    };
 }

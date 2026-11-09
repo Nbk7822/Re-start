@@ -50,6 +50,7 @@ public static class NeedsSystem
                 deathKey = sp.DrinksBlood ? "event.needs.died_blood" : "event.needs.died_starving";
                 c.LastHealthEvent = c.LastFoodEvent;
             }
+            if (c.NatureNeeds.Count > 0) damage += NatureNeeds.Hourly(w, c, ref deathKey);
             if (sp.DaylightBurnPerHour > 0 && daylight && !w.Map.Covered(c.Pos))
             {
                 // Only harm that is still going on (starving now, or burning last hour) is a cause of this burn.

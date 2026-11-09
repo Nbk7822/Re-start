@@ -83,6 +83,7 @@ public static class StateApi
         var needs = new List<NeedState>();
         if (species.DrinksBlood) needs.Add(new("blood", loc.Get("need.blood"), c.Food));
         else if (!species.EatsNothing) needs.Add(new("food", loc.Get("need.food"), c.Food));
+        foreach (NatureNeed n in c.NatureNeeds) needs.Add(new(n.Id, loc.Get(w.Content.NeedById(n.Id).NameKey), n.Value));
         if (species.Tires) needs.Add(new("rest", loc.Get("need.rest"), c.Rest));
         needs.Add(new("social", loc.Get("need.social"), c.Social));
         needs.Add(new("health", loc.Get("need.health"), c.Health));

@@ -155,6 +155,7 @@ public static class SocialSystem
                     if (g.Active && g.HolderId == c.Id) { count++; first ??= g; }
                 if (count >= 2 && first != null) cause = first.FormedEvent;
             }
+            if (cause == 0 && c.NatureNeeds.Count > 0) cause = NatureNeeds.DepartureCause(w, c);
             if (cause != 0) Leave(w, c, cause);
         }
     }

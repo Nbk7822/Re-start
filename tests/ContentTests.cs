@@ -14,7 +14,7 @@ public class ContentTests
     {
         var files = Directory.GetFiles(ContentDir, "*.json").OrderBy(f => f, StringComparer.Ordinal).ToList();
         var locFiles = Directory.GetFiles(Path.Combine(ContentDir, "loc"), "en*.json").OrderBy(f => f, StringComparer.Ordinal).ToList();
-        Assert.Equal(9, files.Count);
+        Assert.Equal(10, files.Count);
         Assert.Contains(locFiles, f => Path.GetFileName(f) == "en.json");
         files.AddRange(locFiles);
         foreach (string file in files)
@@ -139,8 +139,9 @@ public class ContentTests
             ("work", db.Work.Select(x => x.Id).ToHashSet(), RequiredContent.Work),
             ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
+            ("need", db.Needs.Select(n => n.Id).ToHashSet(), RequiredContent.Needs.Select(n => n.Id).ToList()),
         };
-        var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).ToHashSet();
+        var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).Concat(RequiredContent.Needs.SelectMany(n => n.Params)).ToHashSet();
         var missing = new List<string>();
         foreach (string file in Directory.EnumerateFiles(Path.Combine(TestPaths.Root, "sim"), "*.cs", SearchOption.AllDirectories))
         {

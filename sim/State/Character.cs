@@ -64,6 +64,9 @@ public sealed class Character
     public long LastRestEvent { get; set; }
     public long LastHealthEvent { get; set; }
 
+    /// <summary>Needs that come from this person's nature (their species), beyond food, rest and company (ADR-0022).</summary>
+    public List<NatureNeed> NatureNeeds { get; set; } = new();
+
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;
 }

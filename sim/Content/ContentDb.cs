@@ -25,6 +25,7 @@ public sealed class ContentDb
     private Dictionary<string, ThoughtDef> _thoughts = new();
     private Dictionary<string, IncidentDef> _incidents = new();
     private Dictionary<string, CastDef> _cast = new();
+    private Dictionary<string, NeedDef> _needs = new();
 
     public WorldDef World { get; private set; } = new();
     public IReadOnlyList<SpeciesDef> Species { get; private set; } = Array.Empty<SpeciesDef>();
@@ -35,6 +36,7 @@ public sealed class ContentDb
     public IReadOnlyList<ThoughtDef> Thoughts { get; private set; } = Array.Empty<ThoughtDef>();
     public IReadOnlyList<IncidentDef> Incidents { get; private set; } = Array.Empty<IncidentDef>();
     public IReadOnlyList<CastDef> Cast { get; private set; } = Array.Empty<CastDef>();
+    public IReadOnlyList<NeedDef> Needs { get; private set; } = Array.Empty<NeedDef>();
     public LocTable Loc { get; private set; } = new(new Dictionary<string, string>());
 
     public SpeciesDef SpeciesById(string id) => Find(_species, id, "species.json");
@@ -47,6 +49,7 @@ public sealed class ContentDb
     public ThoughtDef ThoughtById(string id) => Find(_thoughts, id, "thoughts.json");
     public IncidentDef IncidentById(string id) => Find(_incidents, id, "incidents.json");
     public CastDef CastByKey(string key) => Find(_cast, key, "cast.json");
+    public NeedDef NeedById(string id) => Find(_needs, id, "needs.json");
 
     public static ContentDb Load(string contentDir, IReadOnlyList<string>? modDirs = null)
     {
@@ -64,6 +67,7 @@ public sealed class ContentDb
             Thoughts = ReadMerged<ThoughtDef>(dirs, "thoughts.json", d => d.Id),
             Incidents = ReadMerged<IncidentDef>(dirs, "incidents.json", d => d.Id),
             Cast = ReadMerged<CastDef>(dirs, "cast.json", d => d.Key),
+            Needs = ReadMerged<NeedDef>(dirs, "needs.json", d => d.Id),
             Loc = new LocTable(ReadLoc(dirs)),
         };
         db._species = Index(db.Species, d => d.Id);
@@ -74,6 +78,7 @@ public sealed class ContentDb
         db._thoughts = Index(db.Thoughts, d => d.Id);
         db._incidents = Index(db.Incidents, d => d.Id);
         db._cast = Index(db.Cast, d => d.Key);
+        db._needs = Index(db.Needs, d => d.Id);
         db.Validate();
         return db;
     }
@@ -107,6 +112,8 @@ public sealed class ContentDb
                 Fail("species.json", $"'{s.Id}' has foodSource '{s.FoodSource}', which is neither \"blood\", \"none\" nor an item id");
             if (s.EatsItem && s.FoodSource != "berries")
                 Fail("species.json", $"'{s.Id}' eats '{s.FoodSource}', but M0 only grows, rations, steals and spoils berries (ADR-0018)");
+            foreach (string need in s.Needs)
+                if (!_needs.ContainsKey(need)) Fail("species.json", $"'{s.Id}' has unknown need '{need}'");
         }
         foreach (TraitDef t in Traits)
         {
@@ -124,6 +131,7 @@ public sealed class ContentDb
         }
         foreach (ThoughtDef th in Thoughts) RequireLoc("thoughts.json", th.Id, th.TextKey);
         foreach (IncidentDef inc in Incidents) RequireLoc("incidents.json", inc.Id, inc.TextKey);
+        ValidateNeeds();
 
         foreach (string id in RequiredContent.Items)
             if (!_items.ContainsKey(id)) Fail("items.json", $"the simulation needs an item '{id}'");
@@ -156,6 +164,34 @@ public sealed class ContentDb
             if (c.Otherworlder) otherworlders++;
         }
         if (otherworlders != 1) Fail("cast.json", $"needs exactly one otherworlder, found {otherworlders}");
+    }
+
+    /// <summary>Needs work like incidents: each id names behaviour in code, which reads the params RequiredContent lists (ADR-0022).</summary>
+    private void ValidateNeeds()
+    {
+        foreach (NeedDef n in Needs)
+        {
+            RequireLoc("needs.json", n.Id, n.NameKey, n.LowEventKey, n.CriticalEventKey);
+            if (n.DeathKey.Length > 0) RequireLoc("needs.json", n.Id, n.DeathKey);
+            if (n.CriticalHealthPerHour > 0 && n.DeathKey.Length == 0) Fail("needs.json", $"'{n.Id}' harms when critical but has no deathKey");
+            if (!(n.CriticalBelow <= n.LowBelow && n.LowBelow <= n.SatisfiedAt))
+                Fail("needs.json", $"'{n.Id}' needs criticalBelow <= lowBelow <= satisfiedAt");
+            foreach (string t in new[] { n.LowThought, n.CriticalThought })
+                if (!_thoughts.ContainsKey(t)) Fail("needs.json", $"'{n.Id}' uses unknown thought '{t}'");
+            foreach (string work in n.BondWorks)
+                if (!_work.ContainsKey(work)) Fail("needs.json", $"'{n.Id}' can be bound to unknown work '{work}'");
+            foreach (string item in n.BondItems)
+                if (!_items.ContainsKey(item)) Fail("needs.json", $"'{n.Id}' can ask for unknown item '{item}'");
+            bool known = false;
+            foreach ((string id, string[] _) in RequiredContent.Needs) if (id == n.Id) known = true;
+            if (!known) Fail("needs.json", $"'{n.Id}' has no behaviour in this version of the simulation");
+        }
+        foreach ((string id, string[] ps) in RequiredContent.Needs)
+        {
+            if (!_needs.TryGetValue(id, out NeedDef? need)) { Fail("needs.json", $"the simulation needs a need '{id}'"); continue; }
+            foreach (string param in ps)
+                if (!need.Params.ContainsKey(param)) Fail("needs.json", $"'{id}' needs the param '{param}'");
+        }
     }
 
     private void RequireLoc(string file, string id, params string[] keys)

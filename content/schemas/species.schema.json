@@ -21,7 +21,8 @@
       "bloodPerFeed": { "type": "integer", "minimum": 0, "maximum": 1000 },
       "donorHealthCost": { "type": "integer", "minimum": 0, "maximum": 1000 },
       "donorRestCost": { "type": "integer", "minimum": 0, "maximum": 1000 },
-      "tires": { "description": "false: never tires or sleeps; rest stays full (ADR-0022)", "type": "boolean" }
+      "tires": { "description": "false: never tires or sleeps; rest stays full (ADR-0022)", "type": "boolean" },
+      "needs": { "description": "Needs from needs.json that this species' nature adds to food, rest and company (ADR-0022)", "type": "array", "items": { "$ref": "#/$defs/id" } }
     }
   },
   "$defs": {
