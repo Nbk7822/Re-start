@@ -9,5 +9,6 @@
   { "key": "vale", "nameKey": "cast.vale.name", "species": "vampire", "signatureTrait": "anxious", "role": "watcher", "color": "#9d9fca" },
   { "key": "wren", "nameKey": "cast.wren.name", "species": "human", "signatureTrait": "anxious", "role": "forager", "color": "#c7a0a0" },
   { "key": "hollis", "nameKey": "cast.hollis.name", "species": "human", "signatureTrait": "proud", "role": "builder", "color": "#a0b4c7" },
-  { "key": "ketil", "nameKey": "cast.ketil.name", "species": "undead", "signatureTrait": "oathbound", "role": "watcher", "arrivalDays": [11, 17], "color": "#8b968a" }
+  { "key": "ketil", "nameKey": "cast.ketil.name", "species": "undead", "signatureTrait": "oathbound", "role": "watcher", "arrivalDays": [11, 17], "color": "#8b968a" },
+  { "key": "dryope", "nameKey": "cast.dryope.name", "species": "dryad", "signatureTrait": "protective", "role": "forager", "arrivalDays": [3, 7], "color": "#7f9a6a" }
 ]

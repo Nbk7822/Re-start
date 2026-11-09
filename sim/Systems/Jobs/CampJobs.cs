@@ -55,7 +55,13 @@ public static class CampJobs
                 tree.Felled = true;
                 w.Map.RebuildCaches();
                 c.Carrying = new Carry { DefId = "timber", Count = def.Yield };
-                SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.felled_tree", new[] { c.Id }, Array.Empty<long>(), EventArg.Char("a", c.Id));
+                // The felling cites why the timber was wanted (a promised roof); a dryad's tree also cites the feller's grudge against them (ADR-0022).
+                Character? dryad = Forest.BoundTo(w, tree);
+                SimEvent e = dryad == null
+                    ? JobRunner.Emit(w, SystemTag.Work, "event.work.felled_tree", new[] { c.Id }, new[] { j.CauseEvent }, EventArg.Char("a", c.Id))
+                    : JobRunner.Emit(w, SystemTag.Work, "event.work.felled_bound_tree", new[] { c.Id, dryad.Id },
+                        new[] { j.CauseEvent, Relations.ActiveGrudge(w, c.Id, dryad.Id)?.FormedEvent ?? 0 }, EventArg.Char("a", c.Id), EventArg.Char("b", dryad.Id));
+                Forest.Felled(w, c, tree, e);
                 JobRunner.RollAccident(w, c, def, e.Id);
                 JobRunner.Next(w, c, j, Stock.DropTile(w, "timber"));
                 return JobRunner.Failed(j);

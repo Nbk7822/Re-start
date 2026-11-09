@@ -33,5 +33,11 @@
   { "id": "at_purpose", "textKey": "thought.at_purpose", "mood": 4, "durationHours": 2, "emote": "music" },
   { "id": "purpose_slipping", "textKey": "thought.purpose_slipping", "mood": -8, "durationHours": 1, "emote": "sweat" },
   { "id": "fading", "textKey": "thought.fading", "mood": -16, "durationHours": 1, "emote": "gloom" },
-  { "id": "uneasy_near_dead", "textKey": "thought.uneasy_near_dead", "mood": -3, "opinion": -2, "durationHours": 12, "emote": "question", "stackLimit": 2 }
+  { "id": "uneasy_near_dead", "textKey": "thought.uneasy_near_dead", "mood": -3, "opinion": -2, "durationHours": 12, "emote": "question", "stackLimit": 2 },
+
+  { "id": "among_trees", "textKey": "thought.among_trees", "mood": 4, "durationHours": 2, "emote": "music" },
+  { "id": "forest_thin", "textKey": "thought.forest_thin", "mood": -6, "durationHours": 1, "emote": "sweat" },
+  { "id": "forest_withering", "textKey": "thought.forest_withering", "mood": -14, "durationHours": 1, "emote": "gloom" },
+  { "id": "tree_felled", "textKey": "thought.tree_felled", "mood": -5, "opinion": -8, "durationHours": 72, "emote": "anger", "stackLimit": 3 },
+  { "id": "own_tree_felled", "textKey": "thought.own_tree_felled", "mood": -30, "opinion": -50, "durationHours": 480, "emote": "gloom" }
 ]

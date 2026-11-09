@@ -24,7 +24,8 @@
       "tires": { "description": "false: never tires or sleeps; rest stays full (ADR-0022)", "type": "boolean" },
       "needs": { "description": "Needs from needs.json that this species' nature adds to food, rest and company (ADR-0022)", "type": "array", "items": { "$ref": "#/$defs/id" } },
       "unsettlesForDays": { "description": "For this many days after they arrive, the living take less warmth from talking with them and feel uneasy", "type": "integer", "minimum": 0 },
-      "arrivalKey": { "description": "How their arrival reads (a loc key with {a}); omit for the wanderer's line", "$ref": "#/$defs/locKey" }
+      "arrivalKey": { "description": "How their arrival reads (a loc key with {a}); omit for the wanderer's line", "$ref": "#/$defs/locKey" },
+      "refusesWork": { "description": "Work their nature will not do, whatever their priorities say", "type": "array", "items": { "$ref": "#/$defs/id" } }
     }
   },
   "$defs": {

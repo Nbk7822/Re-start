@@ -132,12 +132,14 @@ public static class NatureNeeds
     private static void Bind(World w, Character c, NatureNeed n, NeedDef def)
     {
         if (n.Id == Purpose.NeedId) Purpose.Bind(w, c, n, def);
+        else if (n.Id == Forest.NeedId) Forest.Bind(w, c, n, def);
     }
 
     /// <summary>How much a need's own source restores this hour (beyond its decay).</summary>
     private static int Restore(World w, Character c, NatureNeed n, NeedDef def) => n.Id switch
     {
         Purpose.NeedId => Purpose.Restore(w, c, n, def),
+        Forest.NeedId => Forest.Restore(w, c, n, def),
         _ => 0,
     };
 
@@ -152,6 +154,7 @@ public static class NatureNeeds
     private static Job? Answer(World w, Character c, NatureNeed n, NeedDef def, bool sunBlocked) => n.Id switch
     {
         Purpose.NeedId => Purpose.Answer(w, c, n, sunBlocked),
+        Forest.NeedId => Forest.Answer(w, c, n, sunBlocked),
         _ => null,
     };
 }

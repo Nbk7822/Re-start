@@ -26,6 +26,10 @@ public enum EffectKind
     Death,
     Departure,
     Recruitment,
+
+    // The four peoples (ADR-0022).
+    /// <summary>What bound someone's nature is gone for good: a dryad's tree felled. A is bound, B whoever severed it, RefId the tree.</summary>
+    BondSevered,
 }
 
 /// <summary>A persistent effect. A is the primary character (holder, debtor, the dead), B the other, RefId the grudge or debt id.</summary>

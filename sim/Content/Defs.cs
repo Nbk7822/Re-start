@@ -62,6 +62,9 @@ public sealed class SpeciesDef
     /// <summary>How their arrival reads (a loc key with {a}); empty = the wanderer's "hungry and alone".</summary>
     public string ArrivalKey { get; init; } = "";
 
+    /// <summary>Work their nature will not do, whatever their priorities say (a dryad never fells a tree).</summary>
+    public List<string> RefusesWork { get; init; } = new();
+
     public bool DrinksBlood => FoodSource == "blood";
 
     /// <summary>foodSource "none": they eat nothing from the stores and never go hungry (ADR-0022).</summary>

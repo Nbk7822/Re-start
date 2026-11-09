@@ -25,6 +25,10 @@ public enum JobKind
     Leave,
     Arrive,
     Raid,
+
+    // The four peoples (ADR-0022).
+    /// <summary>A dryad standing by their tree (or another living one) to draw on the forest.</summary>
+    TendTree,
 }
 
 /// <summary>What a character is doing right now. Stage and Progress are job-specific counters.</summary>

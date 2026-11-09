@@ -215,12 +215,13 @@ public static class JobPicker
     {
         int respect = Traits.ScalePct(w, c, t => t.PriorityRespectPct);
         bool fragile = c.Health < Traits.Max(w, c, t => t.RiskyWorkHealthBelow);
+        List<string> refused = Places.Species(w, c).RefusesWork;
         Job? best = null;
         int bestScore = int.MaxValue;
         foreach (string workId in WorkOrder)
         {
             int priority = PriorityOf(c, workId);
-            if (priority <= 0) continue;
+            if (priority <= 0 || refused.Contains(workId)) continue; // a dryad never fells a tree, whatever the priorities say
             WorkDef def = w.Content.WorkById(workId);
             if (def.Risky && fragile) continue;
             int score = priority * 100 - (Traits.WorkBias(w, c, workId) + NatureNeeds.WorkBias(w, c, workId)) * 60;
@@ -252,8 +253,8 @@ public static class JobPicker
             case "gather_timber":
             {
                 if (sunBlocked || Places.TimberNeeded(w) <= 0) return null;
-                Tree? tree = Places.StandingTree(w, c.Pos);
-                return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos) };
+                Tree? tree = Places.StandingTree(w, c.Pos, c);
+                return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos), CauseEvent = RoofPromiseEvent(w, 0) };
             }
             case "forage":
                 if (sunBlocked || (Stock.Count(w, "berries") >= 2 * Places.Eaters(w, "berries") && !Purpose.Seeks(w, c, workId))) return null;

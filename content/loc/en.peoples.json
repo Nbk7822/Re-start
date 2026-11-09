@@ -13,5 +13,26 @@
   "event.needs.purpose_critical": "{a} is fading, with nothing left to hold them.",
   "event.needs.died_purpose": "{a} lay down, their purpose gone, and was at rest at last.",
 
-  "cast.ketil.name": "Ketil"
+  "cast.ketil.name": "Ketil",
+
+  "species.dryad.name": "Dryad",
+  "need.forest": "Forest",
+  "job.tend_tree": "Among the trees",
+
+  "thought.among_trees": "Among the living trees",
+  "thought.forest_thin": "Too long away from the trees",
+  "thought.forest_withering": "Withering without the forest",
+  "thought.tree_felled": "A tree I knew was cut down",
+  "thought.own_tree_felled": "My tree was cut down",
+
+  "event.incident.dryad_arrives": "{a} stepped out from among the trees and came to the fire.",
+  "event.needs.forest_low": "{a} is growing faint, too long away from the trees.",
+  "event.needs.forest_critical": "{a} is withering, cut off from the forest.",
+  "event.needs.died_forest": "{a} withered away, far from the living trees.",
+  "event.work.felled_bound_tree": "{a} felled the tree {b} was bound to.",
+  "event.needs.tree_wound": "{a} cried out as their tree came down.",
+  "event.needs.died_with_tree": "{a} died with their tree.",
+  "event.social.mourned_tree": "{a} grieved for the tree {b} cut down.",
+
+  "cast.dryope.name": "Dryope"
 }

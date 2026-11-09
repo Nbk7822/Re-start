@@ -41,5 +41,20 @@
     "needs": ["purpose"],
     "unsettlesForDays": 12,
     "arrivalKey": "event.incident.undead_arrives"
+  },
+  {
+    "id": "dryad",
+    "nameKey": "species.dryad.name",
+    "foodSource": "none",
+    "foodDecayPerHour": 0,
+    "restDecayPerHour": 30,
+    "socialDecayPerHour": 15,
+    "sleepRestorePerHour": 120,
+    "daylightBurnPerHour": 0,
+    "ticksPerTile": 6,
+    "canDonateBlood": false,
+    "needs": ["forest"],
+    "refusesWork": ["gather_timber"],
+    "arrivalKey": "event.incident.dryad_arrives"
   }
 ]

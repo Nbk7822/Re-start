@@ -570,7 +570,8 @@ public class GameViewTests
     {
         // Seed 34's thief fight: blows are health drops between looks, so a gore log that looked only
         // once a frame would merge blows, thin the drip trail and misplace marks on a long frame.
-        const long Start = 188_500, Span = 1_500;
+        long Start = FirstBloodyFight(34).Start;
+        const long Span = 1_500;
         Simulation perTick = Simulation.Create(Content, 34), perFrame = Simulation.Create(Content, 34);
         perTick.Advance(Start);
         perFrame.Advance(Start);

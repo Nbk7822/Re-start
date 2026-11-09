@@ -24,7 +24,7 @@ public static class RequiredContent
         "refused_someone", "rescued", "robbed", "roof_sound", "saw_death", "slept_in_shelter", "slept_outside", "soaked",
         "starving", "thief_driven_off", "thirsting", "was_refused", "windfall", "wounded",
         // The four peoples (ADR-0022).
-        "at_purpose", "uneasy_near_dead",
+        "at_purpose", "uneasy_near_dead", "among_trees", "tree_felled", "own_tree_felled",
     };
 
     /// <summary>Every incident M0 has behaviour for, with the params that behaviour reads.</summary>
@@ -42,5 +42,10 @@ public static class RequiredContent
     public static readonly IReadOnlyList<(string Id, string[] Params)> Needs = new (string, string[])[]
     {
         ("purpose", new[] { "restorePerHour", "boundWorkBias" }),
+        ("forest", new[]
+        {
+            "treeRange", "restorePerTree", "ownTreeWeight", "maxRestorePerHour", "tendMaxTicks", "bondSkipNearest", "bondCandidates",
+            "respectOpinion", "woundMin", "woundMax", "ownTreeLoss", "grudgeIntensity", "griefGrudgeIntensity",
+        }),
     };
 }

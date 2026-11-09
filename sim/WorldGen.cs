@@ -24,6 +24,7 @@ public static class WorldGen
         var w = new World { Seed = seed, Rng = Rng.FromSeed(seed), Content = content };
         CreateCast(w);
         w.Map = BuildMap(w);
+        foreach (Character c in w.Characters) Systems.NatureNeeds.Init(w, c); // after the map: a dryad is bound to one of its trees
         PlaceStartItems(w);
         PositionStarters(w);
         ScheduleArrivals(w);
@@ -52,6 +53,7 @@ public static class WorldGen
             c.CastKey = template.CastKey + "_" + w.Characters.Count;
             c.Otherworlder = false;
             c.Status = CharStatus.Member;
+            Systems.NatureNeeds.Init(w, c);
             c.Pos = FindOpenNear(w.Map, w.Map.Hearth, i);
             w.Characters.Add(c);
             i++;
@@ -85,7 +87,6 @@ public static class WorldGen
         foreach (RolePriority p in w.Content.RoleById(cd.Role).Priorities)
             c.Priorities.Add(new WorkPriority { WorkId = p.Work, Priority = p.Priority });
         if (w.Content.SpeciesById(cd.Species).EatsNothing) c.Food = 1000;
-        Systems.NatureNeeds.Init(w, c);
         return c;
     }
 

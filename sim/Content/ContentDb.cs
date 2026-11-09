@@ -115,6 +115,8 @@ public sealed class ContentDb
             foreach (string need in s.Needs)
                 if (!_needs.ContainsKey(need)) Fail("species.json", $"'{s.Id}' has unknown need '{need}'");
             if (s.ArrivalKey.Length > 0) RequireLoc("species.json", s.Id, s.ArrivalKey);
+            foreach (string work in s.RefusesWork)
+                if (!_work.ContainsKey(work)) Fail("species.json", $"'{s.Id}' refuses unknown work '{work}'");
         }
         foreach (TraitDef t in Traits)
         {

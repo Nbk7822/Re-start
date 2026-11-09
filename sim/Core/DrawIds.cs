@@ -16,6 +16,8 @@ public enum TruthId : ushort
     PairChemistry = 8,
 
     // 30–39: the four peoples beyond human and vampire (ADR-0022).
+    /// <summary>The tree a dryad is bound to (keyed by cast key).</summary>
+    BoundTree = 30,
     /// <summary>The work an undead came back to do (keyed by cast key).</summary>
     PurposeWork = 31,
 }
@@ -51,6 +53,8 @@ public enum DiceId : ushort
     /// <summary>The day, within their window, someone who comes in their own season arrives (cast.json arrivalDays).</summary>
     PeopleArrivalDay = 120,
     PeopleArrivalHour = 121,
+    /// <summary>How badly a dryad is hurt when their tree is felled.</summary>
+    TreeWound = 122,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>

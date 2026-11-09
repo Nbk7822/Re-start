@@ -15,5 +15,25 @@
     "deathKey": "event.needs.died_purpose",
     "bondWorks": ["keep_watch", "forage"],
     "params": { "restorePerHour": 70, "boundWorkBias": 3 }
+  },
+  {
+    "id": "forest",
+    "nameKey": "need.forest",
+    "start": 800,
+    "decayPerHour": 20,
+    "lowBelow": 350,
+    "criticalBelow": 150,
+    "satisfiedAt": 650,
+    "lowThought": "forest_thin",
+    "criticalThought": "forest_withering",
+    "lowEventKey": "event.needs.forest_low",
+    "criticalEventKey": "event.needs.forest_critical",
+    "criticalHealthPerHour": 15,
+    "deathKey": "event.needs.died_forest",
+    "params": {
+      "treeRange": 3, "restorePerTree": 25, "ownTreeWeight": 3, "maxRestorePerHour": 150, "tendMaxTicks": 1800,
+      "bondSkipNearest": 3, "bondCandidates": 8, "respectOpinion": 15,
+      "woundMin": 250, "woundMax": 450, "ownTreeLoss": 400, "grudgeIntensity": 60, "griefGrudgeIntensity": 25
+    }
   }
 ]
