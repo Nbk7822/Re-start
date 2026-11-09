@@ -44,6 +44,11 @@ public sealed class WorldArt
     private readonly Vector2[] _riverUv = Array.Empty<Vector2>();
     private readonly Color[] _riverTint = Array.Empty<Color>();
     private readonly Vector2[] _bank = Array.Empty<Vector2>();
+    private readonly Vector2[] _shallows = Array.Empty<Vector2>();
+    private readonly Vector2[] _shallowsNear = Array.Empty<Vector2>();
+
+    /// <summary>The paler band of shallow water along the bank, lying in the water (the river is east of the bank).</summary>
+    private const float ShallowsWidth = T * 0.9f;
 
     public WorldArt(Map m, ArtTextures tex)
     {
@@ -90,7 +95,16 @@ public sealed class WorldArt
                     pts.Add(0.5f * (2f * p1 + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (-p0 + 3f * p1 - 3f * p2 + p3) * t3));
                 }
             pts.Add(P(m.Height));
+            // Corner cutting rounds off the steps where the bank moves a whole tile between rows.
+            pts = Chaikin(pts);
             _bank = pts.ToArray();
+            _shallows = new Vector2[_bank.Length];
+            _shallowsNear = new Vector2[_bank.Length];
+            for (int i = 0; i < _bank.Length; i++)
+            {
+                _shallows[i] = _bank[i] + new Vector2(ShallowsWidth / 2f, 0f);
+                _shallowsNear[i] = _bank[i] + new Vector2(ShallowsWidth / 4f, 0f);
+            }
             pts.Add(new Vector2(m.Width * T + T, m.Height * T + T));
             pts.Add(new Vector2(m.Width * T + T, -T));
             _river = pts.ToArray();
@@ -115,7 +129,7 @@ public sealed class WorldArt
         _tuftSize = new float[tufts.Count];
         for (int i = 0; i < tufts.Count; i++) { _tuftBase[i] = tufts[i].At; _tuftSize[i] = tufts[i].Size; }
 
-        int marks = _waterRows.Count == 0 ? 0 : Math.Min(140, _waterRows.Count * 3);
+        int marks = _waterRows.Count == 0 ? 0 : Math.Min(240, _waterRows.Count * 5);
         _flowSeeds = new Vector2[marks];
         for (int i = 0; i < marks; i++)
         {
@@ -206,7 +220,9 @@ public sealed class WorldArt
         if (_river.Length > 0)
         {
             b.Polygon(_river, Palette.River);
-            b.Polyline(_bank, Palette.RiverShallow.WithAlpha(0.8f), T * 0.9f);
+            // Shallows pale toward the bank: a wide faint band and a narrower one inside it.
+            b.Polyline(_shallows, Palette.RiverShallow.WithAlpha(0.45f), ShallowsWidth);
+            b.Polyline(_shallowsNear, Palette.RiverShallow.WithAlpha(0.5f), ShallowsWidth / 2f);
             b.Polyline(_bank, Palette.Bank, 3f);
         }
         else
@@ -293,10 +309,11 @@ public sealed class WorldArt
         float flow = time * T * (raining ? 1.3f : 0.8f);
         if (_tex.Water != null && _river.Length > 0)
         {
-            // The surface scrolls downstream: two layers at different scales and speeds.
+            // The surface scrolls downstream in two layers at different scales and speeds, kept faint:
+            // a slow tonal drift under the crisp ripple marks, not a photograph of water beside inked shapes.
             float size = _tex.Water.GetWidth();
-            Surface(b, 0.7f / size, flow, 0f, new Color(1f, 1f, 1f, 0.7f));
-            Surface(b, 0.4f / size, flow * 0.6f, 0.37f, new Color(1f, 1f, 1f, 0.35f));
+            Surface(b, 0.9f / size, flow, 0f, new Color(1f, 1f, 1f, 0.24f));
+            Surface(b, 0.55f / size, flow * 0.6f, 0.37f, new Color(1f, 1f, 1f, 0.14f));
         }
 
         // Flowing marks drift downstream and fade in and out.
@@ -378,8 +395,8 @@ public sealed class WorldArt
 
     public void PostShadow(Brush b, float alpha)
     {
-        Vector2 c = Center(_m.WatchPost);
-        Figures.Shadow(b, _tex, c.X + 1f, c.Y + T * 0.3f, 6f, 2.5f, alpha);
+        Vector2 foot = PostFoot;
+        Figures.Shadow(b, _tex, foot.X + 1f, foot.Y, 5f, 2.2f, alpha);
     }
 
     // ================= things that stand up (y-sorted) =================
@@ -808,24 +825,44 @@ public sealed class WorldArt
         }
     }
 
-    public float WatchPostSortY => (_m.WatchPost.Y + 0.8f) * T;
+    /// <summary>The foot of the lookout pole: the back-right corner of its tile, so the watcher stands beside it.</summary>
+    private Vector2 PostFoot => Center(_m.WatchPost) + new Vector2(T * 0.35f, -T * 0.05f);
 
-    public Vector2 LanternAt => Center(_m.WatchPost) + new Vector2(5f, -T * 0.95f);
+    private const float PostHeight = T * 2f;
 
-    /// <summary>A lookout stake with a crossbar and a lantern (lit at night while someone keeps watch).</summary>
+    public float WatchPostSortY => PostFoot.Y;
+
+    /// <summary>The lantern hangs from the pole's arm, above a standing watcher's head.</summary>
+    public Vector2 LanternAt => Center(_m.WatchPost) + new Vector2(T * 0.35f - 6f, -T * 1.7f);
+
+    /// <summary>A lookout pole taller than a person, with an arm reaching over the watcher and a lantern (lit at night while someone keeps watch).</summary>
     public void DrawWatchPost(Brush b, bool lit, float time)
     {
-        Vector2 c = Center(_m.WatchPost);
-        float x = c.X - 2f, foot = c.Y + T * 0.3f, top = c.Y - T * 1.15f;
-        b.Clear().RoundRect(x - 1.8f, top, 3.6f, foot - top, 1f).Shade(Palette.Trunk.Lightened(0.1f), Palette.TrunkLo, new Vector2(1f, 0f)).Stroke(Palette.Ink, 0.8f);
-        b.Clear().RoundRect(x - 1f, top + 3f, 9f, 2.2f, 0.8f).Fill(Palette.Trunk).Stroke(Palette.Ink, 0.7f);
-        Vector2 l = LanternAt;
-        b.Line(l.X, top + 5f, l.X, l.Y - 3f, Palette.Ink, 0.6f);
+        Vector2 foot = PostFoot, l = LanternAt;
+        float x = foot.X, top = foot.Y - PostHeight, arm = top + 2.5f;
+        b.Clear().RoundRect(x - 1.8f, top, 3.6f, PostHeight, 1f).Shade(Palette.Trunk.Lightened(0.1f), Palette.TrunkLo, new Vector2(1f, 0f)).Stroke(Palette.Ink, 0.8f);
+        b.Clear().RoundRect(l.X - 2.5f, arm - 1.1f, x - l.X + 3f, 2.2f, 0.8f).Fill(Palette.Trunk).Stroke(Palette.Ink, 0.7f);
+        b.Line(x - 1.6f, arm + 6f, x - 5.5f, arm + 1.2f, Palette.TrunkLo, 1.2f);
+        b.Line(l.X, arm + 1f, l.X, l.Y - 3f, Palette.Ink, 0.6f);
         b.Clear().RoundRect(l.X - 2.2f, l.Y - 3f, 4.4f, 5.5f, 1f).Fill(lit ? Palette.Flame3.Lerp(Palette.Flame2, 0.3f + 0.2f * MathF.Sin(time * 9f)) : Palette.Hex(0x3a3328)).Stroke(Palette.Ink, 0.7f);
         b.Line(l.X - 2.2f, l.Y - 0.3f, l.X + 2.2f, l.Y - 0.3f, Palette.Ink, 0.5f);
     }
 
     // ================= helpers =================
+
+    /// <summary>One pass of Chaikin corner cutting over an open polyline (the ends stay put).</summary>
+    private static List<Vector2> Chaikin(List<Vector2> pts)
+    {
+        if (pts.Count < 3) return pts;
+        var smooth = new List<Vector2>(pts.Count * 2) { pts[0] };
+        for (int i = 0; i + 1 < pts.Count; i++)
+        {
+            smooth.Add(pts[i].Lerp(pts[i + 1], 0.25f));
+            smooth.Add(pts[i].Lerp(pts[i + 1], 0.75f));
+        }
+        smooth.Add(pts[^1]);
+        return smooth;
+    }
 
     public static Vector2 Center(SimPoint p) => new((p.X + 0.5f) * T, (p.Y + 0.5f) * T);
 

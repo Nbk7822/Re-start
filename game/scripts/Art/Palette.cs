@@ -83,6 +83,9 @@ public static class Palette
     public static readonly Color Smoke = new(0.55f, 0.53f, 0.50f);
     public static readonly Color FireLight = new(1f, 0.62f, 0.32f);
 
+    /// <summary>Beyond the map's edge (seen zoomed out).</summary>
+    public static readonly Color Margin = Hex(0x29292a);
+
     public static readonly Color Select = Hex(0xe1bd70);
     public static readonly Color Name = new(0.93f, 0.90f, 0.83f);
     public static readonly Color NameShadow = new(0.04f, 0.035f, 0.03f, 0.92f);

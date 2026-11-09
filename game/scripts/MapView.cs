@@ -13,12 +13,13 @@ namespace Return.Game;
 
 /// <summary>
 /// The map, drawn in the grounded three-quarter style (ADR-0009, darker and grimier per its
-/// 2026-11-09 update). Orchestrates three passes: the ground (terrain, mud, grime, grid; redrawn
-/// only when the season turns), the world (water, blood, grass, then everything that stands up
-/// sorted by y so things in front hide things behind: trees, bushes, goods, walls, roofs, the
-/// hearth and the people, then smoke and flies), and an overlay above the lighting (rain, a
-/// vignette, names and mood marks). Day and night come from Art.Lighting. Read-only over World:
-/// the only state here is view smoothing, walk phases and the gore log, all derived from the sim.
+/// 2026-11-09 update). Orchestrates four passes: the ground (terrain, mud, grime; baked once and
+/// again when the season turns), the water (the grid and the flowing river), the world (wet
+/// ground, blood, grass, then everything that stands up sorted by y so things in front hide things
+/// behind: trees, bushes, goods, walls, roofs, the hearth and the people, then smoke and flies), and
+/// an overlay above the lighting (rain, a vignette, names and mood marks). Day and night come from
+/// Art.Lighting. Read-only over World: the only state here is view smoothing, walk phases, view-only
+/// nudges and the gore log, all derived from the sim.
 /// </summary>
 public partial class MapView : Node2D
 {
@@ -55,6 +56,7 @@ public partial class MapView : Node2D
     private WorldArt _art = null!;
     private Lighting _lighting = null!;
     private DrawLayer _ground = null!;
+    private DrawLayer _water = null!;
     private DrawLayer _world = null!;
     private DrawLayer _overlay = null!;
     private readonly GoreLog _gore = new();
@@ -167,10 +169,16 @@ public partial class MapView : Node2D
         _ground = DrawLayer.Make("Ground", PaintGround);
         _ground.TextureRepeat = TextureRepeatEnum.Enabled;
         _ground.TextureFilter = TextureFilterEnum.LinearWithMipmaps;
+        // The grid and the river surface, between the ground and the world. The water texture does not
+        // tile seamlessly, so it repeats mirrored: no seams, however finely it is sampled.
+        _water = DrawLayer.Make("Water", PaintWater);
+        _water.TextureRepeat = TextureRepeatEnum.Mirror;
+        _water.TextureFilter = TextureFilterEnum.LinearWithMipmaps;
         _world = DrawLayer.Make("World", PaintWorld);
         _world.TextureRepeat = TextureRepeatEnum.Enabled;
         _world.TextureFilter = TextureFilterEnum.LinearWithMipmaps;
         AddChild(_ground);
+        AddChild(_water);
         AddChild(_world);
         _lighting = new Lighting(this, _tex, _art.HearthCenter, _art.LanternAt);
 
@@ -242,6 +250,7 @@ public partial class MapView : Node2D
             _ground.QueueRedraw();
         }
         FinishGroundBake();
+        _water.QueueRedraw();
         _world.QueueRedraw();
         _overlay.QueueRedraw();
         _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
@@ -362,9 +371,16 @@ public partial class MapView : Node2D
     {
         if (_host == null) return;
         Map m = _host.World.Map;
+        // The margins around the map, zoomed out, take the same day and night as the map (the window's
+        // clear colour is not tinted). Four bands around it, so nothing is drawn twice under the map.
+        float w = m.Width * TileSize, h = m.Height * TileSize, g = 4000f;
+        layer.DrawRect(new Rect2(-g, -g, w + 2f * g, g), Palette.Margin);
+        layer.DrawRect(new Rect2(-g, h, w + 2f * g, g), Palette.Margin);
+        layer.DrawRect(new Rect2(-g, 0f, g, h), Palette.Margin);
+        layer.DrawRect(new Rect2(w, 0f, g, h), Palette.Margin);
         if (_groundTex != null)
         {
-            layer.DrawTextureRect(_groundTex, new Rect2(0f, 0f, m.Width * TileSize, m.Height * TileSize), false);
+            layer.DrawTextureRect(_groundTex, new Rect2(0f, 0f, w, h), false);
             return;
         }
         _groundZoom = layer.GetGlobalTransformWithCanvas().X.Length();
@@ -434,7 +450,18 @@ public partial class MapView : Node2D
         return Mathf.Max(0.01f, stretch * layer.GetGlobalTransformWithCanvas().X.Length());
     }
 
-    // ================= world =================
+    // ================= water and world =================
+
+    private void PaintWater(DrawLayer layer)
+    {
+        if (_host == null) return;
+        _paintWatch.Restart();
+        _brush.Begin(layer, PixelsPerUnit(layer));
+        _art.DrawGrid(_brush);
+        _art.DrawWater(_brush, _time, _host.World.Weather.Raining);
+        _brush.End();
+        _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
+    }
 
     private void PaintWorld(DrawLayer layer)
     {
@@ -449,10 +476,8 @@ public partial class MapView : Node2D
         _brush.Begin(layer, PixelsPerUnit(layer));
         _hits.Clear();
 
-        _art.DrawGrid(_brush);
         // Wet ground darkens, less so at night (as the rain's grey does), so rain never sinks the dark further.
         if (raining) _brush.Rect(0f, 0f, m.Width * TileSize, m.Height * TileSize, new Color(0.03f, 0.05f, 0.08f, 0.24f * (1f - Daylight.RainAtNight * _light.Night)));
-        _art.DrawWater(_brush, _time, raining);
         Gore.DrawDecals(_brush, _tex, _gore.Decals, w.Tick, def.TicksPerHour);
         _art.DrawGrass(_brush, _time, winter, raining ? 1.6f : 0.5f);
         if (raining) RainSplashes();
