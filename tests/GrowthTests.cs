@@ -123,6 +123,8 @@ public class GrowthTests
                 Assert.Contains(c.Id, beat.Actors);
                 if (want.FormedTick > 0)
                     Assert.Equal("event.incident.wanderer_arrives", w.Log.Get(Assert.Single(beat.Causes))!.Key);
+                else
+                    Assert.Empty(beat.Causes); // a starter's want formed with the world: nothing brought it about
             }
         }
     }
