@@ -12,14 +12,16 @@ public static class EventText
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     /// <summary>
+    /// Grammar stays in the loc files. When the player fills placeholder X and the table has
+    /// "&lt;key&gt;_you_X", that second-person template is used ("You were hurt", "Mira tended your wounds").
     /// A character placeholder that does not open the sentence uses the name's "_mid" variant when the
-    /// loc table has one (so the otherworlder reads "You asked…" but "…asked you"), keeping grammar in
-    /// the loc files rather than in code.
+    /// table has one, so the player reads "You asked…" but "…asked you".
     /// </summary>
     public static string Describe(World w, SimEvent e)
     {
         LocTable loc = w.Content.Loc;
-        string template = loc.Get(e.Key);
+        string key = SecondPersonKey(w, e) ?? e.Key;
+        string template = loc.Get(key);
         var args = new List<KeyValuePair<string, string>>(e.Args.Count);
         foreach (EventArg a in e.Args)
         {
@@ -29,7 +31,20 @@ public static class EventText
                 value = loc.Get(c.NameKey + "_mid");
             args.Add(new KeyValuePair<string, string>(a.Name, value));
         }
-        return loc.Format(e.Key, args);
+        return loc.Format(key, args);
+    }
+
+    private static string? SecondPersonKey(World w, SimEvent e)
+    {
+        if (w.PlayerId == 0) return null;
+        string player = "c:" + w.PlayerId.ToString(Inv);
+        foreach (EventArg a in e.Args)
+        {
+            if (a.Value != player) continue;
+            string variant = e.Key + "_you_" + a.Name;
+            if (w.Content.Loc.Has(variant)) return variant;
+        }
+        return null;
     }
 
     public static string Resolve(World w, string value)

@@ -35,6 +35,9 @@ public sealed class World
     public long PolicyEvent { get; set; }
     public long WinterEvent { get; set; }
 
+    /// <summary>The person from Earth the player is. Other otherworlders (rivals, later) are not the player.</summary>
+    public int PlayerId { get; set; }
+
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;
 

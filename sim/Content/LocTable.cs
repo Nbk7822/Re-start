@@ -19,6 +19,9 @@ public sealed class LocTable
 
     public bool Has(string key) => _strings.ContainsKey(key);
 
+    /// <summary>Every key, in ordinal order (never dictionary order).</summary>
+    public IReadOnlyList<string> Keys => _strings.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+
     public string Get(string key) => _strings.TryGetValue(key, out string? s) ? s : "⟦" + key + "⟧";
 
     public string Format(string key, IReadOnlyList<KeyValuePair<string, string>> args)

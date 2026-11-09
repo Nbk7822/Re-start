@@ -60,7 +60,7 @@ public static class IncidentSystem
     {
         Character? inviter = null;
         foreach (Character m in w.Members())
-            if (m.Id != c.Id && (inviter == null || (m.Otherworlder && !inviter.Otherworlder))) inviter = m;
+            if (m.Id != c.Id && (inviter == null || (m.Id == w.PlayerId && inviter.Id != w.PlayerId))) inviter = m;
         if (inviter == null)
             return w.Log.Emit(w, SystemTag.Social, "event.social.joined_alone", new[] { c.Id }, new[] { arrivalEvent },
                 new[] { new Effect { Kind = EffectKind.Recruitment, A = c.Id } }, EventArg.Char("a", c.Id));

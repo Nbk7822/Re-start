@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Return.Sim;
 using Return.Sim.Api;
+using Return.Sim.Content;
 using Return.Sim.Events;
 using Return.Sim.Stories;
 
@@ -143,6 +144,45 @@ public class StateApiTests
         int mira = w.Characters.First(c => c.CastKey == "mira").Id;
         var e = new SimEvent { Key = "event.world.work_priority", Args = { EventArg.Char("a", mira), EventArg.Key("work", "work.forage.name"), EventArg.Num("n", 1) } };
         Assert.Equal("Mira's priority for Forage is now 1.", EventText.Describe(w, e));
+    }
+
+    [Fact]
+    public void EventTextSpeaksToThePlayerInSecondPerson()
+    {
+        World w = WorldGen.Create(TestContent.Db, 2);
+        int you = w.PlayerId, mira = w.Characters.First(c => c.CastKey == "mira").Id, ilex = w.Characters.First(c => c.CastKey == "ilex").Id;
+        Assert.Equal("you", w.Get(you).CastKey);
+        string Say(string key, params EventArg[] args) => EventText.Describe(w, new SimEvent { Key = key, Args = args.ToList() });
+
+        Assert.Equal("You were hurt in an accident while working.", Say("event.incident.work_accident", EventArg.Char("a", you)));
+        Assert.Equal("Mira was hurt in an accident while working.", Say("event.incident.work_accident", EventArg.Char("a", mira)));
+        Assert.Equal("You kept your promise to Ilex.", Say("event.social.promise_kept", EventArg.Char("a", you), EventArg.Char("b", ilex)));
+        Assert.Equal("Mira tended your wounds.", Say("event.work.cared_for", EventArg.Char("a", mira), EventArg.Char("b", you)));
+        Assert.Equal("You tended Mira's wounds.", Say("event.work.cared_for", EventArg.Char("a", you), EventArg.Char("b", mira)));
+        Assert.Equal("You, hungry yourself, refused to give Ilex blood.", Say("event.social.blood_refused_hungry", EventArg.Char("a", ilex), EventArg.Char("b", you)));
+        Assert.Equal("Ilex asked you for blood.", Say("event.social.blood_request", EventArg.Char("a", ilex), EventArg.Char("b", you)));
+        Assert.Equal("Your priority for Forage is now 2.", Say("event.world.work_priority", EventArg.Char("a", you), EventArg.Key("work", "work.forage.name"), EventArg.Num("n", 2)));
+    }
+
+    /// <summary>Every second-person variant belongs to a real key and only names placeholders that key's events carry.</summary>
+    [Fact]
+    public void SecondPersonVariantsMatchTheirBaseKeys()
+    {
+        LocTable loc = TestContent.Db.Loc;
+        var placeholder = new Regex("\\{([a-z_]+)\\}");
+        int variants = 0;
+        foreach (string key in loc.Keys.Where(k => k.Contains("_you_", StringComparison.Ordinal)))
+        {
+            int at = key.LastIndexOf("_you_", StringComparison.Ordinal);
+            string baseKey = key[..at], role = key[(at + 5)..];
+            Assert.True(loc.Has(baseKey), $"{key} has no base key {baseKey}");
+            var baseArgs = placeholder.Matches(loc.Get(baseKey)).Select(m => m.Groups[1].Value).ToHashSet();
+            Assert.Contains(role, baseArgs);
+            foreach (Match m in placeholder.Matches(loc.Get(key)))
+                Assert.True(baseArgs.Contains(m.Groups[1].Value), $"{key} uses {{{m.Groups[1].Value}}}, which {baseKey} does not");
+            variants++;
+        }
+        Assert.True(variants >= 20);
     }
 
     [Fact]

@@ -24,9 +24,7 @@ public sealed record SetRationPolicy(long Tick, RationPolicy Policy) : Command(T
     internal override void Apply(World w)
     {
         w.Policy = Policy;
-        Character? self = null;
-        foreach (Character c in w.Characters)
-            if (c.Otherworlder) { self = c; break; }
+        Character? self = w.Find(w.PlayerId);
         SimEvent e = w.Log.Emit(w, SystemTag.World, "event.world.ration_policy",
             self == null ? Array.Empty<int>() : new[] { self.Id }, Array.Empty<long>(), null,
             EventArg.Key("policy", PolicyKey(Policy)));

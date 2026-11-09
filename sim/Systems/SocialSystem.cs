@@ -118,13 +118,11 @@ public static class SocialSystem
 
     private static void CheckDepartures(World w)
     {
-        Character? leader = null;
-        foreach (Character c in w.Characters)
-            if (c.Otherworlder && c.Status == CharStatus.Member) { leader = c; break; }
+        Character? leader = w.Find(w.PlayerId) is { Status: CharStatus.Member } p ? p : null;
 
         foreach (Character c in w.Characters)
         {
-            if (c.Status != CharStatus.Member || c.Otherworlder || c.Downed) continue;
+            if (c.Status != CharStatus.Member || c.Id == w.PlayerId || c.Downed) continue;
             long cause = 0;
             if (leader != null && Relations.Opinion(w, c.Id, leader.Id) <= LeaveAtOpinion)
             {

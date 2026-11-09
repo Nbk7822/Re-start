@@ -84,7 +84,7 @@ public static class Rations
             }
             case RationPolicy.SelfFirst:
             {
-                int bySelf = (b.Otherworlder ? 1 : 0).CompareTo(a.Otherworlder ? 1 : 0);
+                int bySelf = (b.Id == w.PlayerId ? 1 : 0).CompareTo(a.Id == w.PlayerId ? 1 : 0);
                 if (bySelf != 0) return bySelf;
                 break;
             }

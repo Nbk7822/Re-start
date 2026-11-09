@@ -63,6 +63,7 @@ public static class WorldGen
         {
             Character c = NewCharacter(w, cd, NatureOf(w.Content, w.Seed, cd.Key).SecondaryTrait);
             c.Status = cd.StartsInCamp ? CharStatus.Member : CharStatus.OffMap;
+            if (w.PlayerId == 0 && cd.Otherworlder && cd.StartsInCamp) w.PlayerId = c.Id;
             w.Characters.Add(c);
         }
     }
