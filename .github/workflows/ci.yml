@@ -33,6 +33,7 @@ jobs:
       - name: Soak 100 worlds for 1 year
         run: bash tools/soak --worlds 100 --years 1 --out out/soak
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: soak
           path: out/soak
