@@ -38,5 +38,14 @@
   "log.system.combat": "Combat",
   "log.system.world": "World",
 
-  "log.run.wrote": "Wrote the story log for seed {seed} to {path}."
+  "log.run.wrote": "Wrote the story log for seed {seed} to {path}.",
+
+  "log.soak.done": "Soak finished in {seconds} s. Worlds: {worlds} (seeds {first}–{last}). Years each: {years}. Threads: {threads}.",
+  "log.soak.stories": "Stories: {stories} ({per_world} per world).",
+  "log.soak.by_system_set": "Stories by system set:",
+  "log.soak.endings": "Most common story endings:",
+  "log.soak.tally": "{key}: {count}",
+  "log.soak.crashed": "This world crashed at tick {tick}: {error}",
+  "log.soak.crashed_list": "Worlds that crashed: {seeds}",
+  "log.soak.written": "Story logs and summary.json are in {dir}"
 }

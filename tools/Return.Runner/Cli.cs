@@ -6,8 +6,9 @@ using Return.Sim.Content;
 namespace Return.Runner;
 
 /// <summary>
-/// The command line. `run` prints one world's story log. Exit codes: 0 done; 1 failed (content
-/// would not load, a file could not be written); 2 bad arguments (usage goes to stderr).
+/// The command line. `run` prints one world's story log; `soak` runs many worlds, writes their
+/// logs and a summary, and prints a short report. Exit codes: 0 done; 1 failed (content would not
+/// load, a file could not be written, a soak world crashed); 2 bad arguments (usage goes to stderr).
 /// </summary>
 public static class Cli
 {
@@ -30,6 +31,7 @@ public static class Cli
             return args[0] switch
             {
                 "run" => RunWorld(ParseRun(args), stdout),
+                "soak" => RunSoak(ParseSoak(args), stdout),
                 _ => throw new UsageException($"unknown command '{args[0]}'"),
             };
         }
@@ -71,6 +73,14 @@ public static class Cli
         return 0;
     }
 
+    private static int RunSoak(SoakOptions options, TextWriter stdout)
+    {
+        ContentDb content = LoadContent();
+        SoakSummary summary = Soak.Run(options, content);
+        Soak.Report(summary, content.Loc, stdout);
+        return summary.Failures.Count == 0 ? 0 : 1;
+    }
+
     /// <summary>Content that fails to load is reported as a plain error; a failure mid-run keeps its stack trace.</summary>
     private static ContentDb LoadContent()
     {
@@ -90,6 +100,18 @@ public static class Cli
     {
         Dictionary<string, string> o = Options(args, "--seed", "--years", "--out");
         return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"));
+    }
+
+    private static SoakOptions ParseSoak(string[] args)
+    {
+        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel");
+        return new SoakOptions
+        {
+            Worlds = AtLeastOne(o, "--worlds"),
+            Years = AtLeastOne(o, "--years"),
+            OutDir = Required(o, "--out"),
+            Parallel = o.ContainsKey("--parallel") ? AtLeastOne(o, "--parallel") : Environment.ProcessorCount,
+        };
     }
 
     /// <summary>Reads the "--name value" pairs after the command. Every name must be allowed and given once.</summary>

@@ -128,6 +128,13 @@ public class RunnerTests
     [InlineData("run --seed 1 --years")]
     [InlineData("run --seed --years 1")]
     [InlineData("run --seed 1 --years 1 stray")]
+    [InlineData("soak")]
+    [InlineData("soak --worlds 3 --years 1")]
+    [InlineData("soak --worlds 3 --out unused")]
+    [InlineData("soak --worlds 0 --years 1 --out unused")]
+    [InlineData("soak --worlds 3 --years 1 --out unused --parallel 0")]
+    [InlineData("soak --worlds 3 --years 1 --out unused --parallel many")]
+    [InlineData("soak --worlds 3 --years 1 --out unused --seed 2")]
     public void BadArgumentsPrintUsageAndExitWith2(string argLine)
     {
         var stdout = new StringWriter();
@@ -148,6 +155,90 @@ public class RunnerTests
         string[] args = argLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(0, Cli.Run(args, stdout, new StringWriter()));
         Assert.Contains("usage: return-runner run", stdout.ToString());
+    }
+
+    [Fact]
+    public void SoakIsThreadCountIndependent()
+    {
+        string serial = TempDir(), threaded = TempDir();
+        try
+        {
+            // One soak through the CLI and one through Soak.Run, so both entry points must agree too.
+            string printed = RunCli("soak", "--worlds", "3", "--years", "1", "--out", serial, "--parallel", "1");
+            SoakSummary summary = Soak.Run(new SoakOptions { Worlds = 3, Years = 1, OutDir = threaded, Parallel = 3 });
+
+            string[] expected = { "world-1.txt", "world-2.txt", "world-3.txt" };
+            Assert.Equal(expected, WorldFiles(serial));
+            Assert.Equal(expected, WorldFiles(threaded));
+            foreach (string name in expected)
+                Assert.Equal(File.ReadAllBytes(Path.Combine(serial, name)), File.ReadAllBytes(Path.Combine(threaded, name)));
+            // A world's file is exactly what `run` prints for its seed.
+            Assert.Equal(Encoding.UTF8.GetBytes(Seed1Year1.Value), File.ReadAllBytes(Path.Combine(serial, "world-1.txt")));
+
+            Assert.Equal(3, summary.Worlds);
+            Assert.Equal(new ulong[] { 1, 2, 3 }, summary.PerWorld.Select(p => p.Seed));
+            Assert.Empty(summary.Failures);
+            using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(serial, "summary.json")));
+            JsonElement root = doc.RootElement;
+            foreach (string field in new[] { "worlds", "years", "stories", "storiesPerWorld", "bySystemSet", "topTerminalKinds", "elapsedSeconds" })
+                Assert.True(root.TryGetProperty(field, out _), "summary.json has no " + field);
+            Assert.Equal(3, root.GetProperty("worlds").GetInt32());
+            Assert.Equal(1, root.GetProperty("years").GetInt32());
+            Assert.Equal(summary.Stories, root.GetProperty("stories").GetInt32());
+            Assert.Contains("Worlds: 3 (seeds 1–3)", printed);
+            Assert.DoesNotContain("⟦", printed);
+        }
+        finally
+        {
+            Directory.Delete(serial, true);
+            Directory.Delete(threaded, true);
+        }
+    }
+
+    [Fact]
+    public void SoakSummaryTalliesSystemSetsAndEndings()
+    {
+        Assert.Equal("Incident+Needs+Social", Soak.SystemSetKey(new[] { SystemTag.Social, SystemTag.Incident, SystemTag.Needs, SystemTag.Social }));
+        Assert.Equal(Soak.SystemSetKey(new[] { SystemTag.Needs, SystemTag.Work }), Soak.SystemSetKey(new[] { SystemTag.Work, SystemTag.Needs }));
+
+        string dir = TempDir();
+        try
+        {
+            var results = new[]
+            {
+                new Soak.WorldResult(1, 40, new[] { "Needs+Social", "Incident+Needs+Social" }, new[] { "event.social.grudge_formed", "event.needs.death" }, null),
+                new Soak.WorldResult(2, 30, new[] { "Incident+Needs+Social", "Combat+Social" }, new[] { "event.social.grudge_formed", "event.combat.rescue" }, null),
+                new Soak.WorldResult(3, 20, Array.Empty<string>(), Array.Empty<string>(), new SoakFailure(3, 99, "InvalidOperationException: boom")),
+            };
+            var options = new SoakOptions { Worlds = 3, Years = 1, OutDir = dir, Parallel = 2 };
+            SoakSummary s = Soak.Summarize(options, dir, results, TimeSpan.FromSeconds(1.234));
+
+            Assert.Equal(4, s.Stories);
+            Assert.Equal(1.33, s.StoriesPerWorld);
+            Assert.Equal(1.23, s.ElapsedSeconds);
+            Assert.Equal(new[] { new Tally("Combat+Social", 1), new Tally("Incident+Needs+Social", 2), new Tally("Needs+Social", 1) }, s.BySystemSet);
+            Assert.Equal(new[] { new Tally("event.social.grudge_formed", 2), new Tally("event.combat.rescue", 1), new Tally("event.needs.death", 1) }, s.TopTerminalKinds);
+            Assert.Equal(new ulong[] { 3 }, s.Failures.Select(f => f.Seed));
+
+            string path = Path.Combine(dir, "summary.json");
+            Soak.WriteSummaryJson(s, path);
+            string json = File.ReadAllText(path);
+            Assert.Contains("\"Incident+Needs+Social\": 2", json);
+            using JsonDocument doc = JsonDocument.Parse(json);
+            JsonElement root = doc.RootElement;
+            Assert.Equal(new[] { "Combat+Social", "Incident+Needs+Social", "Needs+Social" },
+                root.GetProperty("bySystemSet").EnumerateObject().Select(p => p.Name));
+            Assert.Equal(new[] { "event.social.grudge_formed", "event.combat.rescue", "event.needs.death" },
+                root.GetProperty("topTerminalKinds").EnumerateObject().Select(p => p.Name));
+            Assert.Equal(2, root.GetProperty("topTerminalKinds").GetProperty("event.social.grudge_formed").GetInt32());
+            Assert.Equal(4, root.GetProperty("stories").GetInt32());
+            Assert.Equal(1.33, root.GetProperty("storiesPerWorld").GetDouble());
+            Assert.Equal(3UL, root.GetProperty("failures")[0].GetProperty("seed").GetUInt64());
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
     }
 
     [Fact]
@@ -182,6 +273,9 @@ public class RunnerTests
         Assert.True(code == 0, $"return-runner {string.Join(' ', args)} exited {code}: {stderr}");
         return stdout.ToString();
     }
+
+    private static string[] WorldFiles(string dir) =>
+        Directory.GetFiles(dir, "world-*.txt").Select(f => Path.GetFileName(f)).OrderBy(n => n, StringComparer.Ordinal).ToArray();
 
     private static string TempDir()
     {
