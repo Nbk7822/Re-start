@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Blood splatter 3: a thrown blob, a darker wet core, a spray of drops and streaks.
+     Greyscale with alpha: the view tints it fresh red, then dried brown as it ages. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <filter id="edge" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="404" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="22" xChannelSelector="R" yChannelSelector="G"/>
+      <feGaussianBlur stdDeviation="0.6"/>
+    </filter>
+    <filter id="fine" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="2" seed="405" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <g filter="url(#edge)">
+    <circle cx="128.0" cy="128.0" r="26.0" fill="#c4c4c4"/>
+    <g fill="#c4c4c4"><path d="M150.1 151.3 L198.2 187.9 L154.5 146.2 Z"/><path d="M136.1 154.2 L159.0 192.9 L143.3 150.8 Z"/><path d="M136.9 166.0 L153.7 212.2 L141.8 164.5 Z"/><path d="M150.0 154.5 L171.1 169.2 L155.5 148.8 Z"/><path d="M146.9 156.4 L184.5 200.7 L150.9 153.4 Z"/><path d="M128.3 166.8 L139.3 207.3 L138.5 165.3 Z"/></g>
+    <circle cx="131.4" cy="130.1" r="14.3" fill="#8a8a8a"/>
+  </g>
+  <g filter="url(#fine)" fill="#b8b8b8"><circle cx="171.6" cy="206.4" r="1.4"/><circle cx="204.8" cy="206.0" r="1.9"/><circle cx="150.5" cy="226.5" r="2.1"/><circle cx="200.4" cy="178.3" r="2.4"/><circle cx="139.6" cy="182.1" r="3.3"/><circle cx="143.5" cy="189.2" r="1.9"/><circle cx="181.1" cy="158.8" r="1.2"/><circle cx="124.8" cy="211.3" r="1.5"/><circle cx="170.3" cy="186.0" r="3.4"/><circle cx="181.4" cy="128.4" r="4.1"/><circle cx="176.3" cy="188.7" r="1.7"/><circle cx="160.6" cy="157.7" r="6.5"/><circle cx="235.7" cy="132.9" r="1.6"/><circle cx="221.4" cy="159.4" r="1.2"/><circle cx="187.8" cy="126.5" r="3.6"/><circle cx="177.5" cy="144.0" r="5.5"/><circle cx="98.9" cy="198.0" r="4.5"/><circle cx="191.3" cy="148.5" r="3.3"/><circle cx="168.8" cy="109.1" r="1.8"/><circle cx="187.5" cy="147.7" r="2.1"/><circle cx="183.1" cy="117.5" r="4.3"/><circle cx="143.4" cy="208.5" r="2.7"/><circle cx="184.2" cy="150.1" r="2.8"/><circle cx="199.0" cy="198.1" r="2.2"/><circle cx="135.3" cy="177.4" r="1.8"/><circle cx="127.5" cy="180.0" r="1.2"/><circle cx="143.8" cy="92.1" r="1.1"/><circle cx="76.2" cy="161.8" r="1.9"/><circle cx="173.8" cy="106.4" r="1.0"/><circle cx="66.8" cy="122.4" r="1.5"/><circle cx="105.6" cy="81.1" r="1.6"/></g>
+  <ellipse cx="118.9" cy="117.6" rx="7.8" ry="3.1" fill="#ffffff" opacity="0.45" transform="rotate(-30 128.0 128.0)"/>
+</svg>

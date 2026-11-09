@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tileable dark mottling laid over the whole map: damp patches, rot and shade. Black with noise-driven alpha. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <filter id="mottle" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0234375" numOctaves="5" seed="3" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0 0.03  3.4 0 0 0 -1.45"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" filter="url(#mottle)"/>
+</svg>

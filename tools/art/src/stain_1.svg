@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Old stain 1: a dried spill with a darker tide line, tinted by the view (soot, old blood, spilt food). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <filter id="edge" filterUnits="userSpaceOnUse" x="0" y="0" width="128" height="128" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="808" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="26" xChannelSelector="R" yChannelSelector="G"/>
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+  <g filter="url(#edge)">
+    <circle cx="64" cy="64" r="36" fill="#ffffff" fill-opacity="0.35"/>
+    <circle cx="64" cy="64" r="36" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="4"/>
+    <circle cx="58" cy="70" r="16" fill="#ffffff" fill-opacity="0.3"/>
+  </g>
+</svg>

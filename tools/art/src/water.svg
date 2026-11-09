@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tileable river surface: long soft streaks along the current, dark eddies and a few bright glints.
+     Drawn scrolling downstream over the water. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <filter id="deep" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.015625 0.00390625" numOctaves="3" seed="19" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.02  0 0 0 0 0.05  0 0 0 0 0.07  2.4 0 0 0 -0.95"/>
+    </filter>
+    <filter id="streaks" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03125 0.0078125" numOctaves="2" seed="13" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.55  0 0 0 0 0.66  0 0 0 0 0.68  2.6 0 0 0 -1.25"/>
+    </filter>
+    <filter id="glints" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0625 0.015625" numOctaves="2" seed="67" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.80  0 0 0 0 0.86  0 0 0 0 0.84  9 0 0 0 -5.9"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" filter="url(#deep)"/>
+  <rect width="256" height="256" filter="url(#streaks)"/>
+  <rect width="256" height="256" filter="url(#glints)"/>
+</svg>
