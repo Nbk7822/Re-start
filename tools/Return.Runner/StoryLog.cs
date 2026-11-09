@@ -41,8 +41,8 @@ public static class StoryLog
 
     /// <summary>
     /// Stories as <see cref="StoryAnalyzer"/> finds them (a named character makes a chain count), and
-    /// the notable events: any with a persistent effect, any from Incident or Combat, and every event
-    /// in a story chain.
+    /// the notable events: any with a persistent effect, any from Incident or Combat, every Growth beat
+    /// (a want forming, an arc moving, a trait changing: fixed decision 12), and every event in a story chain.
     /// </summary>
     internal static LogAnalysis Analyze(World w)
     {
@@ -53,7 +53,7 @@ public static class StoryLog
             foreach (long id in s.Chain) inStory.Add(id);
         var notable = new List<SimEvent>();
         foreach (SimEvent e in all)
-            if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat || inStory.Contains(e.Id))
+            if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth || inStory.Contains(e.Id))
                 notable.Add(e);
         return new LogAnalysis(stories, notable);
     }

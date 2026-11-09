@@ -129,4 +129,22 @@ public class GrowthViewTests
         Assert.Equal("None", ViewText.TraitsText(nobody));
         Assert.Equal("None", ViewText.WantLine(nobody));
     }
+
+    /// <summary>Growth beats are notable: the story log's "What happened" shows each person's want forming, but none is a story by itself.</summary>
+    [Fact]
+    public void TheStoryLogShowsEachWantForming()
+    {
+        Simulation sim = Return.Runner.StoryLog.Simulate(Db, 1, 1);
+        World w = sim.World;
+        var text = new StringWriter();
+        Return.Runner.StoryLog.Write(sim, text);
+        string log = text.ToString();
+        string happened = log[log.IndexOf("What happened\n", StringComparison.Ordinal)..log.IndexOf("Stories\n", StringComparison.Ordinal)];
+        foreach (Character c in w.Characters.Where(c => c.Named))
+        {
+            SimEvent beat = w.Log.Get(c.Growth.Want!.FormedEvent)!;
+            Assert.Contains($"  {EventText.When(w, beat.Tick)} — {EventText.Describe(w, beat)}\n", happened);
+        }
+        Assert.DoesNotContain(Return.Runner.StoryLog.Analyze(w).Stories, s => w.Log.Get(s.TerminalEventId)!.System == SystemTag.Growth);
+    }
 }
