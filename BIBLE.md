@@ -24,9 +24,9 @@ A feature that cannot put events into such chains does not ship.
 
 ## 3. Art direction
 
-- **Milestone 0:** coloured rectangles and text (fixed decision 11). The layout rules in section 2 still apply.
-- **Target look (proposed, see DECISIONS.md ADR-0009):** "Cut Ink, anime-flavoured". Warm paper ground, thin dark outlines with a slight hand-cut wobble, a small fixed ink palette, flat cel shadows. People are full chibi: big heads and eyes, one signature hairstyle and hair colour each, short limbs that swing when walking, four facings (front, back, left, right) chosen by movement or by who they are talking to. Mockups: `.superpowers/brainstorm/*/content/art-direction-v2.html`, `walk-and-turn.html`, `grid.html` (local, not committed).
-- Silhouette language per species: humans plain; vampires high collar points and pointed ears; dryads leaf crowns. Every species and hybrid must read at 32–48 px.
+- **Current build (ADR-0009, ADR-0019):** the demo's people in a grounded three-quarter view, dark and grungy. Cloaks in each person's muted cloth colour, round heads, hair and skin from `game/art/looks.json`, the demo's chest marks (your gold return arrow, a cross for builders and carers, a leaf for foragers, the vampire's diamond under a spiked collar). Thin warm-black outlines, light from the upper left, soft shadows. Walls with a top and a front face, roof sections (the broken one shows its rafters), trees with trunks, a river that flows, grass that stirs, a hearth whose fire lights the night. Grime everywhere: mottled ground, mud where people walk, ash round the fire, frost in winter, a vignette. Blood where people are hurt, pools under the downed and the dead, bodies that stay, flies, smoke from a vampire caught by the sun.
+- Everything drawn is derived from sim state; the view never changes the world.
+- Silhouette language per species: humans plain; vampires high collar points and a diamond mark; dryads leaf crowns (later). Every species and hybrid must read at 32–48 px.
 
 ## 4. Milestone 0 simulation
 
