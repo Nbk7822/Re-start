@@ -50,7 +50,18 @@ public sealed class SpeciesDef
     public int DonorHealthCost { get; init; }
     public int DonorRestCost { get; init; }
 
+    /// <summary>False for those who never tire or sleep (the undead): rest stays full (ADR-0022).</summary>
+    public bool Tires { get; init; } = true;
+
     public bool DrinksBlood => FoodSource == "blood";
+
+    /// <summary>foodSource "none": they eat nothing from the stores and never go hungry (ADR-0022).</summary>
+    public bool EatsNothing => FoodSource == NoFood;
+
+    /// <summary>They eat an item from the stockpile (berries in M0), so rationing, spoilage and theft touch them.</summary>
+    public bool EatsItem => !DrinksBlood && !EatsNothing;
+
+    public const string NoFood = "none";
 }
 
 public sealed class WorkBias

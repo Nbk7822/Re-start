@@ -79,13 +79,13 @@ public static class StateApi
         LocTable loc = w.Content.Loc;
         SpeciesDef species = w.Content.SpeciesById(c.SpeciesId);
 
-        var needs = new List<NeedState>
-        {
-            species.DrinksBlood ? new("blood", loc.Get("need.blood"), c.Food) : new("food", loc.Get("need.food"), c.Food),
-            new("rest", loc.Get("need.rest"), c.Rest),
-            new("social", loc.Get("need.social"), c.Social),
-            new("health", loc.Get("need.health"), c.Health),
-        };
+        // Only the needs this person's nature has: no food bar for those who eat nothing, no rest bar for those who never tire.
+        var needs = new List<NeedState>();
+        if (species.DrinksBlood) needs.Add(new("blood", loc.Get("need.blood"), c.Food));
+        else if (!species.EatsNothing) needs.Add(new("food", loc.Get("need.food"), c.Food));
+        if (species.Tires) needs.Add(new("rest", loc.Get("need.rest"), c.Rest));
+        needs.Add(new("social", loc.Get("need.social"), c.Social));
+        needs.Add(new("health", loc.Get("need.health"), c.Health));
 
         var traits = new List<string>();
         foreach (string t in c.Traits) traits.Add(loc.Get(w.Content.TraitById(t).NameKey));

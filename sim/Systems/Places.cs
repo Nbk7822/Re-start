@@ -32,9 +32,10 @@ public static class Places
         return Calendar.Season(w.Tick, def) != def.SeasonsPerYear - 1;
     }
 
-    /// <summary>Usual sleeping hours: night for humans, daylight for vampires.</summary>
+    /// <summary>Usual sleeping hours: night for humans, daylight for vampires, never for those who do not tire.</summary>
     public static bool SleepHours(World w, Character c)
     {
+        if (!Tires(w, c)) return false;
         if (BurnsInDaylight(w, c)) return Daylight(w);
         WorldDef def = w.Content.World;
         int h = Calendar.Hour(w.Tick, def);
@@ -176,13 +177,17 @@ public static class Places
         return best?.Pos ?? Point.None;
     }
 
-    public static int HumanMembers(World w)
+    /// <summary>Members who eat this item from the stores (berries for humans; vampires, dryads, djinn and the undead do not).</summary>
+    public static int Eaters(World w, string itemId)
     {
         int n = 0;
         foreach (Character c in w.Members())
-            if (!w.Content.SpeciesById(c.SpeciesId).DrinksBlood) n++;
+            if (w.Content.SpeciesById(c.SpeciesId) is { EatsItem: true } sp && sp.FoodSource == itemId) n++;
         return n;
     }
+
+    /// <summary>False for those who never tire or sleep (the undead).</summary>
+    public static bool Tires(World w, Character c) => w.Content.SpeciesById(c.SpeciesId).Tires;
 
     public static int TimberNeeded(World w)
     {

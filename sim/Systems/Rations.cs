@@ -18,7 +18,7 @@ public static class Rations
         foreach (Character c in w.Members())
         {
             SpeciesDef sp = w.Content.SpeciesById(c.SpeciesId);
-            if (sp.DrinksBlood || c.Downed || c.Food >= NeedsSystem.FedAt) continue;
+            if (!sp.EatsItem || c.Downed || c.Food >= NeedsSystem.FedAt) continue;
             food ??= sp.FoodSource;
             if (sp.FoodSource == food) eaters.Add(c);
         }

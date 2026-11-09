@@ -36,7 +36,8 @@ public static class NeedsSystem
             SpeciesDef sp = w.Content.SpeciesById(c.SpeciesId);
 
             c.Food = Math.Max(0, c.Food - sp.FoodDecayPerHour);
-            if (c.Asleep) c.Rest = Math.Min(1000, c.Rest + sp.SleepRestorePerHour);
+            if (!sp.Tires) c.Rest = 1000;
+            else if (c.Asleep) c.Rest = Math.Min(1000, c.Rest + sp.SleepRestorePerHour);
             else c.Rest = Math.Max(0, c.Rest - sp.RestDecayPerHour - JobRestCost(w, c));
             c.Social = Math.Max(0, c.Social - sp.SocialDecayPerHour);
             UpdateHunger(w, c, sp);
@@ -90,7 +91,7 @@ public static class NeedsSystem
     public static SimEvent? Eat(World w, Character c, long cause)
     {
         SpeciesDef sp = w.Content.SpeciesById(c.SpeciesId);
-        if (sp.DrinksBlood || Stock.Take(w, sp.FoodSource, 1) == 0) return null;
+        if (!sp.EatsItem || Stock.Take(w, sp.FoodSource, 1) == 0) return null;
         Rations.Consume(w, c.Id);
         ItemDef item = w.Content.ItemById(sp.FoodSource);
         c.Food = Math.Min(1000, c.Food + item.Nutrition);
@@ -121,6 +122,7 @@ public static class NeedsSystem
 
     private static void UpdateHunger(World w, Character c, SpeciesDef sp)
     {
+        if (sp.EatsNothing) return;
         bool blood = sp.DrinksBlood;
         if (c.LastFoodEvent == 0 && !blood && w.WinterEvent != 0 && c.Food < HungryBelow) c.LastFoodEvent = w.WinterEvent;
         if (c.HungerStage < 1 && c.Food < HungryBelow)

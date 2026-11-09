@@ -42,7 +42,7 @@ public static class IncidentSystem
         c.Status = CharStatus.Member;
         c.ArrivedTick = w.Tick;
         c.Pos = EdgeTile(w, DiceId.ArrivalEdge);
-        c.Food = dice.Range(DiceId.ArrivalFood, 280, 560);
+        c.Food = Places.Species(w, c).EatsNothing ? 1000 : dice.Range(DiceId.ArrivalFood, 280, 560);
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.wanderer_arrives", new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
         c.LastFoodEvent = e.Id;
         Point near = Places.Adjacent(w, w.Map.Hearth, c.Pos);
@@ -106,7 +106,9 @@ public static class IncidentSystem
     public static DebtKind? UnmetNeed(World w, Character c)
     {
         if (Places.BurnsInDaylight(w, c)) return w.Map.Roof.Exists(r => r.Sound) ? null : DebtKind.PromiseRest;
-        return Rations.Unreserved(w, Places.Species(w, c).FoodSource) > 0 ? null : DebtKind.PromiseMeal;
+        SpeciesDef sp = Places.Species(w, c);
+        if (!sp.EatsItem) return null; // a meal is no use to someone who eats nothing from the stores
+        return Rations.Unreserved(w, sp.FoodSource) > 0 ? null : DebtKind.PromiseMeal;
     }
 
     private static SimEvent? StartRain(World w)

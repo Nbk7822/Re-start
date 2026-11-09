@@ -41,7 +41,7 @@ public static class JobPicker
                 if (donor != null && !(sunBlocked && !w.Map.Covered(donor.Pos)))
                     return new Job { Kind = JobKind.RequestBlood, TargetId = donor.Id, Target = donor.Pos, CauseEvent = c.LastFoodEvent };
             }
-            else
+            else if (!sp.EatsNothing) // a rebuffed vampire falls through to here too, and forages for the camp
             {
                 Job? eat = EatJob(w, c, allowTheft: true);
                 if (eat != null) return eat;
@@ -52,7 +52,7 @@ public static class JobPicker
 
         if (c.Health < InjuredBelow) return SleepJob(w, c);
         int restAt = 200 + Traits.Sum(w, c, t => t.RestThresholdAdd);
-        if (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700)) return SleepJob(w, c);
+        if (sp.Tires && (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700))) return SleepJob(w, c);
 
         Job? promise = PromiseJob(w, c);
         if (promise != null) return promise;
@@ -71,7 +71,7 @@ public static class JobPicker
             if (vampire != null) return new Job { Kind = JobKind.GiveBlood, TargetId = vampire.Id, Target = vampire.Pos, CauseEvent = vampire.LastFoodEvent };
         }
 
-        if (!sp.DrinksBlood && c.Food < NeedsSystem.FedAt)
+        if (sp.EatsItem && c.Food < NeedsSystem.FedAt)
         {
             Job? eat = EatJob(w, c, allowTheft: false);
             if (eat != null) return eat;
@@ -129,7 +129,7 @@ public static class JobPicker
             if (roof != null) return roof;
         }
         string food = Places.Species(w, c).FoodSource;
-        if (Places.Species(w, c).DrinksBlood) food = "berries";
+        if (!Places.Species(w, c).EatsItem) food = "berries";
         Point tile = Places.FoodTile(w, food);
         if (tile == Point.None) return null;
         bool canTake = Rations.HasReservation(w, c.Id) || Rations.Unreserved(w, food) > 0;
@@ -244,7 +244,7 @@ public static class JobPicker
                 return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos) };
             }
             case "forage":
-                if (sunBlocked || Stock.Count(w, "berries") >= 2 * Places.HumanMembers(w)) return null;
+                if (sunBlocked || Stock.Count(w, "berries") >= 2 * Places.Eaters(w, "berries")) return null;
                 return ForageJob(w, c);
             case "haul":
             {

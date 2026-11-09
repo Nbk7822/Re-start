@@ -103,9 +103,9 @@ public sealed class ContentDb
         foreach (SpeciesDef s in Species)
         {
             RequireLoc("species.json", s.Id, s.NameKey);
-            if (!s.DrinksBlood && !_items.ContainsKey(s.FoodSource))
-                Fail("species.json", $"'{s.Id}' has foodSource '{s.FoodSource}', which is neither \"blood\" nor an item id");
-            if (!s.DrinksBlood && s.FoodSource != "berries")
+            if (s.EatsItem && !_items.ContainsKey(s.FoodSource))
+                Fail("species.json", $"'{s.Id}' has foodSource '{s.FoodSource}', which is neither \"blood\", \"none\" nor an item id");
+            if (s.EatsItem && s.FoodSource != "berries")
                 Fail("species.json", $"'{s.Id}' eats '{s.FoodSource}', but M0 only grows, rations, steals and spoils berries (ADR-0018)");
         }
         foreach (TraitDef t in Traits)

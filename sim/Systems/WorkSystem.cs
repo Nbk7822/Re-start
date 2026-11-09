@@ -75,7 +75,7 @@ public static class WorkSystem
             return true;
         if (c.Food < NeedsSystem.StarvingBelow && j.Kind is not (JobKind.Eat or JobKind.RequestBlood or JobKind.GiveBlood or JobKind.Sleep or JobKind.Forage))
             return true;
-        return c.Rest < 60 && j.Kind is not (JobKind.Sleep or JobKind.Eat or JobKind.SeekCover or JobKind.RequestBlood or JobKind.GiveBlood);
+        return c.Rest < 60 && Places.Tires(w, c) && j.Kind is not (JobKind.Sleep or JobKind.Eat or JobKind.SeekCover or JobKind.RequestBlood or JobKind.GiveBlood);
     }
 
     private static void RegrowBushes(World w)

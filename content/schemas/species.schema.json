@@ -10,7 +10,7 @@
     "properties": {
       "id": { "$ref": "#/$defs/id" },
       "nameKey": { "$ref": "#/$defs/locKey" },
-      "foodSource": { "description": "\"blood\" or an item id", "$ref": "#/$defs/id" },
+      "foodSource": { "description": "\"blood\", \"none\" (eats nothing from the stores) or an item id", "$ref": "#/$defs/id" },
       "foodDecayPerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
       "restDecayPerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
       "socialDecayPerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
@@ -20,7 +20,8 @@
       "canDonateBlood": { "type": "boolean" },
       "bloodPerFeed": { "type": "integer", "minimum": 0, "maximum": 1000 },
       "donorHealthCost": { "type": "integer", "minimum": 0, "maximum": 1000 },
-      "donorRestCost": { "type": "integer", "minimum": 0, "maximum": 1000 }
+      "donorRestCost": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "tires": { "description": "false: never tires or sleeps; rest stays full (ADR-0022)", "type": "boolean" }
     }
   },
   "$defs": {
