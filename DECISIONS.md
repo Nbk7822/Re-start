@@ -22,21 +22,25 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
 - **Consequences:** Any further package needs a new ADR and the founder's approval.
 
 ## ADR-0004 — Determinism rules
-- **Status:** accepted (2026-11-08)
+- **Status:** accepted with changes (2026-11-08, founder sign-off)
 - **Decision:**
-  - Two RNG streams, `Truths` and `Dice`, each a PCG32 generator implemented in `Return.Sim` (never `System.Random`).
-  - Every draw passes a purpose tag (for diffing divergent runs). Each stream counts its draws; both states are part of the snapshot.
-  - `Truths` is locked after world generation; a later draw throws.
-  - Simulation state uses integers (fixed-point where fractions are needed). No floating point in state or in decisions; no `Math.Sin/Exp` in sim paths.
-  - No iteration over `Dictionary`/`HashSet` where order can affect state; use lists ordered by stable ids.
-  - No `string.GetHashCode()` or other per-process randomised hashing in the sim.
-  - Player input is a tick-stamped command queue; same seed + same commands = same world, checked by a test that compares state hashes, including a snapshot → restore → continue run against a straight run.
-- **Consequences:** Floats are allowed in the Godot view only. Cross-platform float differences cannot affect the sim because it has none.
+  - **Truths is stateless and hash-derived:** `value = hash(worldSeed, truthId, entityId, index)`. There is no sequence and no locking. Any truth can be queried lazily at any time (a character created later, an arriving rival, a secret resolved in year 20), in any order, and it survives rewinds by construction. The hash is a SplitMix64-style 64-bit mix over the inputs, specified in `sim/Core/TruthRng.cs`.
+  - **Dice is stateful:** PCG32 substreams, one per system, each seeded from `hash(diceSeed, systemId)`. A rewind reseeds `diceSeed` and therefore every substream. Generator states and draw counters are serialisable and part of every snapshot.
+  - Draw tags are enums with fixed numeric values (`TruthId`, `DiceId`, `DiceSystem`), never strings. Truth ids feed the hash: never renumber or reuse one.
+  - Simulation state uses integers. No floating point in state or decisions.
+  - Never `System.Random`; never wall-clock time in the sim.
+  - Never `string.GetHashCode()` (it is randomised per process). Stable string hashing is FNV-1a 64 (or xxHash).
+  - Never iterate a `Dictionary` or `HashSet` where order affects an outcome; use lists ordered by stable ids.
+  - Player input is a tick-stamped command queue. Pending commands and the log of applied commands are persisted in saves and snapshots. Same seed + same commands = same world; tests compare state hashes, including snapshot → restore → continue against a straight run.
+- **Consequences:** Floats are allowed in the Godot view only. Adding a draw to one system cannot shift another system's sequence.
 
 ## ADR-0005 — Time model
-- **Status:** accepted (2026-11-08)
-- **Decision:** 300 ticks per in-game hour, 24 hours per day, 10 days per season, 4 seasons per year (288,000 ticks per year), set in `content/world.json`. Needs, mood and memory decay run hourly; movement and job progress per tick. The view runs 30 ticks per second at 1×.
-- **Consequences:** A 100-world, 1-year soak is about 29 million ticks; worlds run in parallel on separate threads (each world is single-threaded and self-contained).
+- **Status:** accepted (2026-11-08, founder sign-off)
+- **Decision:**
+  - Calendar: 300 ticks per in-game hour, 24 hours per day, 10 days per season, 4 seasons per year (7,200 ticks per day, 288,000 per year), set in `content/world.json`. Needs, mood and memory decay run hourly; movement and job progress per tick.
+  - Base tick rate: 20 ticks per real second at 1× (speeds ×1, ×3, ×6 = 20, 60, 120 ticks/s). A day lasts 6 real minutes at 1× (target 5–8).
+  - CPU budget: on average at most 2 µs per character per tick, amortised over a day (hourly and job-start work included), target 1 µs. A benchmark test fails above budget. At budget, a 100-world, 1-year, 10-character soak costs at most 576 CPU-seconds (about 1.2 minutes on 8 cores).
+- **Consequences:** Worlds run in parallel on separate threads (each world is single-threaded and self-contained).
 
 ## ADR-0006 — Event record and story detection
 - **Status:** accepted (2026-11-08)
@@ -54,7 +58,7 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
 - **Consequences:** No persistent side panels or HUD bars without a new decision.
 
 ## ADR-0009 — Target art direction: Cut Ink, anime-flavoured (post-M0)
-- **Status:** proposed (2026-11-08)
+- **Status:** proposed (2026-11-08). Founder: stays proposed until an art-direction pass shows a pawn sheet readable at 32 px that satisfies fixed decision 11. Not an M0 item.
 - **Context:** Fixed decision 11 says "very basic and functional in the RimWorld spirit, with our own silhouette language". In the brainstorm the founder rejected the first demo's look as AI-generated and chose a linocut "Cut Ink" style with anime, full-chibi people, thinner outlines, animated limbs and four facings.
 - **Decision (proposed):** Adopt that look as the target for the vertical slice. M0 stays rectangles and text. The look is still simple shapes with outlines, so it can be read as a refinement of decision 11 rather than a replacement, but because chibi faces and limb animation go beyond "very basic", it needs the founder's explicit sign-off.
 - **Consequences:** If accepted, the paper-doll pawn system (body, head, hair, limbs, facing) becomes a vertical-slice task, and species silhouettes are specified per section 3 of BIBLE.md.

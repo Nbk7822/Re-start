@@ -32,7 +32,7 @@ A feature that cannot put events into such chains does not ship.
 
 ### 4.1 Time
 
-Fixed tick. `content/world.json` sets the calendar (initially 300 ticks per hour, 24 hours per day, 10 days per season, 4 seasons per year, so a year is 288,000 ticks). Movement and job progress run per tick; needs, mood and memory decay run hourly; social checks every few in-game minutes; the director rolls incidents hourly. The Godot view runs 30 ticks per second at 1×.
+Fixed tick. `content/world.json` sets the calendar (300 ticks per hour, 24 hours per day, 10 days per season, 4 seasons per year: 7,200 ticks per day, 288,000 per year). Movement and job progress run per tick; needs, mood and memory decay run hourly; social checks every few in-game minutes; the director rolls incidents hourly. The view runs 20 ticks per second at 1× (a day is 6 real minutes), 60 at ×3, 120 at ×6.
 
 ### 4.2 Systems and how they touch each other
 
