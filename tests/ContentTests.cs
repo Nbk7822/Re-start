@@ -14,7 +14,12 @@ public class ContentTests
     {
         var files = Directory.GetFiles(ContentDir, "*.json").OrderBy(f => f, StringComparer.Ordinal).ToList();
         var locFiles = Directory.GetFiles(Path.Combine(ContentDir, "loc"), "en*.json").OrderBy(f => f, StringComparer.Ordinal).ToList();
-        Assert.Equal(9, files.Count);
+        // Every schema but loc's has its content file (and the loop below finds a schema for every file),
+        // so a missing or misnamed file fails here without a count to bump for each new one.
+        var schemaNames = Directory.GetFiles(Path.Combine(ContentDir, "schemas"), "*.schema.json")
+            .Select(f => Path.GetFileName(f)[..^".schema.json".Length]).Where(n => n != "loc").OrderBy(n => n, StringComparer.Ordinal);
+        Assert.Equal(schemaNames, files.Select(f => Path.GetFileNameWithoutExtension(f)));
+        Assert.Contains(files, f => Path.GetFileName(f) == "wants.json");
         Assert.Contains(locFiles, f => Path.GetFileName(f) == "en.json");
         files.AddRange(locFiles);
         foreach (string file in files)
@@ -47,6 +52,7 @@ public class ContentTests
         var defs = new List<object> { db.World };
         defs.AddRange(db.Species); defs.AddRange(db.Traits); defs.AddRange(db.Items); defs.AddRange(db.Work);
         defs.AddRange(db.Roles); defs.AddRange(db.Thoughts); defs.AddRange(db.Incidents); defs.AddRange(db.Cast);
+        defs.AddRange(db.Wants);
         foreach (object def in defs)
             foreach (PropertyInfo p in def.GetType().GetProperties())
                 if (p.PropertyType == typeof(string) && p.Name.EndsWith("Key", StringComparison.Ordinal) && p.Name != "Key")

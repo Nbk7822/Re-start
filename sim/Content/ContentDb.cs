@@ -25,6 +25,7 @@ public sealed class ContentDb
     private Dictionary<string, ThoughtDef> _thoughts = new();
     private Dictionary<string, IncidentDef> _incidents = new();
     private Dictionary<string, CastDef> _cast = new();
+    private Dictionary<string, WantDef> _wants = new();
 
     public WorldDef World { get; private set; } = new();
     public IReadOnlyList<SpeciesDef> Species { get; private set; } = Array.Empty<SpeciesDef>();
@@ -35,6 +36,7 @@ public sealed class ContentDb
     public IReadOnlyList<ThoughtDef> Thoughts { get; private set; } = Array.Empty<ThoughtDef>();
     public IReadOnlyList<IncidentDef> Incidents { get; private set; } = Array.Empty<IncidentDef>();
     public IReadOnlyList<CastDef> Cast { get; private set; } = Array.Empty<CastDef>();
+    public IReadOnlyList<WantDef> Wants { get; private set; } = Array.Empty<WantDef>();
     public LocTable Loc { get; private set; } = new(new Dictionary<string, string>());
 
     public SpeciesDef SpeciesById(string id) => Find(_species, id, "species.json");
@@ -47,6 +49,7 @@ public sealed class ContentDb
     public ThoughtDef ThoughtById(string id) => Find(_thoughts, id, "thoughts.json");
     public IncidentDef IncidentById(string id) => Find(_incidents, id, "incidents.json");
     public CastDef CastByKey(string key) => Find(_cast, key, "cast.json");
+    public WantDef WantById(string id) => Find(_wants, id, "wants.json");
 
     public static ContentDb Load(string contentDir, IReadOnlyList<string>? modDirs = null)
     {
@@ -64,6 +67,7 @@ public sealed class ContentDb
             Thoughts = ReadMerged<ThoughtDef>(dirs, "thoughts.json", d => d.Id),
             Incidents = ReadMerged<IncidentDef>(dirs, "incidents.json", d => d.Id),
             Cast = ReadMerged<CastDef>(dirs, "cast.json", d => d.Key),
+            Wants = ReadMerged<WantDef>(dirs, "wants.json", d => d.Id),
             Loc = new LocTable(ReadLoc(dirs)),
         };
         db._species = Index(db.Species, d => d.Id);
@@ -74,6 +78,7 @@ public sealed class ContentDb
         db._thoughts = Index(db.Thoughts, d => d.Id);
         db._incidents = Index(db.Incidents, d => d.Id);
         db._cast = Index(db.Cast, d => d.Key);
+        db._wants = Index(db.Wants, d => d.Id);
         db.Validate();
         return db;
     }
@@ -156,6 +161,46 @@ public sealed class ContentDb
             if (c.Otherworlder) otherworlders++;
         }
         if (otherworlders != 1) Fail("cast.json", $"needs exactly one otherworlder, found {otherworlders}");
+
+        ValidateWants();
+    }
+
+    /// <summary>Wants name real traits, species, roles, items and camp places, and someone alone in the world can still want something.</summary>
+    private void ValidateWants()
+    {
+        bool fallback = false;
+        foreach (WantDef d in Wants)
+        {
+            RequireLoc("wants.json", d.Id, d.TextKey, d.BeatKey);
+            switch (d.Target)
+            {
+                case "none":
+                    if (d.Weights.Base > 0) fallback = true;
+                    break;
+                case "person":
+                    if (d.Pick is not ("best_chemistry" or "worst_chemistry"))
+                        Fail("wants.json", $"'{d.Id}' is about a person, so its pick must be best_chemistry or worst_chemistry, not '{d.Pick}'");
+                    break;
+                case "place":
+                    if (!WantDef.Places.Contains(d.Place))
+                        Fail("wants.json", $"'{d.Id}' is about the place '{d.Place}', which is not one of the camp's places ({string.Join(", ", WantDef.Places)})");
+                    RequireLoc("wants.json", d.Id, "place." + d.Place);
+                    break;
+                case "item":
+                    if (!_items.ContainsKey(d.Item)) Fail("wants.json", $"'{d.Id}' is about unknown item '{d.Item}'");
+                    break;
+                default:
+                    Fail("wants.json", $"'{d.Id}' has target '{d.Target}'; use none, person, place or item");
+                    break;
+            }
+            foreach (string t in d.Weights.Traits.Keys)
+                if (!_traits.ContainsKey(t)) Fail("wants.json", $"'{d.Id}' weighs unknown trait '{t}'");
+            foreach (string s in d.Weights.Species.Keys)
+                if (!_species.ContainsKey(s)) Fail("wants.json", $"'{d.Id}' weighs unknown species '{s}'");
+            foreach (string r in d.Weights.Roles.Keys)
+                if (!_roles.ContainsKey(r)) Fail("wants.json", $"'{d.Id}' weighs unknown role '{r}'");
+        }
+        if (!fallback) Fail("wants.json", "needs a want about nothing in particular with a base weight, so someone alone in the world can still want something");
     }
 
     private void RequireLoc(string file, string id, params string[] keys)

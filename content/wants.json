@@ -1,0 +1,104 @@
+[
+  {
+    "id": "accepted",
+    "textKey": "want.accepted.text",
+    "beatKey": "event.growth.want_accepted",
+    "target": "none",
+    "weights": { "base": 6, "traits": { "anxious": 14, "desperate": 6, "independent": -6 } }
+  },
+  {
+    "id": "protect_person",
+    "textKey": "want.protect_person.text",
+    "beatKey": "event.growth.want_protect_person",
+    "target": "person",
+    "pick": "best_chemistry",
+    "weights": { "traits": { "protective": 40, "generous": 10 }, "roles": { "carer": 8, "watcher": 6 } }
+  },
+  {
+    "id": "keep_camp_safe",
+    "textKey": "want.keep_camp_safe.text",
+    "beatKey": "event.growth.want_keep_camp_safe",
+    "target": "none",
+    "weights": { "base": 2, "traits": { "protective": 24, "practical": 4, "anxious": 4 }, "roles": { "watcher": 24 } }
+  },
+  {
+    "id": "respect",
+    "textKey": "want.respect.text",
+    "beatKey": "event.growth.want_respect",
+    "target": "none",
+    "weights": { "base": 4, "traits": { "proud": 36, "independent": 4 }, "roles": { "builder": 4 } }
+  },
+  {
+    "id": "own_roof",
+    "textKey": "want.own_roof.text",
+    "beatKey": "event.growth.want_own_roof",
+    "target": "place",
+    "place": "shelter",
+    "weights": { "base": 3, "traits": { "practical": 12, "independent": 8 }, "species": { "vampire": 8 }, "roles": { "builder": 6 } }
+  },
+  {
+    "id": "free",
+    "textKey": "want.free.text",
+    "beatKey": "event.growth.want_free",
+    "target": "none",
+    "weights": { "traits": { "independent": 40, "proud": 6 } }
+  },
+  {
+    "id": "keep_word",
+    "textKey": "want.keep_word.text",
+    "beatKey": "event.growth.want_keep_word",
+    "target": "none",
+    "weights": { "traits": { "oathbound": 40, "protective": 4 } }
+  },
+  {
+    "id": "never_hungry",
+    "textKey": "want.never_hungry.text",
+    "beatKey": "event.growth.want_never_hungry",
+    "target": "none",
+    "weights": { "traits": { "desperate": 40 } }
+  },
+  {
+    "id": "provide",
+    "textKey": "want.provide.text",
+    "beatKey": "event.growth.want_provide",
+    "target": "none",
+    "weights": { "base": 2, "traits": { "generous": 36, "protective": 4 }, "roles": { "carer": 10, "forager": 4 } }
+  },
+  {
+    "id": "find_home",
+    "textKey": "want.find_home.text",
+    "beatKey": "event.growth.want_find_home",
+    "target": "none",
+    "weights": { "otherworlder": 300 }
+  },
+  {
+    "id": "daylight",
+    "textKey": "want.daylight.text",
+    "beatKey": "event.growth.want_daylight",
+    "target": "none",
+    "weights": { "species": { "vampire": 36 } }
+  },
+  {
+    "id": "full_stores",
+    "textKey": "want.full_stores.text",
+    "beatKey": "event.growth.want_full_stores",
+    "target": "item",
+    "item": "berries",
+    "weights": { "base": 2, "traits": { "practical": 24, "desperate": 6, "anxious": 4 }, "roles": { "forager": 6 } }
+  },
+  {
+    "id": "outdo",
+    "textKey": "want.outdo.text",
+    "beatKey": "event.growth.want_outdo",
+    "target": "person",
+    "pick": "worst_chemistry",
+    "weights": { "traits": { "proud": 16, "independent": 6 } }
+  },
+  {
+    "id": "trust",
+    "textKey": "want.trust.text",
+    "beatKey": "event.growth.want_trust",
+    "target": "none",
+    "weights": { "base": 3, "traits": { "anxious": 16, "desperate": 4 }, "species": { "vampire": 6 } }
+  }
+]

@@ -148,3 +148,47 @@ public sealed class CastDef
     public bool StartsInCamp { get; init; }
     public string Color { get; init; } = "#888888";
 }
+
+/// <summary>
+/// How likely a person is to want something: <see cref="Base"/> plus the add for each of their traits,
+/// their species, their role and, for the player, <see cref="Otherworlder"/>. The adds sum; a total at or
+/// below zero means never, so a want meant only for one species or for the otherworlder takes all its
+/// weight from that one axis (ADR-0021).
+/// </summary>
+public sealed class WantWeights
+{
+    public int Base { get; init; }
+    public Dictionary<string, int> Traits { get; init; } = new();
+    public Dictionary<string, int> Species { get; init; } = new();
+    public Dictionary<string, int> Roles { get; init; } = new();
+    public int Otherworlder { get; init; }
+}
+
+/// <summary>A kind of want (fixed decision 12): what a person wants out of life, what it is about, and who tends to want it.</summary>
+public sealed class WantDef
+{
+    /// <summary>The camp's places a want can be about: features every generated map has (WorldGen).</summary>
+    public static readonly IReadOnlyList<string> Places = new[] { "shelter", "hearth", "stockpile", "watch_post", "covered_ruins" };
+
+    public string Id { get; init; } = "";
+
+    /// <summary>The want in plain words ("To keep the camp safe"); "&lt;key&gt;_you", when present, for the player.</summary>
+    public string TextKey { get; init; } = "";
+
+    /// <summary>The story beat logged when the want forms; "&lt;key&gt;_you_a" when the player wants it.</summary>
+    public string BeatKey { get; init; } = "";
+
+    /// <summary>"none", "person", "place" or "item".</summary>
+    public string Target { get; init; } = "none";
+
+    /// <summary>For a person want: "best_chemistry" or "worst_chemistry".</summary>
+    public string Pick { get; init; } = "";
+
+    /// <summary>For a place want: one of <see cref="Places"/>.</summary>
+    public string Place { get; init; } = "";
+
+    /// <summary>For an item want: an items.json id.</summary>
+    public string Item { get; init; } = "";
+
+    public WantWeights Weights { get; init; } = new();
+}

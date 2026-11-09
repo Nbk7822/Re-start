@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Wants: what a person wants out of life, what it is about, and who tends to want it (fixed decision 12, ADR-0021)",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "textKey", "beatKey", "target", "weights"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "textKey": { "description": "The want in plain words for the inspector (\"To keep the camp safe\"); a \"<key>_you\" variant, when present, is used for the player", "$ref": "#/$defs/locKey" },
+      "beatKey": { "description": "The story beat logged when the want forms; a \"<key>_you_a\" variant is used when the player wants it", "$ref": "#/$defs/locKey" },
+      "target": { "description": "What the want is about", "enum": ["none", "person", "place", "item"] },
+      "pick": { "description": "For a person want: of the people in the camp, the one they get on with best or worst by nature (pair chemistry)", "enum": ["best_chemistry", "worst_chemistry"] },
+      "place": { "description": "For a place want: one of the camp's places (shelter, hearth, stockpile, watch_post, covered_ruins)", "$ref": "#/$defs/id" },
+      "item": { "description": "For an item want: an items.json id", "$ref": "#/$defs/id" },
+      "weights": {
+        "description": "How likely a person is to want this: base plus the adds for each of their traits, their species, their role and (for the player) otherworlder. A total at or below zero means never.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base": { "type": "integer", "minimum": 0, "maximum": 1000 },
+          "traits": { "$ref": "#/$defs/adds" },
+          "species": { "$ref": "#/$defs/adds" },
+          "roles": { "$ref": "#/$defs/adds" },
+          "otherworlder": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+        }
+      }
+    },
+    "allOf": [
+      { "if": { "properties": { "target": { "const": "person" } } }, "then": { "required": ["pick"] }, "else": { "not": { "required": ["pick"] } } },
+      { "if": { "properties": { "target": { "const": "place" } } }, "then": { "required": ["place"] }, "else": { "not": { "required": ["place"] } } },
+      { "if": { "properties": { "target": { "const": "item" } } }, "then": { "required": ["item"] }, "else": { "not": { "required": ["item"] } } }
+    ]
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+    "adds": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+    }
+  }
+}
