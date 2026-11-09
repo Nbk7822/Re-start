@@ -53,7 +53,8 @@ public partial class TileTooltip : PanelContainer
         if (_host == null || _map == null) return;
         Vector2I tile = _map.TileUnderMouse();
         bool overUi = GetViewport().GuiGetHoveredControl() != null;
-        if (!_mouseInWindow || overUi || !_map.InBounds(tile))
+        bool inWindow = _mouseInWindow && GetViewportRect().HasPoint(GetViewport().GetMousePosition());
+        if (!inWindow || overUi || !_map.InBounds(tile))
         {
             _tile = new Vector2I(-1, -1);
             Visible = false;
