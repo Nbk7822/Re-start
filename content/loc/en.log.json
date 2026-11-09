@@ -1,0 +1,51 @@
+{
+  "log.title": "Return: a story log",
+  "log.header.seed": "Seed {seed}",
+  "log.header.years": "Years simulated: {years}",
+  "log.header.calendar": "A year here lasts {days} days.",
+  "log.list_sep": ", ",
+
+  "log.cast.heading": "The people",
+  "log.cast.line": "{name} ({species}): {traits}. {status}.",
+
+  "log.camp.heading": "{camp} at the end",
+  "log.camp.members": "Living there: {names}",
+  "log.camp.nobody": "Nobody lives there any more.",
+  "log.camp.stockpile": "Stockpile: berries ×{berries}, timber ×{timber}",
+  "log.camp.roof": "Shelter roof: {sound} of {total} sections sound",
+  "log.camp.rationing": "When food runs short, {policy}.",
+
+  "log.events.heading": "What happened",
+  "log.events.line": "{when} — {text}",
+  "log.events.none": "Nothing notable happened.",
+
+  "log.stories.heading": "Stories",
+  "log.stories.none": "No stories this time.",
+  "log.story.heading": "Story {n}",
+  "log.story.step": "{n}. {when} — {text}",
+  "log.story.systems": "Systems: {systems}",
+  "log.story.systems_sep": " → ",
+  "log.story.people": "People: {people}",
+
+  "log.counts": "Events logged: {events}. Notable: {notable}. Stories: {stories}.",
+
+  "log.system.needs": "Needs",
+  "log.system.mood": "Mood",
+  "log.system.social": "Social",
+  "log.system.work": "Work",
+  "log.system.travel": "Travel",
+  "log.system.incident": "Incident",
+  "log.system.combat": "Combat",
+  "log.system.world": "World",
+
+  "log.run.wrote": "Wrote the story log for seed {seed} to {path}.",
+
+  "log.soak.done": "Soak finished in {seconds} s. Worlds: {worlds} (seeds {first}–{last}). Years each: {years}. Threads: {threads}.",
+  "log.soak.stories": "Stories: {stories} ({per_world} per world).",
+  "log.soak.by_system_set": "Stories by system set:",
+  "log.soak.endings": "Most common story endings:",
+  "log.soak.tally": "{key}: {count}",
+  "log.soak.crashed": "This world crashed at tick {tick}: {error}",
+  "log.soak.crashed_list": "Worlds that crashed: {seeds}",
+  "log.soak.written": "Story logs and summary.json are in {dir}"
+}

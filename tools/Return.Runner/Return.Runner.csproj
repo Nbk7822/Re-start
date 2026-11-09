@@ -17,4 +17,8 @@
     <ProjectReference Include="../../sim/Return.Sim.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Return.Tests" />
+  </ItemGroup>
+
 </Project>
