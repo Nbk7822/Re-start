@@ -190,22 +190,31 @@ public sealed class ContentDb
         return merged;
     }
 
+    /// <summary>Reads loc/en.json, then any loc/en.*.json (e.g. en.ui.json) in ordinal name order; later keys win.</summary>
     private static Dictionary<string, string> ReadLoc(List<string> dirs)
     {
         var loc = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (string dir in dirs)
         {
-            string path = Path.Combine(dir, "loc", "en.json");
-            if (!File.Exists(path)) continue;
-            foreach (KeyValuePair<string, string> kv in Deserialize<Dictionary<string, string>>(path))
-                loc[kv.Key] = kv.Value;
+            string locDir = Path.Combine(dir, "loc");
+            if (!Directory.Exists(locDir)) continue;
+            var files = new List<string>();
+            string main = Path.Combine(locDir, "en.json");
+            if (File.Exists(main)) files.Add(main);
+            var extra = new List<string>(Directory.GetFiles(locDir, "en.*.json"));
+            extra.Sort(StringComparer.Ordinal);
+            files.AddRange(extra);
+            foreach (string path in files)
+                foreach (KeyValuePair<string, string> kv in Deserialize<Dictionary<string, string>>(path))
+                    loc[kv.Key] = kv.Value;
         }
         return loc;
     }
 
     private static T Deserialize<T>(string path)
     {
-        string file = Path.GetFileName(path) == "en.json" ? "loc/en.json" : Path.GetFileName(path);
+        string name = Path.GetFileName(path);
+        string file = name.StartsWith("en.", StringComparison.Ordinal) ? "loc/" + name : name;
         try
         {
             return JsonSerializer.Deserialize<T>(File.ReadAllText(path), Json)

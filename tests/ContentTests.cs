@@ -13,11 +13,13 @@ public class ContentTests
     public void AllContentValidatesAgainstSchemas()
     {
         var files = Directory.GetFiles(ContentDir, "*.json").OrderBy(f => f, StringComparer.Ordinal).ToList();
-        files.Add(Path.Combine(ContentDir, "loc", "en.json"));
-        Assert.Equal(10, files.Count);
+        var locFiles = Directory.GetFiles(Path.Combine(ContentDir, "loc"), "en*.json").OrderBy(f => f, StringComparer.Ordinal).ToList();
+        Assert.Equal(9, files.Count);
+        Assert.Contains(locFiles, f => Path.GetFileName(f) == "en.json");
+        files.AddRange(locFiles);
         foreach (string file in files)
         {
-            string name = file.EndsWith("en.json", StringComparison.Ordinal) ? "loc" : Path.GetFileNameWithoutExtension(file);
+            string name = locFiles.Contains(file) ? "loc" : Path.GetFileNameWithoutExtension(file);
             string schemaPath = Path.Combine(ContentDir, "schemas", name + ".schema.json");
             Assert.True(File.Exists(schemaPath), "missing schema " + schemaPath);
             JsonSchema schema = JsonSchema.FromText(File.ReadAllText(schemaPath));
