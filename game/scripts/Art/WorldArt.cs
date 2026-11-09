@@ -4,8 +4,8 @@ using Godot;
 using Return.Game.Logic;
 using Return.Sim;
 using SimPoint = Return.Sim.Core.Point;
-using Tree = Return.Sim.Tree;
 using SimRect = Return.Sim.Core.Rect;
+using Tree = Return.Sim.Tree;
 
 namespace Return.Game.Art;
 
@@ -15,7 +15,8 @@ namespace Return.Game.Art;
 /// and a front face, roof sections and the broken one, hearth fire with smoke, stockpile goods)
 /// and made grimier: grunge and grain over everything, mud where people walk, ash around the
 /// fire, frost in winter. Ground is drawn once into its own layer (redrawn when the season turns);
-/// water, grass, trees and fire move every frame. All positions are map pixels.
+/// water, grass, trees and fire move every frame. Shadows are drawn in a pass of their own before
+/// anything that stands up. All positions are map pixels; everything goes through the Brush.
 /// </summary>
 public sealed class WorldArt
 {
@@ -34,8 +35,6 @@ public sealed class WorldArt
     private readonly List<(int Y, int X0, int X1)> _waterRows = new();
     private readonly Vector2[] _tuftBase;
     private readonly float[] _tuftSize;
-    private readonly Vector2[] _tuftLines;
-    private readonly Color[] _tuftColors;
     private readonly Vector2[] _flowLines;
     private readonly Vector2[] _flowSeeds;
     private readonly Color[] _flowColors;
@@ -68,16 +67,16 @@ public sealed class WorldArt
 
         // Bank x per row (the run of water that reaches the east edge), smoothed with Catmull-Rom.
         var bankX = new float[m.Height];
-        bool river = true;
-        for (int y = 0; y < m.Height; y++)
+        bool river = m.Height > 1;
+        for (int y = 0; y < m.Height && river; y++)
         {
             int x0 = -1;
             foreach ((int ry, int rx0, int rx1) in _waterRows)
                 if (ry == y && rx1 == m.Width) x0 = rx0;
-            if (x0 < 0) { river = false; break; }
-            bankX[y] = x0 * T + ArtHash.Signed(y, 12) * 2.5f;
+            if (x0 < 0) river = false;
+            else bankX[y] = x0 * T + ArtHash.Signed(y, 12) * 2.5f;
         }
-        if (river && m.Height > 1)
+        if (river)
         {
             const int sub = 3;
             var pts = new List<Vector2>();
@@ -115,15 +114,13 @@ public sealed class WorldArt
         _tuftBase = new Vector2[tufts.Count];
         _tuftSize = new float[tufts.Count];
         for (int i = 0; i < tufts.Count; i++) { _tuftBase[i] = tufts[i].At; _tuftSize[i] = tufts[i].Size; }
-        _tuftLines = new Vector2[tufts.Count * 6];
-        _tuftColors = new Color[tufts.Count * 3];
 
-        int marks = Math.Min(140, _waterRows.Count * 3);
+        int marks = _waterRows.Count == 0 ? 0 : Math.Min(140, _waterRows.Count * 3);
         _flowSeeds = new Vector2[marks];
         for (int i = 0; i < marks; i++)
         {
             var row = _waterRows[ArtHash.Pick(_waterRows.Count, i, 71)];
-            _flowSeeds[i] = new Vector2(row.X0 + 0.4f + ArtHash.Unit(i, 72) * Math.Max(0.2f, row.X1 - row.X0 - 0.8f), ArtHash.Unit(i, 73) * m.Height);
+            _flowSeeds[i] = new Vector2(row.X0 + 0.6f + ArtHash.Unit(i, 72) * Math.Max(0.2f, row.X1 - row.X0 - 1f), ArtHash.Unit(i, 73) * m.Height);
         }
         _flowLines = new Vector2[marks * 4];
         _flowColors = new Color[marks * 2];
@@ -139,7 +136,6 @@ public sealed class WorldArt
 
     public void DrawGround(Brush b, bool winter)
     {
-        CanvasItem ci = b.Target;
         float mapW = _m.Width * T, mapH = _m.Height * T;
         SimRect shelter = _m.Shelter, ruins = _m.CoveredRuins;
 
@@ -148,98 +144,100 @@ public sealed class WorldArt
             for (int x = 0; x < _m.Width; x++)
             {
                 var p = new SimPoint(x, y);
-                float h = ArtHash.Unit(x, y, 1);
-                Color c = _m.At(p) switch
-                {
-                    TerrainKind.Floor => ruins.Contains(p) ? Palette.RuinFloor : Palette.Floor,
-                    _ => Palette.Grass3.Lerp(Palette.Grass2, h).Lerp(Palette.GrassDry, ArtHash.Unit(x / 3, y / 3, 2) * 0.4f),
-                };
-                if (winter && c != Palette.Floor && c != Palette.RuinFloor) c = c.Lerp(Palette.GrassWinter, 0.55f);
-                ci.DrawRect(new Rect2(x * T, y * T, T, T), c);
+                Color c = _m.At(p) == TerrainKind.Floor
+                    ? (ruins.Contains(p) ? Palette.RuinFloor : Palette.Floor)
+                    : Palette.Grass3.Lerp(Palette.Grass2, ArtHash.Unit(x, y, 1)).Lerp(Palette.GrassDry, ArtHash.Unit(x / 3, y / 3, 2) * 0.4f);
+                if (winter && _m.At(p) != TerrainKind.Floor) c = c.Lerp(Palette.GrassWinter, 0.55f);
+                b.Rect(x * T, y * T, T, T, c);
             }
 
-        // Soil as overlapping soft blobs, so its edges are ragged rather than square.
-        for (int y = 0; y < _m.Height; y++)
-            for (int x = 0; x < _m.Width; x++)
-                if (KindAt(x, y) is TerrainKind.Soil or TerrainKind.Rock)
-                    Blob(b, (x + 0.5f) * T + ArtHash.Signed(x, y, 3) * 3f, (y + 0.5f) * T + ArtHash.Signed(x, y, 4) * 3f, T * 1.85f, ArtHash.Of(x, y, 3),
-                        (winter ? Palette.Soil.Lerp(Palette.GrassWinter, 0.25f) : Palette.Soil.Lerp(Palette.Soil2, ArtHash.Unit(x, y, 4))).WithAlpha(1f));
-
-        // The dark wet bank, and mud where people walk.
-        for (int y = 0; y < _m.Height; y++)
-            for (int x = 0; x < _m.Width; x++)
-            {
-                TerrainKind k = KindAt(x, y);
-                float cx = (x + 0.5f) * T, cy = (y + 0.5f) * T;
-                if (k is TerrainKind.Grass or TerrainKind.Soil && KindAt(x + 1, y) == TerrainKind.Water)
-                    Blob(b, cx + T * 0.55f, cy, T * 1.9f, ArtHash.Of(x, y, 5), Palette.Bank.WithAlpha(0.85f));
-                float wear = _wear[y * _m.Width + x];
-                if (wear > 0.08f)
+        // Soft blobs, grouped by texture so they batch: soil (ragged edges), the wet bank, mud where people walk.
+        for (int k = 0; k < 3; k++)
+        {
+            for (int y = 0; y < _m.Height; y++)
+                for (int x = 0; x < _m.Width; x++)
                 {
-                    Blob(b, cx, cy, T * (1.3f + wear * 0.8f), ArtHash.Of(x, y, 6), Palette.Mud.WithAlpha(Mathf.Clamp(wear * 0.95f, 0f, 0.9f)));
-                    if (wear > 0.5f) Blob(b, cx + ArtHash.Signed(x, y, 7) * 4f, cy + ArtHash.Signed(x, y, 8) * 4f, T * 0.9f, ArtHash.Of(x, y, 9), Palette.MudWet.WithAlpha(0.45f));
+                    TerrainKind kind = KindAt(x, y);
+                    float cx = (x + 0.5f) * T, cy = (y + 0.5f) * T;
+                    if (kind is TerrainKind.Soil or TerrainKind.Rock)
+                        Blob(b, k, cx + ArtHash.Signed(x, y, 3) * 3f, cy + ArtHash.Signed(x, y, 4) * 3f, T * 1.85f, ArtHash.Of(x, y, 3),
+                            winter ? Palette.Soil.Lerp(Palette.GrassWinter, 0.25f) : Palette.Soil.Lerp(Palette.Soil2, ArtHash.Unit(x, y, 4)));
                 }
-            }
+            for (int y = 0; y < _m.Height; y++)
+                for (int x = 0; x < _m.Width; x++)
+                {
+                    TerrainKind kind = KindAt(x, y);
+                    float cx = (x + 0.5f) * T, cy = (y + 0.5f) * T;
+                    if (kind is TerrainKind.Grass or TerrainKind.Soil && KindAt(x + 1, y) == TerrainKind.Water)
+                        Blob(b, k, cx + T * 0.55f, cy, T * 1.9f, ArtHash.Of(x, y, 5), Palette.Bank.WithAlpha(0.85f));
+                    float wear = _wear[y * _m.Width + x];
+                    if (wear > 0.08f) Blob(b, k, cx, cy, T * (1.3f + wear * 0.8f), ArtHash.Of(x, y, 6), Palette.Mud.WithAlpha(Mathf.Clamp(wear * 0.95f, 0f, 0.9f)));
+                    if (wear > 0.5f) Blob(b, k, cx + ArtHash.Signed(x, y, 7) * 4f, cy + ArtHash.Signed(x, y, 8) * 4f, T * 0.9f, ArtHash.Of(x, y, 9), Palette.MudWet.WithAlpha(0.45f));
+                }
+        }
 
         // Ash and soot around the hearth.
         Vector2 hearth = Center(_m.Hearth);
-        Blob(b, hearth.X, hearth.Y + 2f, T * 2.6f, 77, Palette.Ash.WithAlpha(0.75f));
-        if (_tex.Stains[0] != null) b.Texture(_tex.Stains[0], hearth.X, hearth.Y + 3f, T * 2.2f, T * 1.8f, 0.4f, new Color(0.05f, 0.04f, 0.03f, 0.7f));
+        Blob(b, -1, hearth.X, hearth.Y + 2f, T * 2.6f, 77, Palette.Ash.WithAlpha(0.75f));
+        b.Texture(_tex.Stains[0], hearth.X, hearth.Y + 3f, T * 2.2f, T * 1.8f, 0.4f, new Color(0.05f, 0.04f, 0.03f, 0.7f));
 
-        // Floors: weathered planks in the shelter, cracked flags in the ruins with the old seal.
-        // Floors reach the middle of the wall tiles, where the walls stand.
+        // Floors reach the middle of the wall tiles, where the walls stand: planks in the shelter, cracked flags in the ruins.
         Rect2 floor = TilesRect(shelter).Grow(-T * 0.5f);
-        ci.DrawRect(floor, Palette.Floor);
-        if (_tex.Planks != null) ci.DrawTextureRectRegion(_tex.Planks, floor, new Rect2(0, 0, floor.Size.X * 2.2f, floor.Size.Y * 2.2f), new Color(0.78f, 0.74f, 0.7f));
-        ci.DrawRect(floor, new Color(0f, 0f, 0f, 0.12f));
+        b.Rect(floor, Palette.Floor);
+        b.TextureRegion(_tex.Planks, floor, new Rect2(0, 0, floor.Size.X * 2.2f, floor.Size.Y * 2.2f), new Color(0.78f, 0.74f, 0.7f));
+        b.Rect(floor, new Color(0f, 0f, 0f, 0.12f));
         Rect2 ruinFloor = TilesRect(ruins);
         ruinFloor = new Rect2(ruinFloor.Position.X, ruinFloor.Position.Y - T * 0.5f, ruinFloor.Size.X, ruinFloor.Size.Y + T * 0.5f);
-        if (_tex.Stone != null) ci.DrawTextureRectRegion(_tex.Stone, ruinFloor, new Rect2(0, 0, ruinFloor.Size.X * 2.6f, ruinFloor.Size.Y * 2.6f), new Color(0.52f, 0.54f, 0.5f));
-        ci.DrawRect(ruinFloor, new Color(0f, 0f, 0f, 0.28f));
+        b.TextureRegion(_tex.Stone, ruinFloor, new Rect2(0, 0, ruinFloor.Size.X * 2.6f, ruinFloor.Size.Y * 2.6f), new Color(0.52f, 0.54f, 0.5f));
+        b.Rect(ruinFloor, new Color(0f, 0f, 0f, 0.28f));
         Vector2 seal = ruinFloor.GetCenter();
-        b.Clear().Add(seal.X, seal.Y - T * 0.8f).Add(seal.X + T * 0.8f, seal.Y).Add(seal.X, seal.Y + T * 0.8f).Add(seal.X - T * 0.8f, seal.Y).Stroke(new Color(0.2f, 0.27f, 0.23f, 0.8f), 1.2f);
-        b.Clear().Ellipse(seal.X, seal.Y, T * 0.42f, T * 0.42f, 16).Stroke(new Color(0.2f, 0.27f, 0.23f, 0.8f), 1f);
+        var sealInk = new Color(0.2f, 0.27f, 0.23f, 0.8f);
+        b.Clear().Add(seal.X, seal.Y - T * 0.8f).Add(seal.X + T * 0.8f, seal.Y).Add(seal.X, seal.Y + T * 0.8f).Add(seal.X - T * 0.8f, seal.Y).Stroke(sealInk, 1.2f);
+        b.Clear().Ellipse(seal.X, seal.Y, T * 0.42f, T * 0.42f, 16).Stroke(sealInk, 1f);
 
         // Grime over the whole map: damp mottling, sun-bleached patches, grit and a faint grain.
-        Overlay(ci, _tex.GrungeDark, mapW, mapH, 1.0f, new Color(1f, 1f, 1f, 0.4f));
-        Overlay(ci, _tex.GrungeLight, mapW, mapH, 0.8f, new Color(1f, 1f, 1f, winter ? 0.2f : 0.1f));
-        Overlay(ci, _tex.Dirt, mapW, mapH, 2.2f, new Color(1f, 1f, 1f, 0.2f));
-        Overlay(ci, _tex.Grain, mapW, mapH, 1.6f, new Color(1f, 1f, 1f, 0.12f));
-        if (winter) Overlay(ci, _tex.Frost, mapW, mapH, 1.2f, new Color(1f, 1f, 1f, 0.4f));
+        Overlay(b, _tex.GrungeDark, mapW, mapH, 1.0f, new Color(1f, 1f, 1f, 0.4f));
+        Overlay(b, _tex.GrungeLight, mapW, mapH, 0.8f, new Color(1f, 1f, 1f, winter ? 0.2f : 0.1f));
+        Overlay(b, _tex.Dirt, mapW, mapH, 2.2f, new Color(1f, 1f, 1f, 0.2f));
+        Overlay(b, _tex.Grain, mapW, mapH, 1.6f, new Color(1f, 1f, 1f, 0.12f));
+        if (winter) Overlay(b, _tex.Frost, mapW, mapH, 0.9f, new Color(1f, 1f, 1f, 0.26f));
 
         // The river over the grime: deep water with a smooth, dark, muddy bank.
         if (_river.Length > 0)
         {
-            ci.DrawColoredPolygon(_river, Palette.River);
-            ci.DrawPolyline(_bank, Palette.RiverShallow.WithAlpha(0.8f), T * 0.9f, true);
-            ci.DrawPolyline(_bank, Palette.Bank, 3f, true);
+            b.Polygon(_river, Palette.River);
+            b.Polyline(_bank, Palette.RiverShallow.WithAlpha(0.8f), T * 0.9f);
+            b.Polyline(_bank, Palette.Bank, 3f);
         }
         else
-            foreach ((int y, int x0, int x1) in _waterRows) ci.DrawRect(new Rect2(x0 * T, y * T, (x1 - x0) * T, T), Palette.River);
+            foreach ((int y, int x0, int x1) in _waterRows) b.Rect(x0 * T, y * T, (x1 - x0) * T, T, Palette.River);
 
         // Rock outcrops, the stockpile's marked ground, bedrolls.
         for (int y = 0; y < _m.Height; y++)
             for (int x = 0; x < _m.Width; x++)
                 if (KindAt(x, y) == TerrainKind.Rock) Boulder(b, x, y);
-        Rect2 pile = TilesRect(_m.Stockpile).Grow(-2f);
-        DashedRect(ci, pile, new Color(0.78f, 0.7f, 0.5f, 0.45f), 1.2f, 5f);
+        DashedRect(b, TilesRect(_m.Stockpile).Grow(-2f), new Color(0.78f, 0.7f, 0.5f, 0.45f), 1.2f, 5f);
         foreach (Bed bed in _m.Beds) Bedroll(b, bed.Pos);
+    }
 
-        // A faint square grid (ADR-0008).
+    /// <summary>A faint square grid (ADR-0008), drawn over the ground every frame so it stays crisp at any zoom.</summary>
+    public void DrawGrid(Brush b)
+    {
+        float mapW = _m.Width * T, mapH = _m.Height * T;
         var grid = new Color(0f, 0f, 0f, 0.13f);
-        for (int x = 0; x <= _m.Width; x++) ci.DrawLine(new Vector2(x * T, 0), new Vector2(x * T, mapH), grid, 1f);
-        for (int y = 0; y <= _m.Height; y++) ci.DrawLine(new Vector2(0, y * T), new Vector2(mapW, y * T), grid, 1f);
+        for (int x = 0; x <= _m.Width; x++) b.Line(x * T, 0f, x * T, mapH, grid, 1f);
+        for (int y = 0; y <= _m.Height; y++) b.Line(0f, y * T, mapW, y * T, grid, 1f);
     }
 
-    private static void Overlay(CanvasItem ci, Texture2D? tex, float w, float h, float texelsPerPixel, Color modulate)
-    {
-        if (tex == null) return;
-        ci.DrawTextureRectRegion(tex, new Rect2(0, 0, w, h), new Rect2(0, 0, w * texelsPerPixel, h * texelsPerPixel), modulate);
-    }
+    private static void Overlay(Brush b, Texture2D? tex, float w, float h, float texelsPerPixel, Color modulate) =>
+        b.TextureRegion(tex, new Rect2(0, 0, w, h), new Rect2(0, 0, w * texelsPerPixel, h * texelsPerPixel), modulate);
 
-    private void Blob(Brush b, float x, float y, float size, ulong h, Color tint)
+    /// <summary>A soft blob tinted <paramref name="tint"/>, if its hash picks texture <paramref name="pass"/> (any texture when -1).</summary>
+    private void Blob(Brush b, int pass, float x, float y, float size, ulong h, Color tint)
     {
-        Texture2D? tex = _tex.Blobs[(int)(h % 3)];
+        int k = (int)(h % 3);
+        if (pass >= 0 && k != pass) return;
+        Texture2D? tex = _tex.Blobs[k];
         if (tex == null)
         {
             b.Clear().Ellipse(x, y, size * 0.36f, size * 0.32f, 12).Fill(tint);
@@ -248,7 +246,7 @@ public sealed class WorldArt
         b.Texture(tex, x, y, size, size * (0.85f + 0.3f * ArtHash.Unit(h)), ArtHash.Unit(ArtHash.Mix(h)) * MathF.Tau, tint);
     }
 
-    private void Boulder(Brush b, int x, int y)
+    private static void Boulder(Brush b, int x, int y)
     {
         float cx = (x + 0.5f) * T, cy = (y + 0.55f) * T;
         float r = T * (0.46f + 0.1f * ArtHash.Unit(x, y, 13));
@@ -267,7 +265,7 @@ public sealed class WorldArt
         if (ArtHash.Unit(x, y, 14) < 0.6f) b.Clear().Ellipse(cx - r * 0.25f, cy - hgt * 0.8f, r * 0.3f, r * 0.16f, 10).Fill(Palette.Moss.WithAlpha(0.75f));
     }
 
-    private void Bedroll(Brush b, SimPoint p)
+    private static void Bedroll(Brush b, SimPoint p)
     {
         float x = p.X * T, y = p.Y * T;
         b.Clear().RoundRect(x + 4f, y + 2f, T - 8f, T - 3f, 3f).Lit(Palette.Straw, 0.2f).Stroke(Palette.Ink, 0.8f);
@@ -279,14 +277,13 @@ public sealed class WorldArt
 
     public void DrawWater(Brush b, float time, bool raining)
     {
-        CanvasItem ci = b.Target;
         float flow = time * T * (raining ? 1.3f : 0.8f);
         if (_tex.Water != null && _river.Length > 0)
         {
             // The surface scrolls downstream: two layers at different scales and speeds.
             float size = _tex.Water.GetWidth();
-            Surface(ci, 0.7f / size, flow, 0f, new Color(1f, 1f, 1f, 0.7f));
-            Surface(ci, 0.4f / size, flow * 0.6f, 0.37f, new Color(1f, 1f, 1f, 0.35f));
+            Surface(b, 0.7f / size, flow, 0f, new Color(1f, 1f, 1f, 0.7f));
+            Surface(b, 0.4f / size, flow * 0.6f, 0.37f, new Color(1f, 1f, 1f, 0.35f));
         }
 
         // Flowing marks drift downstream and fade in and out.
@@ -306,10 +303,10 @@ public sealed class WorldArt
             _flowColors[i * 2] = c;
             _flowColors[i * 2 + 1] = c;
         }
-        if (n > 0) ci.DrawMultilineColors(_flowLines, _flowColors, 1f, true);
+        if (n > 0) b.Segments(_flowLines, _flowColors, Colors.White, 1f);
     }
 
-    private void Surface(CanvasItem ci, float uvPerPixel, float flow, float offset, Color tint)
+    private void Surface(Brush b, float uvPerPixel, float flow, float offset, Color tint)
     {
         for (int i = 0; i < _river.Length; i++)
         {
@@ -317,48 +314,77 @@ public sealed class WorldArt
             _riverUv[i] = new Vector2(p.X * uvPerPixel + offset, (p.Y - flow) * uvPerPixel + offset);
             _riverTint[i] = tint;
         }
-        ci.DrawPolygon(_river, _riverTint, _riverUv, _tex.Water);
+        b.TexturedPolygon(_river, _riverTint, _riverUv, _tex.Water);
     }
 
+    /// <summary>Tufts of three blades, stirring in the wind (thin triangles, batched).</summary>
     public void DrawGrass(Brush b, float time, bool winter, float wind)
     {
-        int n = _tuftBase.Length;
-        if (n == 0) return;
         Color dark = winter ? Palette.Hex(0x4b463a) : Palette.Hex(0x27331f);
         Color light = winter ? Palette.Hex(0x6d6553) : Palette.Hex(0x51613f);
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < _tuftBase.Length; i++)
         {
             Vector2 p = _tuftBase[i];
             float s = _tuftSize[i];
             float sway = MathF.Sin(time * 1.6f + p.X * 0.03f + p.Y * 0.05f) * (0.9f + wind) * s;
-            float hgt = (3.2f + 1.8f * s);
-            _tuftLines[i * 6] = p;
-            _tuftLines[i * 6 + 1] = p + new Vector2(sway - 1.6f, -hgt);
-            _tuftLines[i * 6 + 2] = p + new Vector2(1.2f, 0f);
-            _tuftLines[i * 6 + 3] = p + new Vector2(1.2f + sway * 1.2f, -hgt - 1.2f);
-            _tuftLines[i * 6 + 4] = p + new Vector2(2.4f, 0f);
-            _tuftLines[i * 6 + 5] = p + new Vector2(2.6f + sway + 1.2f, -hgt * 0.8f);
+            float hgt = 3.2f + 1.8f * s;
             Color c = (i % 3 == 0) ? light : dark;
-            _tuftColors[i * 3] = c;
-            _tuftColors[i * 3 + 1] = c.Lerp(light, 0.4f);
-            _tuftColors[i * 3 + 2] = c;
+            Color tip = c.Lerp(light, 0.45f);
+            b.Blade(p + new Vector2(-0.5f, 0f), p + new Vector2(0.5f, 0f), p + new Vector2(sway - 1.6f, -hgt), c, tip);
+            b.Blade(p + new Vector2(0.7f, 0f), p + new Vector2(1.7f, 0f), p + new Vector2(1.2f + sway * 1.2f, -hgt - 1.2f), c, tip);
+            b.Blade(p + new Vector2(1.9f, 0f), p + new Vector2(2.9f, 0f), p + new Vector2(2.6f + sway + 1.2f, -hgt * 0.8f), c, tip);
         }
-        b.Target.DrawMultilineColors(_tuftLines, _tuftColors, 0.9f, true);
+    }
+
+    // ================= shadows (one pass, before anything that stands up) =================
+
+    public void TreeShadow(Brush b, Tree t, Vector2 shadow, float alpha)
+    {
+        if (t.Felled) return;
+        (float px, float py, float rad, _) = TreeShape(t);
+        Figures.Shadow(b, _tex, px + 4f + shadow.X * 2.2f, py + 1f, rad * 1.05f + MathF.Abs(shadow.X) * 3f, rad * 0.4f, alpha * 1.1f);
+    }
+
+    public void BushShadow(Brush b, Bush bush, Vector2 shadow, float alpha)
+    {
+        float px = (bush.Pos.X + 0.5f) * T, py = (bush.Pos.Y + 0.5f) * T;
+        Figures.Shadow(b, _tex, px + 2f + shadow.X, py + 5f, 11f, 4.5f, alpha);
+    }
+
+    public void StackShadow(Brush b, ItemStack s, float alpha)
+    {
+        float x = (s.Pos.X + 0.5f) * T, y = (s.Pos.Y + 0.62f) * T;
+        Figures.Shadow(b, _tex, x + 1.5f, y + 2f, 10f, 4f, alpha);
+    }
+
+    public void HearthShadow(Brush b)
+    {
+        Vector2 c = HearthCenter;
+        Figures.Shadow(b, _tex, c.X + 1f, c.Y + 3f, 12f, 6f, 0.3f);
+    }
+
+    public void PostShadow(Brush b, float alpha)
+    {
+        Vector2 c = Center(_m.WatchPost);
+        Figures.Shadow(b, _tex, c.X + 1f, c.Y + T * 0.3f, 6f, 2.5f, alpha);
     }
 
     // ================= things that stand up (y-sorted) =================
 
     public static float TreeBaseY(Tree t) => (t.Pos.Y + 0.84f) * T;
 
-    public void DrawTree(Brush b, Tree t, float time, bool winter, Vector2 shadow, float shadowAlpha)
+    private static (float X, float Y, float Rad, bool Pine) TreeShape(Tree t)
     {
         int id = t.Id;
         float r = 1.15f + 0.45f * ArtHash.Unit(id, 81);
-        float px = (t.Pos.X + 0.5f) * T + ArtHash.Signed(id, 82) * 2f, py = TreeBaseY(t);
-        float rad = r * T * 0.55f, sway = MathF.Sin(time * 0.9f + id * 1.3f) * 1.6f;
-        bool pine = ArtHash.Unit(id, 83) < 0.3f;
+        return ((t.Pos.X + 0.5f) * T + ArtHash.Signed(id, 82) * 2f, TreeBaseY(t), r * T * 0.55f, ArtHash.Unit(id, 83) < 0.3f);
+    }
 
-        Figures.Shadow(b, _tex, px + 4f + shadow.X * 2.2f, py + 1f, rad * 1.05f + MathF.Abs(shadow.X) * 3f, rad * 0.4f, shadowAlpha * 1.1f);
+    public void DrawTree(Brush b, Tree t, float time, bool winter)
+    {
+        int id = t.Id;
+        (float px, float py, float rad, bool pine) = TreeShape(t);
+        float sway = MathF.Sin(time * 0.9f + id * 1.3f) * 1.6f;
 
         // Trunk, flared at the root, lit from the left.
         float trunkTop = pine ? py - rad * 0.7f : py - rad * 1.05f;
@@ -412,7 +438,7 @@ public sealed class WorldArt
         if (outline) b.Stroke(Palette.Ink, 0.9f);
     }
 
-    public void DrawStump(Brush b, Tree t)
+    public static void DrawStump(Brush b, Tree t)
     {
         float px = (t.Pos.X + 0.5f) * T, py = (t.Pos.Y + 0.6f) * T;
         b.Clear().RoundRect(px - 4.5f, py - 4f, 9f, 5f, 2f).Shade(Palette.Trunk.Lightened(0.05f), Palette.TrunkLo, new Vector2(1f, 0f)).Stroke(Palette.Ink, 0.8f);
@@ -424,11 +450,10 @@ public sealed class WorldArt
 
     public static float BushBaseY(Bush bush) => (bush.Pos.Y + 0.72f) * T;
 
-    public void DrawBush(Brush b, Bush bush, float time, bool winter, Vector2 shadow, float shadowAlpha)
+    public static void DrawBush(Brush b, Bush bush, float time, bool winter)
     {
         float px = (bush.Pos.X + 0.5f) * T, py = (bush.Pos.Y + 0.5f) * T;
         float sw = MathF.Sin(time * 1.4f + bush.Pos.X) * 0.7f;
-        Figures.Shadow(b, _tex, px + 2f + shadow.X, py + 5f, 11f, 4.5f, shadowAlpha);
         if (winter && bush.Berries == 0)
         {
             for (int k = 0; k < 6; k++)
@@ -458,14 +483,15 @@ public sealed class WorldArt
     /// <summary>Where a wall tile's band meets the ground (its sort key): the band runs through the tile's centre.</summary>
     public static float WallSortY(SimPoint p) => (p.Y + 0.5f) * T + WallThick / 2f;
 
+    public static float DoorSortY(SimPoint p) => WallSortY(p);
+
     /// <summary>
     /// A wall tile as a thin band through the tile's centre with arms to its wall neighbours (as the
-    /// mockup's roomB): front faces where the band's south side shows, then the top raised by the
-    /// wall height, inked on its outer edges only so a run of wall reads as one wall.
+    /// mockup's roomB): front faces of rough masonry where the band's south side shows, then the top
+    /// raised by the wall height, inked on its outer edges only so a run of wall reads as one wall.
     /// </summary>
     public void DrawWall(Brush b, SimPoint p)
     {
-        CanvasItem ci = b.Target;
         float x0 = p.X * T, cx = (p.X + 0.5f) * T, cy = (p.Y + 0.5f) * T, h = WallThick / 2f;
         bool n = Joins(p.X, p.Y - 1), s = Joins(p.X, p.Y + 1), w = Joins(p.X - 1, p.Y), e = Joins(p.X + 1, p.Y);
         float ground = cy + h, faceTop = ground - WallH;
@@ -476,52 +502,78 @@ public sealed class WorldArt
         if (s && !w && !e) fl = fr = cx;
         if (fr > fl)
         {
-            var face = new Rect2(fl, faceTop, fr - fl, WallH);
-            ci.DrawRect(face, Palette.WallFace);
-            if (_tex.Stone != null) ci.DrawTextureRectRegion(_tex.Stone, face, new Rect2(fl * 2.4f, faceTop * 2.4f, face.Size.X * 2.4f, WallH * 2.4f), new Color(0.74f, 0.72f, 0.67f, 0.9f));
-            ci.DrawRect(new Rect2(fl, ground - 3.5f, fr - fl, 3.5f), Palette.WallGrime.WithAlpha(0.7f));
-            ci.DrawRect(new Rect2(fl, faceTop, fr - fl, 2f), new Color(0f, 0f, 0f, 0.4f));
-            ci.DrawLine(new Vector2(fl, ground), new Vector2(fr, ground), ink, 1f);
-            if (!w) ci.DrawLine(new Vector2(fl, faceTop), new Vector2(fl, ground), ink, 1f);
-            if (!e) ci.DrawLine(new Vector2(fr, faceTop), new Vector2(fr, ground), ink, 1f);
-            if (s && w) ci.DrawLine(new Vector2(cx - h, faceTop), new Vector2(cx - h, ground), ink, 0.8f);
-            if (s && e) ci.DrawLine(new Vector2(cx + h, faceTop), new Vector2(cx + h, ground), ink, 0.8f);
-            if (ArtHash.Unit(p.X, p.Y, 121) < 0.35f)
-                ci.DrawLine(new Vector2(fl + (fr - fl) * (0.3f + 0.4f * ArtHash.Unit(p.X, p.Y, 122)), faceTop + 2.5f), new Vector2(fl + (fr - fl) * 0.5f, ground - 2f), Palette.WallGrime.WithAlpha(0.55f), 0.8f);
+            b.Rect(fl, faceTop, fr - fl, WallH, Palette.WallFace);
+            Masonry(b, p, fl, faceTop, fr, ground);
+            b.Rect(fl, ground - 3.5f, fr - fl, 3.5f, Palette.WallGrime.WithAlpha(0.7f));
+            b.Rect(fl, faceTop, fr - fl, 2f, new Color(0f, 0f, 0f, 0.4f));
+            b.Line(fl, ground, fr, ground, ink, 1f);
+            if (!w) b.Line(fl, faceTop, fl, ground, ink, 1f);
+            if (!e) b.Line(fr, faceTop, fr, ground, ink, 1f);
+            if (s && w) b.Line(cx - h, faceTop, cx - h, ground, ink, 0.8f);
+            if (s && e) b.Line(cx + h, faceTop, cx + h, ground, ink, 0.8f);
         }
 
         // The top of the band, raised by the wall height.
         float top = -WallH;
         Color topColor = Palette.WallTop.Darkened(ArtHash.Unit(p.X, p.Y, 120) * 0.12f);
-        TopPiece(ci, cx - h, cy - h + top, cx + h, cy + h + top, topColor);
-        if (w) TopPiece(ci, x0, cy - h + top, cx - h, cy + h + top, topColor);
-        if (e) TopPiece(ci, cx + h, cy - h + top, x0 + T, cy + h + top, topColor);
-        if (n) TopPiece(ci, cx - h, p.Y * T + top, cx + h, cy - h + top, topColor);
-        if (s) TopPiece(ci, cx - h, cy + h + top, cx + h, (p.Y + 1) * T + top, topColor);
+        TopPiece(b, cx - h, cy - h + top, cx + h, cy + h + top, topColor);
+        if (w) TopPiece(b, x0, cy - h + top, cx - h, cy + h + top, topColor);
+        if (e) TopPiece(b, cx + h, cy - h + top, x0 + T, cy + h + top, topColor);
+        if (n) TopPiece(b, cx - h, p.Y * T + top, cx + h, cy - h + top, topColor);
+        if (s) TopPiece(b, cx - h, cy + h + top, cx + h, (p.Y + 1) * T + top, topColor);
         float yt = cy - h + top, yb = cy + h + top;
         // Long edges of the east-west arms and the north-south arms, then the core's open sides.
-        if (w) { ci.DrawLine(new Vector2(x0, yt), new Vector2(cx - h, yt), ink, 1f); ci.DrawLine(new Vector2(x0, yb), new Vector2(cx - h, yb), ink, 0.8f); }
-        if (e) { ci.DrawLine(new Vector2(cx + h, yt), new Vector2(x0 + T, yt), ink, 1f); ci.DrawLine(new Vector2(cx + h, yb), new Vector2(x0 + T, yb), ink, 0.8f); }
-        if (n) { ci.DrawLine(new Vector2(cx - h, p.Y * T + top), new Vector2(cx - h, yt), ink, 1f); ci.DrawLine(new Vector2(cx + h, p.Y * T + top), new Vector2(cx + h, yt), ink, 1f); }
-        if (s) { ci.DrawLine(new Vector2(cx - h, yb), new Vector2(cx - h, (p.Y + 1) * T + top), ink, 1f); ci.DrawLine(new Vector2(cx + h, yb), new Vector2(cx + h, (p.Y + 1) * T + top), ink, 1f); }
-        if (!n) ci.DrawLine(new Vector2(cx - h, yt), new Vector2(cx + h, yt), ink, 1f);
-        if (!s) ci.DrawLine(new Vector2(cx - h, yb), new Vector2(cx + h, yb), ink, 0.8f);
-        if (!w) ci.DrawLine(new Vector2(cx - h, yt), new Vector2(cx - h, yb), ink, 1f);
-        if (!e) ci.DrawLine(new Vector2(cx + h, yt), new Vector2(cx + h, yb), ink, 1f);
+        if (w) { b.Line(x0, yt, cx - h, yt, ink, 1f); b.Line(x0, yb, cx - h, yb, ink, 0.8f); }
+        if (e) { b.Line(cx + h, yt, x0 + T, yt, ink, 1f); b.Line(cx + h, yb, x0 + T, yb, ink, 0.8f); }
+        if (n) { b.Line(cx - h, p.Y * T + top, cx - h, yt, ink, 1f); b.Line(cx + h, p.Y * T + top, cx + h, yt, ink, 1f); }
+        if (s) { b.Line(cx - h, yb, cx - h, (p.Y + 1) * T + top, ink, 1f); b.Line(cx + h, yb, cx + h, (p.Y + 1) * T + top, ink, 1f); }
+        if (!n) b.Line(cx - h, yt, cx + h, yt, ink, 1f);
+        if (!s) b.Line(cx - h, yb, cx + h, yb, ink, 0.8f);
+        if (!w) b.Line(cx - h, yt, cx - h, yb, ink, 1f);
+        if (!e) b.Line(cx + h, yt, cx + h, yb, ink, 1f);
     }
 
-    private void TopPiece(CanvasItem ci, float l, float t, float r, float bt, Color c)
+    /// <summary>Rough blocks in two courses with dark mortar, each block a slightly different stone, a few cracks and stains.</summary>
+    private static void Masonry(Brush b, SimPoint p, float l, float t, float r, float bottom)
     {
-        var rect = new Rect2(l, t, r - l, bt - t);
-        ci.DrawRect(rect, c);
-        if (_tex.Stone != null) ci.DrawTextureRectRegion(_tex.Stone, rect, new Rect2(l * 3f, t * 3f, rect.Size.X * 3f, rect.Size.Y * 3f), new Color(1f, 1f, 1f, 0.3f));
-        ci.DrawRect(new Rect2(l, t, rect.Size.X, 1.2f), new Color(1f, 0.95f, 0.85f, 0.1f));
+        float mid = (t + bottom) * 0.5f;
+        Color mortar = Palette.WallGrime.WithAlpha(0.85f);
+        for (int course = 0; course < 2; course++)
+        {
+            float y0 = course == 0 ? t + 1.5f : mid + 0.4f, y1 = course == 0 ? mid - 0.4f : bottom - 0.5f;
+            float x = l - (course == 1 ? 4f : 0f) - ArtHash.Unit(p.X, p.Y, 123 + course) * 5f;
+            int k = 0;
+            while (x < r)
+            {
+                float wdt = 6f + 5f * ArtHash.Unit(p.X * 7 + k, p.Y, 124 + course);
+                float bl = MathF.Max(l, x), br = MathF.Min(r, x + wdt);
+                if (br > bl + 0.5f)
+                {
+                    Color stone = Palette.WallFace.Lerp(Palette.WallTop, 0.12f + 0.22f * ArtHash.Unit(p.X * 7 + k, p.Y, 125 + course)).Darkened(0.05f);
+                    b.Rect(bl + 0.5f, y0, br - bl - 1f, y1 - y0, stone);
+                    b.Rect(bl + 0.5f, y0, br - bl - 1f, 0.8f, new Color(1f, 0.95f, 0.85f, 0.08f));
+                }
+                if (x + wdt < r && x + wdt > l) b.Line(x + wdt, y0, x + wdt, y1, mortar, 0.8f);
+                x += wdt;
+                k++;
+            }
+        }
+        b.Line(l, mid, r, mid, mortar, 0.8f);
+        if (ArtHash.Unit(p.X, p.Y, 121) < 0.35f)
+            b.Line(l + (r - l) * (0.3f + 0.4f * ArtHash.Unit(p.X, p.Y, 122)), t + 2.5f, l + (r - l) * 0.5f, bottom - 2f, Palette.WallGrime.WithAlpha(0.6f), 0.7f);
+        if (ArtHash.Unit(p.X, p.Y, 126) < 0.5f)
+            b.Clear().Ellipse(l + (r - l) * ArtHash.Unit(p.X, p.Y, 127), bottom - 2.5f, (r - l) * 0.25f, 2.2f, 10).Fill(Palette.Moss.WithAlpha(0.45f));
     }
 
-    public static float DoorSortY(SimPoint p) => WallSortY(p);
+    private static void TopPiece(Brush b, float l, float t, float r, float bt, Color c)
+    {
+        b.Rect(l, t, r - l, bt - t, c);
+        b.Rect(l, t, r - l, 1.2f, new Color(1f, 0.95f, 0.85f, 0.12f));
+        b.Rect(l, bt - 1f, r - l, 1f, new Color(0f, 0f, 0f, 0.12f));
+    }
 
     /// <summary>The shelter doorway: worn posts where the wall ends, a threshold, and a broken door leaf hanging open.</summary>
-    public void DrawDoor(Brush b, SimPoint p)
+    public static void DrawDoor(Brush b, SimPoint p)
     {
         float x = p.X * T, cy = (p.Y + 0.5f) * T, ground = cy + WallThick / 2f;
         Color post = Palette.Trunk.Lightened(0.1f);
@@ -553,7 +605,6 @@ public sealed class WorldArt
     /// <summary>A roof section on the walls: weathered boards when sound; bare rafters, loose boards and a red dashed outline when broken.</summary>
     public void DrawRoof(Brush b, RoofSection s, float alpha)
     {
-        CanvasItem ci = b.Target;
         Rect2 top = RoofRect(s).Grow(-0.5f);
         // Someone underneath: the boards fade so they can be seen, the frame stays.
         float frame = Math.Max(alpha, 0.8f);
@@ -567,38 +618,37 @@ public sealed class WorldArt
             {
                 float y = top.Position.Y + i * board;
                 Color c = Palette.Roof.Lerp(Palette.RoofHi, ArtHash.Unit(s.Index, i, 150) * 0.55f).Darkened(i * 0.012f);
-                ci.DrawRect(new Rect2(top.Position.X, y, top.Size.X, board - 0.6f), c.WithAlpha(alpha));
-                ci.DrawRect(new Rect2(top.Position.X, y + board - 0.6f, top.Size.X, 0.6f), Palette.RoofLine.WithAlpha(0.9f * alpha));
+                b.Rect(top.Position.X, y, top.Size.X, board - 0.6f, c.WithAlpha(alpha));
+                b.Rect(top.Position.X, y + board - 0.6f, top.Size.X, 0.6f, Palette.RoofLine.WithAlpha(0.9f * alpha));
                 float joint = top.Position.X + top.Size.X * (0.2f + 0.6f * ArtHash.Unit(s.Index, i, 151));
-                ci.DrawRect(new Rect2(joint, y, 0.8f, board - 0.6f), Palette.RoofLine.WithAlpha(0.8f * alpha));
+                b.Rect(joint, y, 0.8f, board - 0.6f, Palette.RoofLine.WithAlpha(0.8f * alpha));
             }
-            if (_tex.GrungeDark != null)
-                ci.DrawTextureRectRegion(_tex.GrungeDark, top, new Rect2(top.Position.X * 1.5f, top.Position.Y * 1.5f, top.Size.X * 1.5f, top.Size.Y * 1.5f), new Color(1f, 1f, 1f, 0.45f * alpha));
+            b.TextureRegion(_tex.GrungeDark, top, new Rect2(top.Position.X * 1.5f, top.Position.Y * 1.5f, top.Size.X * 1.5f, top.Size.Y * 1.5f), new Color(1f, 1f, 1f, 0.45f * alpha));
             if (ArtHash.Unit(s.Index, 152) < 0.7f)
                 b.Clear().Ellipse(top.Position.X + top.Size.X * (0.25f + 0.5f * ArtHash.Unit(s.Index, 153)), top.Position.Y + top.Size.Y * 0.3f, top.Size.X * 0.16f, 2.5f, 10).Fill(Palette.Moss.WithAlpha(0.6f * alpha));
-            ci.DrawRect(new Rect2(top.Position.X, top.Position.Y, top.Size.X, top.Size.Y * 0.35f), new Color(1f, 0.92f, 0.75f, 0.06f * alpha));
-            ci.DrawRect(new Rect2(top.Position.X, top.End.Y - top.Size.Y * 0.3f, top.Size.X, top.Size.Y * 0.3f), new Color(0f, 0f, 0f, 0.12f * alpha));
-            ci.DrawRect(new Rect2(top.Position.X, top.End.Y, top.Size.X, 4f), Palette.Roof.Darkened(0.45f).WithAlpha(frame));
-            ci.DrawRect(new Rect2(top.Position.X, top.End.Y + 4f, top.Size.X, 1.5f), new Color(0f, 0f, 0f, 0.35f * frame));
-            ci.DrawRect(new Rect2(top.Position.X, top.Position.Y, top.Size.X, top.Size.Y + 4f), ink, false, 1f);
+            b.Rect(top.Position.X, top.Position.Y, top.Size.X, top.Size.Y * 0.35f, new Color(1f, 0.92f, 0.75f, 0.06f * alpha));
+            b.Rect(top.Position.X, top.End.Y - top.Size.Y * 0.3f, top.Size.X, top.Size.Y * 0.3f, new Color(0f, 0f, 0f, 0.12f * alpha));
+            b.Rect(top.Position.X, top.End.Y, top.Size.X, 4f, Palette.Roof.Darkened(0.45f).WithAlpha(frame));
+            b.Rect(top.Position.X, top.End.Y + 4f, top.Size.X, 1.5f, new Color(0f, 0f, 0f, 0.35f * frame));
+            b.RectOutline(new Rect2(top.Position.X, top.Position.Y, top.Size.X, top.Size.Y + 4f), ink, 1f);
             return;
         }
         // Broken: rafters across the gap, a few boards hanging on, the hole showing the floor.
-        Color beam = Palette.Log.Darkened(0.15f).WithAlpha(alpha);
+        Color beam = Palette.Log.Darkened(0.15f).WithAlpha(frame);
         for (int k = 0; k < 3; k++)
         {
             float bx = top.Position.X + 3f + k * (top.Size.X - 6f) / 2f;
             b.Clear().RoundRect(bx - 1.6f, top.Position.Y, 3.2f, top.Size.Y + 3f, 1f).Shade(beam.Lightened(0.1f), beam.Darkened(0.3f), new Vector2(1f, 0f)).Stroke(ink, 0.7f);
         }
         float bwid = top.Size.X - 6f;
-        b.Clear().RoundRect(top.Position.X + 2f, top.Position.Y + 3f, bwid * 0.75f, 4f, 1f).Fill(Palette.Roof.WithAlpha(alpha)).Stroke(ink, 0.7f);
-        b.Clear().RoundRect(top.Position.X + bwid * 0.35f, top.Position.Y + 8f, bwid * 0.6f, 3.5f, 1f).Fill(Palette.Roof.Darkened(0.1f).WithAlpha(alpha)).Stroke(ink, 0.7f);
+        b.Clear().RoundRect(top.Position.X + 2f, top.Position.Y + 3f, bwid * 0.75f, 4f, 1f).Fill(Palette.Roof.WithAlpha(frame)).Stroke(ink, 0.7f);
+        b.Clear().RoundRect(top.Position.X + bwid * 0.35f, top.Position.Y + 8f, bwid * 0.6f, 3.5f, 1f).Fill(Palette.Roof.Darkened(0.1f).WithAlpha(frame)).Stroke(ink, 0.7f);
         b.Push();
         b.Translate(top.Position.X + top.Size.X * 0.55f, top.Position.Y + top.Size.Y * 0.66f);
         b.Rotate(0.4f);
-        b.Clear().RoundRect(-bwid * 0.3f, -1.8f, bwid * 0.6f, 3.6f, 1f).Fill(Palette.Roof.Darkened(0.2f).WithAlpha(alpha)).Stroke(ink, 0.7f);
+        b.Clear().RoundRect(-bwid * 0.3f, -1.8f, bwid * 0.6f, 3.6f, 1f).Fill(Palette.Roof.Darkened(0.2f).WithAlpha(frame)).Stroke(ink, 0.7f);
         b.Pop();
-        DashedRect(ci, top, Palette.Broken.WithAlpha(Palette.Broken.A * alpha), 1.1f, 4f);
+        DashedRect(b, top, Palette.Broken.WithAlpha(Palette.Broken.A * frame), 1.1f, 4f);
     }
 
     public float RuinRoofSortY => (_m.CoveredRuins.Y + _m.CoveredRuins.H) * T - 0.5f;
@@ -606,15 +656,14 @@ public sealed class WorldArt
     /// <summary>The ruins' heavy old slab, cracked and partly fallen, resting on the north wall and two stone posts.</summary>
     public void DrawRuinRoof(Brush b, float alpha)
     {
-        CanvasItem ci = b.Target;
         Rect2 r = TilesRect(_m.CoveredRuins);
         float x0 = r.Position.X, w = r.Size.X;
         float y0 = r.Position.Y - T * 0.5f - WallH, h = r.Size.Y + T * 0.5f;
         RuinPost(b, x0 + 2f, r.End.Y, alpha);
         RuinPost(b, x0 + w - 6f, r.End.Y, alpha);
         b.Clear().Add(x0 - 2f, y0).Add(x0 + w + 2f, y0).Add(x0 + w + 2f, y0 + h * 0.74f).Add(x0 + w * 0.72f, y0 + h * 0.88f).Add(x0 + w * 0.45f, y0 + h * 0.76f).Add(x0 + w * 0.2f, y0 + h - 2f).Add(x0 - 2f, y0 + h - 2f);
-        b.Shade(Palette.Stone.WithAlpha(alpha), Palette.StoneLo.Darkened(0.25f).WithAlpha(alpha), Brush.LightDir).Stroke(Palette.Ink.WithAlpha(alpha), 1f);
-        if (_tex.Stone != null) ci.DrawTextureRectRegion(_tex.Stone, new Rect2(x0, y0, w, h * 0.72f), new Rect2(x0 * 1.6f, y0 * 1.6f, w * 1.6f, h * 1.15f), new Color(0.62f, 0.62f, 0.6f, 0.45f * alpha));
+        b.Shade(Palette.Stone.WithAlpha(alpha), Palette.StoneLo.Darkened(0.25f).WithAlpha(alpha), Brush.LightDir).Stroke(Palette.Ink.WithAlpha(Math.Max(alpha, 0.8f)), 1f);
+        b.TextureRegion(_tex.Stone, new Rect2(x0, y0, w, h * 0.72f), new Rect2(x0 * 1.6f, y0 * 1.6f, w * 1.6f, h * 1.15f), new Color(0.62f, 0.62f, 0.6f, 0.45f * alpha));
         b.Line(x0 + w * 0.3f, y0 + 3f, x0 + w * 0.42f, y0 + h * 0.5f, Palette.Ink.WithAlpha(0.7f * alpha), 0.8f);
         b.Line(x0 + w * 0.42f, y0 + h * 0.5f, x0 + w * 0.6f, y0 + h * 0.62f, Palette.Ink.WithAlpha(0.7f * alpha), 0.8f);
         b.Clear().Ellipse(x0 + w * 0.25f, y0 + h * 0.18f, w * 0.12f, h * 0.06f, 10).Fill(Palette.Moss.WithAlpha(0.7f * alpha));
@@ -622,7 +671,8 @@ public sealed class WorldArt
 
     private static void RuinPost(Brush b, float x, float bottom, float alpha) =>
         b.Clear().RoundRect(x, bottom - WallH - 2f, 4f, WallH + 2f, 1f)
-            .Shade(Palette.StoneHi.WithAlpha(alpha), Palette.StoneLo.WithAlpha(alpha), new Vector2(1f, 0f)).Stroke(Palette.Ink.WithAlpha(alpha), 0.8f);
+            .Shade(Palette.StoneHi.WithAlpha(alpha), Palette.StoneLo.WithAlpha(alpha), new Vector2(1f, 0f)).Stroke(Palette.Ink.WithAlpha(Math.Max(alpha, 0.8f)), 0.8f);
+
     public float HearthSortY => (_m.Hearth.Y + 0.78f) * T;
 
     public Vector2 HearthCenter => Center(_m.Hearth) + new Vector2(0f, 1f);
@@ -631,7 +681,6 @@ public sealed class WorldArt
     public void DrawHearth(Brush b, float time)
     {
         Vector2 c = HearthCenter;
-        Figures.Shadow(b, _tex, c.X + 1f, c.Y + 3f, 12f, 6f, 0.3f);
         b.Clear().Ellipse(c.X, c.Y + 1f, 8.6f, 5.4f, 16).Fill(Palette.Hex(0x2a221a)).Stroke(Palette.Ink, 0.8f);
         for (int i = 0; i < 9; i++)
         {
@@ -691,10 +740,9 @@ public sealed class WorldArt
     public static float StackSortY(ItemStack s) => (s.Pos.Y + 0.7f) * T;
 
     /// <summary>Goods on the ground: a log pile for timber, baskets heaped with berries, a sack for anything else.</summary>
-    public void DrawStack(Brush b, ItemStack s)
+    public static void DrawStack(Brush b, ItemStack s)
     {
         float x = (s.Pos.X + 0.5f) * T, y = (s.Pos.Y + 0.62f) * T;
-        Figures.Shadow(b, _tex, x + 1.5f, y + 2f, 10f, 4f, 0.35f);
         switch (s.DefId)
         {
             case "timber":
@@ -750,7 +798,6 @@ public sealed class WorldArt
     {
         Vector2 c = Center(_m.WatchPost);
         float x = c.X - 2f, foot = c.Y + T * 0.3f, top = c.Y - T * 1.15f;
-        Figures.Shadow(b, _tex, x + 3f, foot, 6f, 2.5f, 0.35f);
         b.Clear().RoundRect(x - 1.8f, top, 3.6f, foot - top, 1f).Shade(Palette.Trunk.Lightened(0.1f), Palette.TrunkLo, new Vector2(1f, 0f)).Stroke(Palette.Ink, 0.8f);
         b.Clear().RoundRect(x - 1f, top + 3f, 9f, 2.2f, 0.8f).Fill(Palette.Trunk).Stroke(Palette.Ink, 0.7f);
         Vector2 l = LanternAt;
@@ -765,15 +812,15 @@ public sealed class WorldArt
 
     public static Rect2 TilesRect(SimRect r) => new(r.X * T, r.Y * T, r.W * T, r.H * T);
 
-    public static void DashedRect(CanvasItem ci, Rect2 r, Color color, float width, float dash)
+    public static void DashedRect(Brush b, Rect2 r, Color color, float width, float dash)
     {
         var a = r.Position;
         var b2 = new Vector2(r.End.X, r.Position.Y);
         var c = r.End;
         var d = new Vector2(r.Position.X, r.End.Y);
-        ci.DrawDashedLine(a, b2, color, width, dash);
-        ci.DrawDashedLine(b2, c, color, width, dash);
-        ci.DrawDashedLine(c, d, color, width, dash);
-        ci.DrawDashedLine(d, a, color, width, dash);
+        b.Dashed(a, b2, color, width, dash);
+        b.Dashed(b2, c, color, width, dash);
+        b.Dashed(c, d, color, width, dash);
+        b.Dashed(d, a, color, width, dash);
     }
 }

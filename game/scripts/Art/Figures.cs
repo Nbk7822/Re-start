@@ -599,6 +599,20 @@ public static class Figures
     }
 
     /// <summary>A soft shadow on the ground (texture, or a flat ellipse without it).</summary>
+    /// <summary>
+    /// Just the person's ground shadow, for the shadow pass that runs before anything stands up
+    /// (Person itself then gets a shadow alpha of 0), so shadows never break the batch of figures.
+    /// </summary>
+    public static void PersonShadow(Brush b, in FigureLook look, in FigureState s, ArtTextures tex, Vector2 shadow, float alpha)
+    {
+        if (s.Pose is Pose.Sleep or Pose.Downed or Pose.Dead)
+        {
+            if (!s.Carried) Shadow(b, tex, 0f, 0.5f, 15f, 3.8f, alpha);
+            return;
+        }
+        Shadow(b, tex, shadow.X, shadow.Y, 9.5f * look.Wide + MathF.Abs(shadow.X) * 0.5f, 3.4f, alpha);
+    }
+
     public static void Shadow(Brush b, ArtTextures tex, float x, float y, float rx, float ry, float alpha)
     {
         if (alpha <= 0.01f) return;

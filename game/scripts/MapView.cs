@@ -63,6 +63,23 @@ public partial class MapView : Node2D
     private DaylightState _light;
     private Transform2D _toScreen = Transform2D.Identity;
     private Vector2[] _rain = Array.Empty<Vector2>();
+    private readonly System.Diagnostics.Stopwatch _paintWatch = new();
+    private double _paintMs;
+    private float _groundZoom = 1f;
+    private ImageTexture? _groundTex;
+    private SubViewport? _bakeView;
+    private int _bakeFrames;
+
+    /// <summary>How many people (and bodies) are drawn this frame.</summary>
+    public int PeopleShown => _shown.Count;
+
+    /// <summary>Milliseconds spent in the map's own update and drawing since the last call (FrameProbe).</summary>
+    public double TakePaintMilliseconds()
+    {
+        double ms = _paintMs;
+        _paintMs = 0;
+        return ms;
+    }
 
     /// <summary>Per-person view state: where they are drawn, how far through a stride, what they look like.</summary>
     private sealed class Shown
@@ -73,6 +90,8 @@ public partial class MapView : Node2D
         public bool HasLook;
         public CharStatus LookStatus;
         public FigureLook Look;
+        public FigureState State;
+        public Vector2 Feet;
     }
 
     private enum Kind : byte
@@ -138,6 +157,7 @@ public partial class MapView : Node2D
         _rain = new Vector2[260 * 2];
         _gore.Observe(w);
         _light = Daylight.At(w.Tick, w.Content.World, w.Weather.Raining);
+        FrameProbe.AttachIfAsked(host, this);
     }
 
     /// <summary>Lets the gore log see a tick the view did not draw (SimHost's warm-up), so blood lands where it fell.</summary>
@@ -167,6 +187,7 @@ public partial class MapView : Node2D
     public override void _Process(double delta)
     {
         if (_host == null) return;
+        _paintWatch.Restart();
         World w = _host.World;
         WorldDef def = w.Content.World;
         _time += (float)delta;
@@ -177,13 +198,24 @@ public partial class MapView : Node2D
         UpdateRoofs(w, (float)delta);
 
         bool winter = Daylight.IsWinter(w.Tick, def);
-        if (winter != _winterDrawn)
+        float zoom = GetGlobalTransformWithCanvas().X.Length();
+        // The ground is baked once, and again when the season turns. Drawn directly (before the bake
+        // is ready), it is redrawn when the zoom changes enough that its outlines' feather would show.
+        if (winter != _winterDrawn || _bakeView == null && _groundTex == null && _bakeFrames == 0)
         {
             _winterDrawn = winter;
+            StartGroundBake();
             _ground.QueueRedraw();
         }
+        else if (_groundTex == null && MathF.Abs(zoom / _groundZoom - 1f) > 0.25f)
+        {
+            _groundZoom = zoom;
+            _ground.QueueRedraw();
+        }
+        FinishGroundBake();
         _world.QueueRedraw();
         _overlay.QueueRedraw();
+        _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
     }
 
     public override void _UnhandledInput(InputEvent e)
@@ -259,11 +291,86 @@ public partial class MapView : Node2D
 
     // ================= ground =================
 
+    /// <summary>
+    /// The ground is static, so it is drawn once into an offscreen texture (three texels per map
+    /// pixel, mipmapped) and then shown as a single quad: its grime overlays and soft blobs would
+    /// otherwise cost several full-screen passes every frame. Until the bake is ready (or if it
+    /// fails, as in a headless run) the ground is drawn directly.
+    /// </summary>
     private void PaintGround(DrawLayer layer)
     {
         if (_host == null) return;
-        _brush.Begin(layer);
+        Map m = _host.World.Map;
+        if (_groundTex != null)
+        {
+            layer.DrawTextureRect(_groundTex, new Rect2(0f, 0f, m.Width * TileSize, m.Height * TileSize), false);
+            return;
+        }
+        _groundZoom = layer.GetGlobalTransformWithCanvas().X.Length();
+        _brush.Begin(layer, PixelsPerUnit(layer));
         _art.DrawGround(_brush, _winterDrawn);
+        _brush.End();
+    }
+
+    private float BakeScale
+    {
+        get
+        {
+            Map m = _host!.World.Map;
+            float largest = Mathf.Max(m.Width, m.Height) * TileSize;
+            return Mathf.Clamp(Mathf.Floor(8192f / largest), 1f, 3f);
+        }
+    }
+
+    private void StartGroundBake()
+    {
+        _bakeView?.QueueFree();
+        Map m = _host!.World.Map;
+        float s = BakeScale;
+        bool winter = _winterDrawn;
+        var view = new SubViewport
+        {
+            Name = "GroundBake",
+            Size = new Vector2I((int)(m.Width * TileSize * s), (int)(m.Height * TileSize * s)),
+            Disable3D = true,
+            TransparentBg = false,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Once,
+        };
+        DrawLayer painter = DrawLayer.Make("Painter", layer =>
+        {
+            _brush.Begin(layer, s);
+            _art.DrawGround(_brush, winter);
+            _brush.End();
+        });
+        painter.Scale = new Vector2(s, s);
+        painter.TextureRepeat = TextureRepeatEnum.Enabled;
+        painter.TextureFilter = TextureFilterEnum.LinearWithMipmaps;
+        view.AddChild(painter);
+        AddChild(view);
+        _bakeView = view;
+        _bakeFrames = 0;
+    }
+
+    private void FinishGroundBake()
+    {
+        if (_bakeView == null || ++_bakeFrames < 3) return;
+        Image? image = _bakeView.GetTexture()?.GetImage();
+        if (image != null && !image.IsEmpty())
+        {
+            image.GenerateMipmaps();
+            _groundTex = ImageTexture.CreateFromImage(image);
+        }
+        _bakeView.QueueFree();
+        _bakeView = null;
+        _ground.QueueRedraw();
+    }
+
+    /// <summary>Physical screen pixels per unit of a layer's space (the window may be HiDPI and the camera zoomed).</summary>
+    private float PixelsPerUnit(CanvasItem layer)
+    {
+        Vector2 logical = GetViewport().GetVisibleRect().Size;
+        float stretch = logical.X > 0f ? DisplayServer.WindowGetSize().X / logical.X : 1f;
+        return Mathf.Max(0.01f, stretch * layer.GetGlobalTransformWithCanvas().X.Length());
     }
 
     // ================= world =================
@@ -271,29 +378,34 @@ public partial class MapView : Node2D
     private void PaintWorld(DrawLayer layer)
     {
         if (_host == null) return;
+        _paintWatch.Restart();
         World w = _host.World;
         Map m = w.Map;
         WorldDef def = w.Content.World;
         bool raining = w.Weather.Raining;
         bool winter = _winterDrawn;
         _toScreen = GetGlobalTransformWithCanvas();
-        _brush.Begin(layer);
+        _brush.Begin(layer, PixelsPerUnit(layer));
         _hits.Clear();
 
-        if (raining) layer.DrawRect(new Rect2(0, 0, m.Width * TileSize, m.Height * TileSize), new Color(0.03f, 0.05f, 0.08f, 0.24f));
+        _art.DrawGrid(_brush);
+        if (raining) _brush.Rect(0f, 0f, m.Width * TileSize, m.Height * TileSize, new Color(0.03f, 0.05f, 0.08f, 0.24f));
         _art.DrawWater(_brush, _time, raining);
         Gore.DrawDecals(_brush, _tex, _gore.Decals, w.Tick, def.TicksPerHour);
         _art.DrawGrass(_brush, _time, winter, raining ? 1.6f : 0.5f);
-        if (raining) RainSplashes(layer, m);
+        if (raining) RainSplashes();
 
+        // Shadows first, all together (one texture, so one batch), then everything that stands, by depth.
         float shadowAlpha = 0.36f * (1f - 0.8f * _light.Night) * (raining ? 0.6f : 1f);
         var shadow = new Vector2(-_light.SunX * (1f - _light.SunHeight) * 5f, 0.5f);
-
         CollectDrawables(w);
         _drawables.Sort(ByDepth.Instance);
-        foreach (Drawable d in _drawables) Paint(w, d, winter, shadow, shadowAlpha);
+        foreach (Drawable d in _drawables) PaintShadow(w, d, shadow, shadowAlpha);
+        foreach (Drawable d in _drawables) Paint(w, d, winter);
 
         Effects(w);
+        _brush.End();
+        _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
     }
 
     private void CollectDrawables(World w)
@@ -324,8 +436,35 @@ public partial class MapView : Node2D
             Character c = w.Characters[i];
             if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
             Character? bearer = Bearer(w, c);
-            float feet = bearer != null && _shown.TryGetValue(bearer.Id, out Shown? bs) ? bs.At.Y + FeetOffset + 0.1f : s.At.Y + FeetOffset;
-            _drawables.Add(new Drawable(feet, Kind.Figure, i, 0.5f));
+            s.Feet = (bearer != null && _shown.TryGetValue(bearer.Id, out Shown? bs) ? bs.At : s.At) + new Vector2(0f, FeetOffset);
+            s.Look = LookOf(w, c, s);
+            s.State = StateOf(w, c, s);
+            s.State.Carried = bearer != null;
+            _drawables.Add(new Drawable(s.Feet.Y + (bearer != null ? 0.1f : 0f), Kind.Figure, i, 0.5f));
+        }
+    }
+
+    private void PaintShadow(World w, Drawable d, Vector2 shadow, float alpha)
+    {
+        if (alpha <= 0.01f) return;
+        Map m = w.Map;
+        switch (d.Kind)
+        {
+            case Kind.Tree: _art.TreeShadow(_brush, m.Trees[d.Index], shadow, alpha); break;
+            case Kind.Bush: _art.BushShadow(_brush, m.Bushes[d.Index], shadow, alpha); break;
+            case Kind.Stack: _art.StackShadow(_brush, w.Items[d.Index], alpha); break;
+            case Kind.Hearth: _art.HearthShadow(_brush); break;
+            case Kind.WatchPost: _art.PostShadow(_brush, alpha); break;
+            case Kind.Figure:
+            {
+                Shown s = _shown[w.Characters[d.Index].Id];
+                _brush.Push();
+                _brush.Translate(s.Feet.X, s.Feet.Y);
+                _brush.Scale(FigureScale, FigureScale);
+                Figures.PersonShadow(_brush, s.Look, s.State, _tex, shadow / FigureScale, alpha);
+                _brush.Pop();
+                break;
+            }
         }
     }
 
@@ -339,34 +478,30 @@ public partial class MapView : Node2D
         return null;
     }
 
-    private void Paint(World w, Drawable d, bool winter, Vector2 shadow, float shadowAlpha)
+    private void Paint(World w, Drawable d, bool winter)
     {
         Map m = w.Map;
         switch (d.Kind)
         {
-            case Kind.Tree: _art.DrawTree(_brush, m.Trees[d.Index], _time, winter, shadow, shadowAlpha); break;
-            case Kind.Stump: _art.DrawStump(_brush, m.Trees[d.Index]); break;
-            case Kind.Bush: _art.DrawBush(_brush, m.Bushes[d.Index], _time, winter, shadow, shadowAlpha); break;
-            case Kind.Stack: _art.DrawStack(_brush, w.Items[d.Index]); break;
+            case Kind.Tree: _art.DrawTree(_brush, m.Trees[d.Index], _time, winter); break;
+            case Kind.Stump: WorldArt.DrawStump(_brush, m.Trees[d.Index]); break;
+            case Kind.Bush: WorldArt.DrawBush(_brush, m.Bushes[d.Index], _time, winter); break;
+            case Kind.Stack: WorldArt.DrawStack(_brush, w.Items[d.Index]); break;
             case Kind.Wall: _art.DrawWall(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;
-            case Kind.Door: _art.DrawDoor(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;
+            case Kind.Door: WorldArt.DrawDoor(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;
             case Kind.Roof: _art.DrawRoof(_brush, m.Roof[d.Index], _roofAlpha[Math.Min(d.Index, _roofAlpha.Length - 1)]); break;
             case Kind.RuinRoof: _art.DrawRuinRoof(_brush, _ruinAlpha); break;
             case Kind.Hearth: _art.DrawHearth(_brush, _time); break;
             case Kind.WatchPost: _art.DrawWatchPost(_brush, LanternLit(w) && _light.Night > 0.3f, _time); break;
-            case Kind.Figure: PaintFigure(w, w.Characters[d.Index], shadow, shadowAlpha); break;
+            case Kind.Figure: PaintFigure(w.Characters[d.Index]); break;
         }
     }
 
-    private void PaintFigure(World w, Character c, Vector2 shadow, float shadowAlpha)
+    private void PaintFigure(Character c)
     {
         Shown s = _shown[c.Id];
-        Character? bearer = Bearer(w, c);
-        Vector2 at = bearer != null && _shown.TryGetValue(bearer.Id, out Shown? bs) ? bs.At : s.At;
-        Vector2 feet = at + new Vector2(0f, FeetOffset);
-        FigureLook look = LookOf(w, c, s);
-        FigureState state = StateOf(w, c, s);
-        state.Carried = bearer != null;
+        Vector2 feet = s.Feet;
+        FigureState state = s.State;
         bool lying = state.Pose is Pose.Sleep or Pose.Downed or Pose.Dead;
 
         if (c.Id == _host!.SelectedId && !state.Carried)
@@ -378,7 +513,7 @@ public partial class MapView : Node2D
         _brush.Push();
         _brush.Translate(feet.X, feet.Y);
         _brush.Scale(FigureScale, FigureScale);
-        Figures.Person(_brush, look, state, _tex, shadow / FigureScale, shadowAlpha);
+        Figures.Person(_brush, s.Look, state, _tex, Vector2.Zero, 0f);
         _brush.Pop();
 
         Rect2 box = lying
@@ -486,7 +621,7 @@ public partial class MapView : Node2D
         }
     }
 
-    private void RainSplashes(CanvasItem layer, Map m)
+    private void RainSplashes()
     {
         Rect2 view = VisibleMapRect();
         for (int i = 0; i < 90; i++)
@@ -513,16 +648,19 @@ public partial class MapView : Node2D
     private void PaintOverlay(DrawLayer layer)
     {
         if (_host == null) return;
+        _paintWatch.Restart();
         World w = _host.World;
         Vector2 screen = layer.GetViewportRect().Size;
-        _brush.Begin(layer);
-        if (w.Weather.Raining) RainStreaks(layer, screen);
-        if (_tex.Vignette != null) layer.DrawTextureRect(_tex.Vignette, new Rect2(Vector2.Zero, screen), false, new Color(1f, 1f, 1f, 0.55f + 0.35f * _light.Night));
+        _brush.Begin(layer, PixelsPerUnit(layer));
+        if (w.Weather.Raining) RainStreaks(screen);
+        _brush.TextureRect(_tex.Vignette, new Rect2(Vector2.Zero, screen), new Color(1f, 1f, 1f, 0.55f + 0.2f * _light.Night));
         Glints(w);
+        _brush.End(); // text is drawn directly, after everything batched
         Labels(w);
+        _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
     }
 
-    private void RainStreaks(CanvasItem layer, Vector2 screen)
+    private void RainStreaks(Vector2 screen)
     {
         int n = _rain.Length / 2;
         var slant = new Vector2(-0.22f, 1f);
@@ -536,7 +674,7 @@ public partial class MapView : Node2D
             _rain[i * 2] = new Vector2(x, y);
             _rain[i * 2 + 1] = new Vector2(x + slant.X * len, y + slant.Y * len);
         }
-        layer.DrawMultiline(_rain, new Color(0.72f, 0.78f, 0.86f, 0.32f), 1f, true);
+        _brush.Segments(_rain, null, new Color(0.72f, 0.78f, 0.86f, 0.32f), 1f);
     }
 
     /// <summary>A thief's eyes catch the light in the dark.</summary>

@@ -21,8 +21,8 @@ public readonly record struct DaylightState(Rgb Ambient, float Night, float SunH
 /// </summary>
 public static class Daylight
 {
-    public static readonly Rgb NightColor = new(0.18f, 0.21f, 0.33f);
-    public static readonly Rgb DawnBlue = new(0.32f, 0.32f, 0.45f);
+    public static readonly Rgb NightColor = new(0.23f, 0.26f, 0.39f);
+    public static readonly Rgb DawnBlue = new(0.34f, 0.34f, 0.47f);
     public static readonly Rgb DawnColor = new(0.80f, 0.60f, 0.52f);
     public static readonly Rgb DayColor = new(0.94f, 0.92f, 0.87f);
     public static readonly Rgb NoonColor = new(1.00f, 0.98f, 0.94f);

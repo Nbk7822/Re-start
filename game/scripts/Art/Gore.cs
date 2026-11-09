@@ -17,66 +17,70 @@ public static class Gore
     /// <summary>Blood darkens from fresh to dried over this many in-game hours.</summary>
     public const float DryHours = 16f;
 
+    /// <summary>Ground decals are flattened this much for the three-quarter view.</summary>
+    private const float Squash = 0.78f;
+
+    /// <summary>
+    /// Every mark on the ground, drawn texture by texture (pools, then each splatter, the drops, the
+    /// scorch) so consecutive quads share a texture and batch into a few draw calls.
+    /// </summary>
     public static void DrawDecals(Brush b, ArtTextures tex, IReadOnlyList<Decal> decals, long tick, int ticksPerHour)
+    {
+        if (decals.Count == 0) return;
+        Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Pool, -1);
+        Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Scorch, -1);
+        for (int v = 0; v < GoreLog.SplatterVariants; v++) Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Splatter, v);
+        for (int v = 0; v < GoreLog.DropVariants; v++) Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Drops, v);
+    }
+
+    private static void Pass(Brush b, ArtTextures tex, IReadOnlyList<Decal> decals, long tick, int ticksPerHour, DecalKind kind, int variant)
     {
         const float T = MapView.TileSize;
         for (int i = 0; i < decals.Count; i++)
         {
             Decal d = decals[i];
+            if (d.Kind != kind || (variant >= 0 && d.Variant != variant)) continue;
             float hours = Math.Max(0, tick - d.Tick) / (float)ticksPerHour;
             float fade = MathF.Pow(Math.Clamp(1f - d.Wear, 0f, 1f), 0.7f);
             Color blood = Palette.BloodFresh.Lerp(Palette.BloodDry, Math.Clamp(hours / DryHours, 0f, 1f));
             float x = d.X * T, y = d.Y * T;
-            switch (d.Kind)
+            switch (kind)
             {
                 case DecalKind.Splatter:
-                    Draw(b, tex.Splats[d.Variant % tex.Splats.Length], x, y, T * 1.35f * d.Scale, d.Rotation, blood.WithAlpha(0.92f * fade), FallbackSplat);
+                    Draw(b, tex.Splats[d.Variant % tex.Splats.Length], x, y, T * 1.35f * d.Scale, d.Rotation, blood.WithAlpha(0.92f * fade), 0.22f);
                     break;
                 case DecalKind.Drops:
-                    Draw(b, tex.Drops[d.Variant % tex.Drops.Length], x, y, T * 0.9f * d.Scale, d.Rotation, blood.WithAlpha(0.9f * fade), FallbackDrops);
+                    Draw(b, tex.Drops[d.Variant % tex.Drops.Length], x, y, T * 0.9f * d.Scale, d.Rotation, blood.WithAlpha(0.9f * fade), 0.12f);
                     break;
                 case DecalKind.Pool:
                 {
                     float spread = Math.Min(1f, 0.3f + 0.7f * Math.Max(0, tick - d.Tick) / (float)GoreLog.PoolSpreadTicks);
                     Color pool = blood.Darkened(0.12f).WithAlpha(0.95f * (d.Lasting ? 1f : fade));
-                    Draw(b, tex.Pool, x, y, T * 1.55f * d.Scale * spread, d.Rotation, pool, FallbackPool);
+                    Draw(b, tex.Pool, x, y, T * 1.55f * d.Scale * spread, d.Rotation, pool, 0.36f);
                     break;
                 }
                 case DecalKind.Scorch:
-                    Draw(b, tex.Scorch, x, y, T * 1.3f * d.Scale, d.Rotation, new Color(1f, 1f, 1f, 0.9f * (d.Lasting ? 1f : fade)), FallbackScorch);
+                {
+                    float a = 0.9f * (d.Lasting ? 1f : fade);
+                    if (tex.Scorch != null) Draw(b, tex.Scorch, x, y, T * 1.3f * d.Scale, d.Rotation, new Color(1f, 1f, 1f, a), 0.22f);
+                    else Draw(b, null, x, y, T * 1.3f * d.Scale, d.Rotation, new Color(0.06f, 0.05f, 0.04f, a), 0.22f);
                     break;
+                }
             }
         }
     }
 
-    private enum Fallback
-    {
-        Splat,
-        Drops,
-        Pool,
-        Scorch,
-    }
-
-    private const Fallback FallbackSplat = Fallback.Splat;
-    private const Fallback FallbackDrops = Fallback.Drops;
-    private const Fallback FallbackPool = Fallback.Pool;
-    private const Fallback FallbackScorch = Fallback.Scorch;
-
-    /// <summary>A ground decal, flattened a little for the three-quarter view.</summary>
-    private static void Draw(Brush b, Texture2D? tex, float x, float y, float size, float rotation, Color tint, Fallback fallback)
+    /// <summary>A ground decal; without its texture, a flat blot of the same tint.</summary>
+    private static void Draw(Brush b, Texture2D? tex, float x, float y, float size, float rotation, Color tint, float fallbackRadius)
     {
         if (tint.A <= 0.01f) return;
-        b.Push();
-        b.Translate(x, y);
-        b.Scale(1f, 0.78f);
-        b.Rotate(rotation);
-        if (tex != null) b.Target.DrawTextureRect(tex, new Rect2(-size / 2f, -size / 2f, size, size), false, tint);
-        else
+        if (tex != null)
         {
-            float r = fallback switch { Fallback.Pool => 0.36f, Fallback.Drops => 0.12f, _ => 0.22f } * size;
-            b.Clear().Ellipse(0f, 0f, r, r * 0.8f, 14).Fill(fallback == Fallback.Scorch ? new Color(0.06f, 0.05f, 0.04f, tint.A) : tint);
+            b.Decal(tex, x, y, size, rotation, Squash, tint);
+            return;
         }
-        b.Pop();
+        float r = fallbackRadius * size;
+        b.Clear().Ellipse(x, y, r, r * Squash, 14).Fill(tint);
     }
 
     /// <summary>Flies wheeling over a body (by day).</summary>
