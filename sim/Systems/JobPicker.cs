@@ -65,7 +65,7 @@ public static class JobPicker
             if (care != null) return care;
         }
 
-        if (sp.CanDonateBlood && c.Health > 800 && Traits.Any(w, c, t => t.OffersBlood))
+        if (sp.CanDonateBlood && c.Health > 800 && (Traits.Any(w, c, t => t.OffersBlood) || Culture.Ways.BloodOffer(w, c) != null))
         {
             Character? vampire = BloodJobs.NeedyVampire(w, c);
             if (vampire != null) return new Job { Kind = JobKind.GiveBlood, TargetId = vampire.Id, Target = vampire.Pos, CauseEvent = vampire.LastFoodEvent };

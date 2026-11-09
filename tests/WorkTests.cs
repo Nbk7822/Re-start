@@ -112,6 +112,7 @@ public class WorkTests
         World w = Only(1, "ilex", "mira");
         w.Tick = 22 * w.Content.World.TicksPerHour;
         Character ilex = Cast(w, "ilex"), mira = Cast(w, "mira");
+        mira.CultureId = ""; mira.FaithId = ""; // no people's stance or blood custom moves her consent (ADR-0023)
         ilex.Food = 250;
         Relations.ChangeOpinion(w, mira, ilex.Id, -60, 0);
         Run(w, 2_000, () => w.Log.All.Any(e => e.Key == "event.social.blood_refused"));

@@ -167,6 +167,108 @@ public class CultureHookTests
         Assert.Equal(0, Ways.StanceInsult(w, ilex, mira));
     }
 
+    // ---- Blood stance: taboo, gift, and stance in consent ----
+
+    /// <summary>Puts b on a passable tile next to a, so jobs between them start in reach.</summary>
+    internal static void NextTo(World w, Character a, Character b)
+    {
+        foreach (Point p in new[] { new Point(a.Pos.X + 1, a.Pos.Y), new Point(a.Pos.X - 1, a.Pos.Y), new Point(a.Pos.X, a.Pos.Y + 1), new Point(a.Pos.X, a.Pos.Y - 1) })
+            if (w.Map.Passable(p)) { b.Pos = p; return; }
+        throw new InvalidOperationException("no free tile next to " + a.CastKey);
+    }
+
+    private static (World W, Character Donor, Character Vampire) BloodCamp()
+    {
+        World w = Camp(TestContent.Db, 1, "mira", "ilex");
+        Character mira = Cast(w, "mira"), ilex = Cast(w, "ilex");
+        mira.Traits = new List<string> { "protective", "practical" };
+        ilex.Traits = new List<string> { "proud", "practical" };
+        Belong(mira, "night");
+        Belong(ilex, "night");
+        Hold(w, "night", "veiled_greeting", "blood_taboo");
+        w.Tick = 22L * w.Content.World.TicksPerHour; // night: no sun
+        NextTo(w, mira, ilex);
+        return (w, mira, ilex);
+    }
+
+    [Fact]
+    public void BloodTabooRefusesAndSaysWhy()
+    {
+        (World w, Character mira, Character ilex) = BloodCamp();
+        Relations.ChangeOpinion(w, mira, ilex.Id, 20, 0);
+        Assert.Equal("event.culture.blood_taboo.refused", BloodJobs.RefusalKey(w, mira, ilex));
+
+        SimEvent thirst = w.Log.Emit(w, SystemTag.Needs, "event.needs.thirsting", new[] { ilex.Id }, Array.Empty<long>());
+        var job = new Job { Kind = JobKind.RequestBlood, TargetId = mira.Id, Target = mira.Pos, CauseEvent = thirst.Id };
+        Assert.True(BloodJobs.Request(w, ilex, job));
+        SimEvent ask = w.Log.All.Single(e => e.Key == "event.social.blood_request");
+        SimEvent no = w.Log.All.Last();
+        Assert.Equal("event.culture.blood_taboo.refused", no.Key);
+        Assert.Equal(SystemTag.Culture, no.System);
+        Assert.Equal(new[] { ask.Id }, no.Causes);
+        Assert.Equal(ilex.LastFoodEvent, no.Id);
+        string nightName = w.Content.Loc.Get(Ways.CultureById(w, "night")!.NameKey);
+        Assert.Equal("Mira refused to give Ilex blood; " + nightName + " forbid it.", Return.Sim.Api.EventText.Describe(w, no));
+        // Not personal: 40% of the plain refusal's sting (Ilex is Proud, so the plain one is 160%).
+        Assert.Equal(-10 * (160 * CultureTuning.CustomRefusalOpinionPct / 100) / 100, Relations.Opinion(w, ilex.Id, mira.Id));
+        Assert.Contains(w.Culture.Deeds, d => d.Kind == DeedKind.BloodRefused && d.EventId == no.Id && d.DoerId == mira.Id);
+
+        // Without the taboo the same donor consents; someone who would refuse anyway gives the plain reason.
+        Hold(w, "night", "veiled_greeting");
+        Assert.Null(BloodJobs.RefusalKey(w, mira, ilex));
+        Hold(w, "night", "veiled_greeting", "blood_taboo");
+        Relations.ChangeOpinion(w, mira, ilex.Id, -25, 0);
+        Assert.Equal("event.social.blood_refused", BloodJobs.RefusalKey(w, mira, ilex));
+    }
+
+    [Fact]
+    public void AStanceMovesConsent()
+    {
+        (World w, Character mira, Character ilex) = BloodCamp();
+        Hold(w, "night", "veiled_greeting");
+        Belong(mira, "hearth"); // the Hearthfolk are wary of vampires: consent needs an opinion of 10
+        Hold(w, "hearth", "clasp_greeting");
+        Relations.ChangeOpinion(w, mira, ilex.Id, 9, 0);
+        Assert.Equal("event.social.blood_refused", BloodJobs.RefusalKey(w, mira, ilex));
+        Relations.ChangeOpinion(w, mira, ilex.Id, 1, 0);
+        Assert.Null(BloodJobs.RefusalKey(w, mira, ilex));
+        Belong(mira, "ashen"); // the Ashen revere them: consent even when cool toward them
+        Hold(w, "ashen", "bow_greeting");
+        Relations.ChangeOpinion(w, mira, ilex.Id, -40, 0);
+        Assert.Null(BloodJobs.RefusalKey(w, mira, ilex));
+    }
+
+    [Fact]
+    public void BloodGiftOffersUnasked()
+    {
+        (World w, Character mira, Character ilex) = BloodCamp();
+        Hold(w, "night", "veiled_greeting");
+        Belong(mira, "night", "ember", 50);
+        HoldFaith(w, "ember", "blood_gift");
+        ilex.Food = 100;
+        SimEvent thirst = w.Log.Emit(w, SystemTag.Needs, "event.needs.thirsting", new[] { ilex.Id }, Array.Empty<long>());
+        ilex.LastFoodEvent = thirst.Id;
+
+        Job? job = JobPicker.Choose(w, mira);
+        Assert.Equal(JobKind.GiveBlood, job?.Kind);
+        Assert.Equal(ilex.Id, job!.TargetId);
+        Assert.False(BloodJobs.Give(w, mira, job));
+        SimEvent offer = w.Log.All.Last();
+        Assert.Equal("event.culture.blood_gift.offered", offer.Key);
+        Assert.Equal(SystemTag.Culture, offer.System);
+        Assert.Equal(new[] { thirst.Id }, offer.Causes);
+        Assert.Equal(JobKind.RequestBlood, ilex.Job?.Kind);
+
+        // Lapsed: the faith no longer binds, so no offer. Generous: the person's own offer, the plain key.
+        mira.Devotion = 10;
+        Assert.NotEqual(JobKind.GiveBlood, JobPicker.Choose(w, mira)?.Kind);
+        mira.Traits = new List<string> { "generous", "practical" };
+        ilex.Job = null;
+        var generous = new Job { Kind = JobKind.GiveBlood, TargetId = ilex.Id, Target = ilex.Pos, CauseEvent = thirst.Id };
+        BloodJobs.Give(w, mira, generous);
+        Assert.Equal("event.social.blood_offered", w.Log.All.Last().Key);
+    }
+
     [Fact]
     public void StancesShiftWarmthInsultAndConsent()
     {
