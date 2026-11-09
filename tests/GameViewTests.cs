@@ -338,6 +338,30 @@ public class GameViewTests
     }
 
     [Fact]
+    public void PeopleSittingByTheFireFaceIt()
+    {
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        Character oren = w.Characters.First(c => c.CastKey == "oren");
+        Return.Sim.Core.Point hearth = w.Map.Hearth;
+        oren.Job = null;
+        oren.Thoughts.Clear();
+        oren.Facing = Facing.W;
+
+        oren.Pos = new Return.Sim.Core.Point(hearth.X, hearth.Y + 1);
+        Assert.Equal(Pose.Sit, Poses.For(w, oren, moving: false));
+        Assert.Equal(Facing.N, Poses.FacingOf(w, oren, moving: false));
+        oren.Pos = new Return.Sim.Core.Point(hearth.X - Poses.HearthSitRange, hearth.Y);
+        Assert.Equal(Facing.E, Poses.FacingOf(w, oren, moving: false));
+        Assert.Equal(Facing.W, Poses.FacingOf(w, oren, moving: true));
+
+        // Out of the fire's reach they stand, facing the way they last stepped.
+        oren.Pos = new Return.Sim.Core.Point(hearth.X - Poses.HearthSitRange - 2, hearth.Y);
+        Assert.Equal(Pose.Stand, Poses.For(w, oren, moving: false));
+        Assert.Equal(Facing.W, Poses.FacingOf(w, oren, moving: false));
+    }
+
+    [Fact]
     public void WorkersHoldTheirTools()
     {
         var c = new Character { Status = CharStatus.Member, Job = new Job { Kind = JobKind.GatherTimber, Stage = 1 } };

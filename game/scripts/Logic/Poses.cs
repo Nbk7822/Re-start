@@ -161,16 +161,20 @@ public static class Poses
 
     /// <summary>
     /// Which way to draw someone: toward whoever they are talking to (or tending, feeding, or
-    /// fighting) while they stand still, otherwise the sim's facing (the way they last stepped).
+    /// fighting) while they stand still (two on one tile stand side by side in id order, so they
+    /// turn to each other); else, sitting by the hearth, toward the fire; otherwise the sim's facing
+    /// (the way they last stepped).
     /// </summary>
     public static Facing FacingOf(World w, Character c, bool moving)
     {
         if (moving || c.Status != CharStatus.Member && c.Status != CharStatus.Hostile) return c.Facing;
         int partner = TalkPartner(w, c);
-        if (partner == 0) return c.Facing;
-        Character? other = w.Find(partner);
-        if (other == null || !other.IsActive || other.Pos == c.Pos) return c.Facing;
-        return Toward(c.Pos, other.Pos);
+        Character? other = partner == 0 ? null : w.Find(partner);
+        if (other != null && other.IsActive)
+            return other.Pos != c.Pos ? Toward(c.Pos, other.Pos) : c.Id < other.Id ? Facing.E : Facing.W;
+        SimPoint hearth = w.Map.Hearth;
+        if (c.Pos != hearth && c.Pos.ChebyshevTo(hearth) <= HearthSitRange && For(w, c, false) == Pose.Sit) return Toward(c.Pos, hearth);
+        return c.Facing;
     }
 
     /// <summary>The same rule the sim uses when someone steps (TravelSystem.FacingFor).</summary>

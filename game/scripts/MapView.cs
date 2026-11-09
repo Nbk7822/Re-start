@@ -30,6 +30,15 @@ public partial class MapView : Node2D
     /// <summary>Feet stand a little below the tile centre, so a figure rises into the tile behind.</summary>
     private const float FeetOffset = TileSize * 0.3f;
 
+    /// <summary>Someone lying on the ground (not in a bed) lies across the tile's centre, clear of a wall top in front.</summary>
+    private const float LyingOffset = TileSize * 0.05f;
+
+    /// <summary>People sharing a tile stand this far apart, side by side (view only).</summary>
+    private const float SpreadStep = TileSize * 0.3f;
+
+    /// <summary>Someone sitting by the fire sits back this far from the hearth's stones (view only).</summary>
+    private const float HearthPush = TileSize * 0.22f;
+
     /// <summary>Walk cycles per tile walked.</summary>
     private const float StridesPerTile = 0.85f;
 
@@ -54,7 +63,10 @@ public partial class MapView : Node2D
     private readonly List<Drawable> _drawables = new();
     private readonly List<(int Id, Rect2 Box)> _hits = new();
     private readonly List<NameTag> _labels = new();
+    private readonly List<TextMark> _marks = new();
     private readonly List<Rect2> _placed = new();
+    private readonly List<(int Id, Rect2 Box)> _bodies = new();
+    private string _sleepMark = "";
     private readonly Dictionary<string, Color> _castColors = new(StringComparer.Ordinal);
     private readonly float[] _roofAlpha = new float[16];
     private float _ruinAlpha = 1f;
@@ -84,14 +96,23 @@ public partial class MapView : Node2D
     /// <summary>Per-person view state: where they are drawn, how far through a stride, what they look like.</summary>
     private sealed class Shown
     {
+        /// <summary>Where the sim has them, eased (a tile centre, or between tiles while stepping).</summary>
         public Vector2 At;
+
+        /// <summary>A view-only nudge off that point, eased: side by side on a shared tile, back from the fire.</summary>
+        public Vector2 Spread;
         public float Phase;
         public bool Moving;
         public bool HasLook;
         public CharStatus LookStatus;
         public FigureLook Look;
         public FigureState State;
+
+        /// <summary>Where the figure's feet are drawn this frame (everything attached to a person reads this).</summary>
         public Vector2 Feet;
+
+        /// <summary>How far above the feet the top of the head is this frame (mood marks sit there).</summary>
+        public float HeadAbove;
     }
 
     private enum Kind : byte
@@ -111,7 +132,9 @@ public partial class MapView : Node2D
 
     private readonly record struct Drawable(float Y, Kind Kind, int Index, float Order);
 
-    private readonly record struct NameTag(int Id, Vector2 Feet, Vector2 Head, string Name, string? Emote, bool Dead, bool Asleep, bool Hostile);
+    private readonly record struct NameTag(int Id, Vector2 Feet, string Name, bool Dead, bool Hostile);
+
+    private readonly record struct TextMark(Vector2 At, string Text, int Size, Color Color, Vector2 Align, int Outline);
 
     private sealed class ByDepth : IComparer<Drawable>
     {
@@ -130,6 +153,7 @@ public partial class MapView : Node2D
     {
         _host = host;
         _font = ThemeDB.FallbackFont;
+        _sleepMark = Ui.T("ui.emote.zzz");
         _tex = ArtTextures.Load();
         _looks = LoadLooks();
         World w = host.World;
@@ -237,6 +261,8 @@ public partial class MapView : Node2D
     {
         float speed = Mathf.Max(1, _host!.Clock.MultiplierOf(_host.Clock.Speed));
         float alpha = 1f - Mathf.Exp(-(float)delta * 18f * speed);
+        // Stepping aside is eased at its own pace, so someone walking through a busy tile causes a small shuffle, not a jump.
+        float settle = 1f - Mathf.Exp(-(float)delta * 9f);
         foreach (Character c in w.Characters)
         {
             bool drawn = (c.IsActive || c.Status == CharStatus.Dead) && w.Map.InBounds(c.Pos);
@@ -253,18 +279,48 @@ public partial class MapView : Node2D
                 int ticks = TravelSystem.TicksFor(w, c, c.Pos, next);
                 target = target.Lerp(TileCenter(next), Mathf.Clamp(c.MoveTicks / (float)Math.Max(1, ticks), 0f, 1f));
             }
+            Vector2 nudge = Settle(w, c, stepping);
             if (!_shown.TryGetValue(c.Id, out Shown? s))
             {
-                s = new Shown { At = target };
+                s = new Shown { At = target, Spread = nudge };
                 _shown[c.Id] = s;
             }
             Vector2 was = s.At;
             s.At = was.DistanceTo(target) > TileSize * 3 ? target : was.Lerp(target, alpha);
+            s.Spread = s.Spread.Lerp(nudge, settle);
             float moved = s.At.DistanceTo(was);
             s.Moving = c.IsActive && !c.Downed && !c.Asleep && (stepping || s.At.DistanceTo(target) > 0.6f);
             if (s.Moving) s.Phase = (s.Phase + moved / TileSize * StridesPerTile) % 1f;
         }
     }
+
+    /// <summary>
+    /// Where someone stands off their point, view only: people on the same tile stand side by side
+    /// (ordered by id, so the order never flickers), and someone sitting by the hearth sits back
+    /// from the stones. The dead and the downed stay on the blood they lie in; a carried patient
+    /// goes with the bearer.
+    /// </summary>
+    private static Vector2 Settle(World w, Character c, bool stepping)
+    {
+        var nudge = Vector2.Zero;
+        if (Spreads(c))
+        {
+            int n = 0, k = 0;
+            foreach (Character o in w.Characters)
+            {
+                if (o.Pos != c.Pos || !Spreads(o)) continue;
+                n++;
+                if (o.Id < c.Id) k++;
+            }
+            if (n > 1) nudge.X = (k - (n - 1) / 2f) * SpreadStep;
+        }
+        SimPoint hearth = w.Map.Hearth;
+        if (!stepping && c.Pos != hearth && c.Pos.ChebyshevTo(hearth) <= Poses.HearthSitRange && Poses.For(w, c, false) == Pose.Sit)
+            nudge += (TileCenter(c.Pos) - TileCenter(hearth)).Normalized() * HearthPush;
+        return nudge;
+    }
+
+    private static bool Spreads(Character c) => c.IsActive && !c.Downed;
 
     private void UpdateRoofs(World w, float delta)
     {
@@ -436,12 +492,30 @@ public partial class MapView : Node2D
             Character c = w.Characters[i];
             if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
             Character? bearer = Bearer(w, c);
-            s.Feet = (bearer != null && _shown.TryGetValue(bearer.Id, out Shown? bs) ? bs.At : s.At) + new Vector2(0f, FeetOffset);
             s.Look = LookOf(w, c, s);
             s.State = StateOf(w, c, s);
             s.State.Carried = bearer != null;
+            bool lying = s.State.Pose is Pose.Sleep or Pose.Downed or Pose.Dead;
+            float anchor = lying && !s.State.OnBed && !s.State.Carried ? LyingOffset : FeetOffset;
+            Vector2 at = bearer != null && _shown.TryGetValue(bearer.Id, out Shown? bs) ? bs.At + bs.Spread : s.At + s.Spread;
+            s.Feet = at + new Vector2(0f, anchor);
+            s.HeadAbove = HeadAbove(s.State);
             _drawables.Add(new Drawable(s.Feet.Y + (bearer != null ? 0.1f : 0f), Kind.Figure, i, 0.5f));
         }
+    }
+
+    /// <summary>How far above the feet the top of a figure's head is, by pose (mood marks sit there).</summary>
+    private static float HeadAbove(in FigureState s)
+    {
+        if (s.Carried) return TileSize * 1.2f;
+        return s.Pose switch
+        {
+            Pose.Sleep when s.OnBed => TileSize * 0.85f,
+            Pose.Sleep or Pose.Downed or Pose.Dead => TileSize * 0.42f,
+            Pose.Sit => TileSize * 1.32f - 9f * FigureScale,
+            Pose.Crouch => TileSize * 1.32f - 5f * FigureScale,
+            _ => TileSize * 1.32f,
+        };
     }
 
     private void PaintShadow(World w, Drawable d, Vector2 shadow, float alpha)
@@ -510,15 +584,34 @@ public partial class MapView : Node2D
             _brush.Clear().Ellipse(feet.X, feet.Y + (lying ? -1f : 0.5f), lying ? 15.6f : 11.6f, lying ? 7f : 5.6f, 20).Stroke(Palette.Ink.WithAlpha(0.7f), 0.8f);
         }
 
+        // Someone burning in the sun glows like the fire they are: readable at any zoom, by day.
+        if (state.Burning && _tex.Light != null)
+        {
+            float flick = 0.85f + 0.1f * MathF.Sin(_time * 11.3f + c.Id) + 0.05f * MathF.Sin(_time * 23.1f + c.Id * 2f);
+            float size = TileSize * 3.3f * (0.94f + 0.06f * flick);
+            _brush.Texture(_tex.Light, feet.X, feet.Y - TileSize * 0.6f, size, size * 1.1f, 0f, new Color(1f, 0.45f, 0.12f, 0.85f * flick));
+            _brush.Texture(_tex.Light, feet.X, feet.Y - TileSize * 0.65f, size * 0.55f, size * 0.7f, 0f, new Color(1f, 0.62f, 0.25f, 0.75f * flick));
+        }
+
         _brush.Push();
         _brush.Translate(feet.X, feet.Y);
         _brush.Scale(FigureScale, FigureScale);
         Figures.Person(_brush, s.Look, state, _tex, Vector2.Zero, 0f);
         _brush.Pop();
 
-        Rect2 box = lying
-            ? new Rect2(feet.X - TileSize * 0.7f, feet.Y - TileSize * (state.Carried ? 1.5f : 0.6f), TileSize * 1.4f, TileSize * 0.8f)
-            : new Rect2(feet.X - TileSize * 0.42f, feet.Y - TileSize * 1.32f, TileSize * 0.84f, TileSize * 1.45f);
+        // Small flames lick up off the shoulders and head of the burning.
+        if (state.Burning && !lying)
+        {
+            float top = feet.Y - s.HeadAbove;
+            WorldArt.Flames(_brush, feet.X - 3.5f, top + TileSize * 0.38f, _time * 1.3f + c.Id, 0.42f);
+            WorldArt.Flames(_brush, feet.X + 3f, top + TileSize * 0.3f, _time * 1.1f + c.Id * 2.3f, 0.38f);
+            WorldArt.Flames(_brush, feet.X + 0.5f, top + TileSize * 0.08f, _time * 1.2f + c.Id * 3.1f, 0.34f);
+        }
+
+        Rect2 box = state.Carried ? new Rect2(feet.X - TileSize * 0.7f, feet.Y - TileSize * 1.5f, TileSize * 1.4f, TileSize * 0.8f)
+            : lying && state.OnBed ? new Rect2(feet.X - TileSize * 0.4f, feet.Y - TileSize * 0.95f, TileSize * 0.8f, TileSize * 1.15f)
+            : lying ? new Rect2(feet.X - TileSize * 0.7f, feet.Y - TileSize * 0.5f, TileSize * 1.4f, TileSize * 0.65f)
+            : new Rect2(feet.X - TileSize * 0.42f, feet.Y - s.HeadAbove, TileSize * 0.84f, s.HeadAbove + TileSize * 0.13f);
         _hits.Add((c.Id, box));
     }
 
@@ -605,8 +698,8 @@ public partial class MapView : Node2D
         foreach (Character c in w.Characters)
         {
             if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
-            Vector2 feet = s.At + new Vector2(0f, FeetOffset);
-            if (GoreLog.Burning(w, c))
+            Vector2 feet = s.Feet;
+            if (s.State.Burning)
             {
                 _art.DrawSmoke(_brush, feet + new Vector2(0f, -TileSize * 0.6f), _time, 1f, wind, c.Id, dark: true);
                 Gore.Embers(_brush, feet.X, feet.Y - TileSize * 0.5f, _time, c.Id);
@@ -682,10 +775,10 @@ public partial class MapView : Node2D
         if (_light.Night < 0.35f) return;
         foreach (Character c in w.Characters)
         {
-            if (c.Status != CharStatus.Hostile || !_shown.TryGetValue(c.Id, out Shown? s)) continue;
-            Facing f = Poses.FacingOf(w, c, s.Moving);
+            if (c.Status != CharStatus.Hostile || c.Downed || !_shown.TryGetValue(c.Id, out Shown? s)) continue;
+            Facing f = s.State.Facing;
             if (f == Facing.N) continue;
-            Vector2 head = _toScreen * (s.At + new Vector2(0f, FeetOffset - 33.4f * FigureScale));
+            Vector2 head = _toScreen * (s.Feet - new Vector2(0f, 33.4f * FigureScale));
             float z = _toScreen.X.Length() * FigureScale;
             var glint = new Color(0.95f, 0.82f, 0.55f, 0.85f * _light.Night);
             if (f == Facing.S)
@@ -697,53 +790,93 @@ public partial class MapView : Node2D
         }
     }
 
+    /// <summary>
+    /// Names, mood marks and stack counts, placed so they cover neither each other nor anyone's head
+    /// and chest. Marks attach to heads (the mood mark at the upper right, the sleep mark at the upper
+    /// left); names go under the feet, or beside them, or one line lower, whichever is clear first.
+    /// </summary>
     private void Labels(World w)
     {
         int selected = _host!.SelectedId;
+        float tile = TileSize * _toScreen.X.Length();
         _labels.Clear();
+        _placed.Clear();
+        _marks.Clear();
+
+        // Obstacles first: every figure (a name keeps off everyone but its owner) and every stack count.
+        _bodies.Clear();
+        foreach ((int id, Rect2 box) in _hits) _bodies.Add((id, ScreenRect(box)));
+        foreach (ItemStack stack in w.Items)
+        {
+            if (stack.Count <= 0) continue;
+            Vector2 corner = (_toScreen * new Vector2((stack.Pos.X + 1f) * TileSize - 1f, (stack.Pos.Y + 1f) * TileSize - 1f)).Round();
+            AddMark(corner, stack.Count < Numbers.Length ? Numbers[stack.Count] : Ui.N(stack.Count), CountFontSize, Palette.Name, new Vector2(1f, 1f), 3);
+        }
+
         foreach (Character c in w.Characters)
         {
             if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
             bool dead = c.Status == CharStatus.Dead;
-            Vector2 feet = s.At + new Vector2(0f, FeetOffset);
-            bool lying = dead || c.Downed || c.Asleep;
-            Vector2 head = feet - new Vector2(0f, lying ? TileSize * 0.65f : TileSize * 1.32f);
-            _labels.Add(new NameTag(c.Id, feet + new Vector2(0f, 2f), head, Ui.T(c.NameKey), dead ? null : ViewText.MoodEmote(w, c), dead, c.Asleep, c.Status == CharStatus.Hostile));
+            Vector2 head = (_toScreen * (s.Feet - new Vector2(0f, s.HeadAbove))).Round();
+            string? emote = dead ? null : ViewText.MoodEmote(w, c);
+            string? glyph = emote == null ? null : ViewText.EmoteGlyph(emote);
+            if (glyph != null) AddMark(head + new Vector2(tile * 0.45f, 0f), glyph, MarkerFontSize, EmoteColor(emote!), new Vector2(0.5f, 1f), 4);
+            if (c.Asleep)
+            {
+                float bob = MathF.Sin(_time * 2f + c.Id) * 2f;
+                AddMark(head + new Vector2(-tile * 0.4f, bob), _sleepMark, 11, new Color(0.85f, 0.85f, 0.9f, 0.85f), new Vector2(0.5f, 1f), 3);
+            }
+            _labels.Add(new NameTag(c.Id, s.Feet + new Vector2(0f, 2f), Ui.T(c.NameKey), dead, c.Status == CharStatus.Hostile));
         }
 
-        // Names go under the feet, left to right; a name that would overlap one already placed drops a line.
+        // Names left to right: under the feet; else beside them (close, then clear of a neighbour's
+        // body); else one line lower; failing all of those, wherever overlaps least.
         _labels.Sort(static (a, b) => a.Feet.X != b.Feet.X ? a.Feet.X.CompareTo(b.Feet.X) : a.Id.CompareTo(b.Id));
-        _placed.Clear();
         foreach (NameTag label in _labels)
         {
             Vector2 size = _font.GetStringSize(label.Name, HorizontalAlignment.Left, -1, NameFontSize);
             Vector2 at = (_toScreen * label.Feet).Round();
-            var box = new Rect2(at.X - size.X / 2 - 3, at.Y, size.X + 6, size.Y - 2);
-            for (int tries = 0; tries < 4 && Overlaps(box, _placed); tries++) box.Position += new Vector2(0, size.Y - 2);
-            _placed.Add(box);
+            float h = size.Y - 2f, near = size.X / 2f + 4f, far = size.X / 2f + tile * 0.42f + 4f;
+            Rect2 best = default;
+            float least = float.MaxValue;
+            for (int k = 0; k < 6; k++)
+            {
+                float dx = k switch { 1 => near, 2 => -near, 3 => far, 4 => -far, _ => 0f };
+                var box = new Rect2(at.X + dx - size.X / 2f - 3f, at.Y + (k == 5 ? h : 0f), size.X + 6f, h);
+                float overlap = OverlapArea(box, _placed);
+                foreach ((int id, Rect2 body) in _bodies)
+                    if (id != label.Id) overlap += OverlapArea(box, body);
+                if (overlap < least)
+                {
+                    least = overlap;
+                    best = box;
+                }
+                if (overlap <= 0f) break;
+            }
+            _placed.Add(best);
             Color color = label.Id == selected ? Palette.Select
                 : label.Dead ? new Color(0.72f, 0.66f, 0.6f, 0.85f)
                 : label.Hostile ? new Color(0.92f, 0.55f, 0.48f)
                 : Palette.Name;
-            Text(new Vector2(at.X, box.Position.Y), label.Name, NameFontSize, color, new Vector2(0.5f, 0f), 4);
-
-            Vector2 head = (_toScreen * label.Head).Round();
-            if (label.Asleep)
-            {
-                float bob = MathF.Sin(_time * 2f + label.Id) * 2f;
-                Text(head + new Vector2(10f, -2f + bob), "z", 11, new Color(0.85f, 0.85f, 0.9f, 0.85f), new Vector2(0.5f, 1f), 3);
-            }
-            if (label.Emote == null) continue;
-            string? glyph = ViewText.EmoteGlyph(label.Emote);
-            if (glyph != null) Text(head, glyph, MarkerFontSize, EmoteColor(label.Emote), new Vector2(0.5f, 1f), 4);
+            Text(new Vector2(best.GetCenter().X, best.Position.Y), label.Name, NameFontSize, color, new Vector2(0.5f, 0f), 4);
         }
 
-        foreach (ItemStack stack in w.Items)
-        {
-            if (stack.Count <= 0) continue;
-            Vector2 corner = _toScreen * new Vector2((stack.Pos.X + 1f) * TileSize - 1f, (stack.Pos.Y + 1f) * TileSize - 1f);
-            Text(corner.Round(), stack.Count < Numbers.Length ? Numbers[stack.Count] : Ui.N(stack.Count), CountFontSize, Palette.Name, new Vector2(1f, 1f), 3);
-        }
+        foreach (TextMark m in _marks) Text(m.At, m.Text, m.Size, m.Color, m.Align, m.Outline);
+    }
+
+    /// <summary>A mark that stays where it is put (on a head, at a stack's corner); names keep clear of it.</summary>
+    private void AddMark(Vector2 at, string text, int fontSize, Color color, Vector2 align, int outline)
+    {
+        Vector2 size = _font.GetStringSize(text, HorizontalAlignment.Left, -1, fontSize);
+        _placed.Add(new Rect2(at.X - size.X * align.X, at.Y - size.Y * align.Y, size.X, size.Y));
+        _marks.Add(new TextMark(at, text, fontSize, color, align, outline));
+    }
+
+    /// <summary>A map-space rectangle on screen (the overlay's space).</summary>
+    private Rect2 ScreenRect(Rect2 map)
+    {
+        Vector2 a = _toScreen * map.Position, b = _toScreen * map.End;
+        return new Rect2(a, b - a).Abs();
     }
 
     private void Text(Vector2 screen, string text, int fontSize, Color color, Vector2 align, int outline)
@@ -755,11 +888,17 @@ public partial class MapView : Node2D
         _overlay.DrawString(_font, pos, text, HorizontalAlignment.Left, -1, fontSize, color);
     }
 
-    private static bool Overlaps(Rect2 box, List<Rect2> placed)
+    private static float OverlapArea(Rect2 box, List<Rect2> placed)
     {
-        foreach (Rect2 r in placed)
-            if (r.Intersects(box)) return true;
-        return false;
+        float area = 0f;
+        foreach (Rect2 r in placed) area += OverlapArea(box, r);
+        return area;
+    }
+
+    private static float OverlapArea(Rect2 a, Rect2 b)
+    {
+        Rect2 i = a.Intersection(b);
+        return i.Size.X > 0f && i.Size.Y > 0f ? i.Size.X * i.Size.Y : 0f;
     }
 
     private static Color EmoteColor(string emote) => emote switch
