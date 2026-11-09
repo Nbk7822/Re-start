@@ -57,10 +57,10 @@ public static class ViewText
     }
 
     /// <summary>
-    /// The one-character mood marker over a person's head: the emote of their most recent thought
-    /// (latest start tick; ties go to the later entry), or null when that thought has no emote.
+    /// The emote id of a person's most recent thought (latest start tick; ties go to the later
+    /// entry), or null when they have no thoughts or that thought has no emote.
     /// </summary>
-    public static string? MoodMarker(World w, Character c)
+    public static string? MoodEmote(World w, Character c)
     {
         string? emote = null;
         long latest = long.MinValue;
@@ -73,6 +73,13 @@ public static class ViewText
             latest = started;
             emote = def.Emote;
         }
+        return string.IsNullOrEmpty(emote) || emote == "none" ? null : emote;
+    }
+
+    /// <summary>The one-character mood marker over a person's head (see <see cref="MoodEmote"/>), or null.</summary>
+    public static string? MoodMarker(World w, Character c)
+    {
+        string? emote = MoodEmote(w, c);
         return emote == null ? null : EmoteGlyph(emote);
     }
 
