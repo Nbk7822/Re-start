@@ -151,6 +151,32 @@ public class GrowthTests
         Assert.True(seen >= 20, $"only {seen} starters wanted something about someone");
     }
 
+    /// <summary>A newcomer's want about someone is about whoever in the camp, as they arrive, they get on with best (or, for a rival, worst).</summary>
+    [Fact]
+    public void ANewcomersWantAboutSomeoneIsAboutTheMemberTheyGetOnWithBestOrWorst()
+    {
+        int seen = 0;
+        for (ulong seed = 1; seed <= 60; seed++)
+        {
+            World w = WorkTests.Only(seed, "you", "mira", "oren", "bram");
+            List<Character> camp = w.Members().ToList();
+            foreach (CastDef cd in Db.Cast.Where(cd => !cd.StartsInCamp && cd.Key != "bram"))
+            {
+                Character c = Cast(w, cd.Key);
+                IncidentSystem.Fire(w, "wanderer_arrives", targetId: c.Id);
+                c.Status = CharStatus.OffMap; // the next newcomer finds the same camp
+                Want want = c.Growth.Want!;
+                if (want.TargetKind != WantTargetKind.Person) continue;
+                seen++;
+                bool worst = Db.WantById(want.TypeId).Pick == "worst_chemistry";
+                int Score(Character o) => worst ? -Relations.Chemistry(w, c, o) : Relations.Chemistry(w, c, o);
+                Assert.Contains(want.TargetId, camp.Select(o => o.Id));
+                Assert.Equal(camp.Max(Score), Score(w.Get(want.TargetId)));
+            }
+        }
+        Assert.True(seen >= 20, $"only {seen} newcomers wanted something about someone");
+    }
+
     /// <summary>
     /// Someone who wanders into an empty camp still wants what their nature says (CharacterNature.WantType),
     /// unless that want is about another person and there is nobody to want it about; only then do they
@@ -453,6 +479,19 @@ public class GrowthTests
         Assert.Equal("You got what you wanted.", EventText.Describe(w, Growth.AdvanceArc(w, you, ArcStage.Resolution, why)));
     }
 
+    [Theory]
+    [InlineData(ArcStage.Failed, "You could not get what you wanted.")]
+    [InlineData(ArcStage.Abandoned, "You gave up on what you wanted.")]
+    public void ArcEndingsSpeakToThePlayer(ArcStage ending, string text)
+    {
+        var s = Simulation.Create(Db, 1);
+        s.Step();
+        World w = s.World;
+        Character you = Cast(w, "you");
+        long why = Mark(w, "event.test.trouble", you.Id).Id;
+        Assert.Equal(text, EventText.Describe(w, Growth.AdvanceArc(w, you, ending, why)));
+    }
+
     [Fact]
     public void AnArcNeedsAWant()
     {
@@ -476,24 +515,34 @@ public class GrowthTests
 
     // ---- What M0 does not do yet
 
-    /// <summary>BIBLE.md 5.3: in M0 nothing advances an arc or mutates a trait, so every growth beat in a year is a want forming, and none ends a story.</summary>
-    [Fact]
-    public void AYearOfPlayFormsWantsButChangesNoTraitAndMovesNoArc()
+    /// <summary>
+    /// BIBLE.md 5.3: in M0 nothing advances an arc or mutates a trait. Checked every hour of a year:
+    /// every trait's origin runs in step with the traits and is still generated, a want never comes
+    /// without its arc (or an arc without its want), everyone living in the camp has a want in the log,
+    /// and no arc has moved. Every growth beat in the year is a want forming, and none ends a story.
+    /// </summary>
+    [Theory]
+    [InlineData(1UL)]
+    [InlineData(2UL)]
+    public void AYearOfPlayFormsWantsButChangesNoTraitAndMovesNoArc(ulong seed)
     {
-        var s = Simulation.Create(Db, 2);
-        s.Advance(Db.World.TicksPerYear);
+        var s = Simulation.Create(Db, seed);
         World w = s.World;
-        foreach (Character c in w.Characters)
+        for (long hour = 0; hour < Db.World.TicksPerYear / Db.World.TicksPerHour; hour++)
         {
-            Assert.True(Growth.InStep(c), $"{c.CastKey}: trait origins out of step with traits");
-            Assert.All(c.Growth.TraitOrigins, o => Assert.Equal(TraitOriginKind.Generated, o.Kind));
-            if (!c.Named)
+            s.Advance(Db.World.TicksPerHour);
+            foreach (Character c in w.Characters)
             {
-                Assert.Null(c.Growth.Want);
-                continue;
+                string who = $"seed {seed}, {(c.Named ? c.CastKey : "character " + c.Id)} at tick {w.Tick}";
+                CharacterGrowth g = c.Growth;
+                Assert.True(Growth.InStep(c), $"{who}: trait origins out of step with traits");
+                Assert.True(g.TraitOrigins.TrueForAll(o => o.Kind == TraitOriginKind.Generated), $"{who}: a trait changed");
+                Assert.True((g.Want == null) == (g.Arc == null), $"{who}: a want and an arc must come together");
+                if (c.Status == CharStatus.Member) Assert.True(g.Want is { FormedEvent: > 0 }, $"{who}: lives in the camp with no want in the log");
+                if (!c.Named) Assert.Null(g.Want);
+                if (g.Want == null) continue;
+                Assert.True(g.Arc!.Stage == ArcStage.Want && g.Want.Status == WantStatus.Active, $"{who}: an arc moved ({g.Arc.Stage}, {g.Want.Status})");
             }
-            Assert.Equal(ArcStage.Want, c.Growth.Arc!.Stage);
-            Assert.Equal(WantStatus.Active, c.Growth.Want!.Status);
         }
         List<SimEvent> beats = w.Log.All.Where(e => e.System == SystemTag.Growth).ToList();
         Assert.Equal(w.Characters.Count(c => c.Named), beats.Count);

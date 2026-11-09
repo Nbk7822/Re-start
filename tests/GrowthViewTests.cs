@@ -136,15 +136,66 @@ public class GrowthViewTests
     {
         Simulation sim = Return.Runner.StoryLog.Simulate(Db, 1, 1);
         World w = sim.World;
+        string happened = WhatHappened(sim);
+        foreach (Character c in w.Characters.Where(c => c.Named))
+            Assert.True(Told(happened, w, w.Log.Get(c.Growth.Want!.FormedEvent)!), $"{c.CastKey}'s want is missing from What happened");
+        Assert.DoesNotContain(Return.Runner.StoryLog.Analyze(w).Stories, s => w.Log.Get(s.TerminalEventId)!.System == SystemTag.Growth);
+    }
+
+    /// <summary>
+    /// Starters who want the same thing form their wants in the same moment, and the log folds them like
+    /// any run of identical steps ("You want to keep the camp safe." then "… and the same with Mira,
+    /// Oren"), so each of them is still told.
+    /// </summary>
+    [Fact]
+    public void StartersWhoShareAWantAreFoldedAndEachIsNamed()
+    {
+        var sim = Simulation.Create(Db, 1);
+        World w = sim.World;
+        foreach (Character c in w.Members())
+            c.Growth.Want = new Want { TypeId = "keep_camp_safe", Status = WantStatus.Active };
+        sim.Step();
+        string happened = WhatHappened(sim);
+        Character you = Cast(w, "you");
+        Assert.Contains(Line(w, w.Log.Get(you.Growth.Want!.FormedEvent)!), happened);
+        foreach (Character c in w.Members().Where(c => c.Id != you.Id))
+        {
+            SimEvent beat = w.Log.Get(c.Growth.Want!.FormedEvent)!;
+            Assert.DoesNotContain(Line(w, beat), happened);
+            Assert.True(Told(happened, w, beat), $"{c.CastKey}'s want is not in the fold");
+        }
+    }
+
+    private static string WhatHappened(Simulation sim)
+    {
         var text = new StringWriter();
         Return.Runner.StoryLog.Write(sim, text);
         string log = text.ToString();
-        string happened = log[log.IndexOf("What happened\n", StringComparison.Ordinal)..log.IndexOf("Stories\n", StringComparison.Ordinal)];
-        foreach (Character c in w.Characters.Where(c => c.Named))
+        return log[log.IndexOf("What happened\n", StringComparison.Ordinal)..log.IndexOf("Stories\n", StringComparison.Ordinal)];
+    }
+
+    /// <summary>An event's own line under "What happened".</summary>
+    private static string Line(World w, SimEvent e) => $"  {EventText.When(w, e.Tick)} — {EventText.Describe(w, e)}\n";
+
+    /// <summary>
+    /// Whether "What happened" tells this beat: on its own line, or folded into the line that follows the
+    /// same beat for someone else ("… and the same with Mira, Oren, …").
+    /// </summary>
+    private static bool Told(string happened, World w, SimEvent beat)
+    {
+        if (happened.Contains(Line(w, beat), StringComparison.Ordinal)) return true;
+        string fold = Db.Loc.Get("log.story.repeat");
+        string lead = fold[..fold.IndexOf("{names}", StringComparison.Ordinal)];
+        string name = EventText.ResolveMid(w, "c:" + beat.Actors[0].ToString(System.Globalization.CultureInfo.InvariantCulture));
+        foreach (SimEvent other in w.Log.All)
         {
-            SimEvent beat = w.Log.Get(c.Growth.Want!.FormedEvent)!;
-            Assert.Contains($"  {EventText.When(w, beat.Tick)} — {EventText.Describe(w, beat)}\n", happened);
+            if (other.Id == beat.Id || other.Key != beat.Key || other.Tick != beat.Tick) continue;
+            string first = Line(w, other);
+            int at = happened.IndexOf(first, StringComparison.Ordinal);
+            if (at < 0) continue;
+            string next = happened[(at + first.Length)..].Split('\n')[0];
+            if (next.Contains(lead, StringComparison.Ordinal) && next.Contains(name, StringComparison.Ordinal)) return true;
         }
-        Assert.DoesNotContain(Return.Runner.StoryLog.Analyze(w).Stories, s => w.Log.Get(s.TerminalEventId)!.System == SystemTag.Growth);
+        return false;
     }
 }
