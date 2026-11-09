@@ -352,6 +352,35 @@ public class GameViewTests
         Assert.Equal(HeldTool.None, Poses.ToolFor(thief, Pose.Downed));
     }
 
+    [Theory]
+    [InlineData(Facing.E)]
+    [InlineData(Facing.W)]
+    public void BlowsAndReachesLandInFrontOfThePerson(Facing facing)
+    {
+        // Seen from the side, a swinging arm (felling, mending, fighting) keeps the hand in front of
+        // the body all through the blow, as do a crouch, sitting, talking and carrying.
+        float d = facing == Facing.E ? 1f : -1f;
+        const float arm = 11.5f;
+        for (int i = 0; i < 400; i++)
+        {
+            float time = i * Poses.SwingSeconds / 100f;
+            foreach (float seed in new[] { 0f, 1.37f, 9.59f })
+            {
+                foreach (Pose pose in new[] { Pose.Swing, Pose.Crouch, Pose.Sit, Pose.Talk })
+                {
+                    float hand = Poses.HandX(Poses.SideArmAngle(Poses.SideArmReach(pose, 0f, time, seed, carrying: false), facing), arm);
+                    Assert.True(hand * d > 0f, $"{pose} facing {facing} at {time:F2}s: hand x {hand:F2}");
+                }
+                float carry = Poses.HandX(Poses.SideArmAngle(Poses.SideArmReach(Pose.Walk, time, time, seed, carrying: true), facing), arm);
+                Assert.True(carry * d > 0f, "carrying: hand behind the body");
+            }
+        }
+
+        // A blow raises the tool above the shoulder (more than a right angle) and strikes down low.
+        var reaches = Enumerable.Range(0, 200).Select(i => Poses.SideArmReach(Pose.Swing, 0f, i * Poses.SwingSeconds / 200f, 0f, false)).ToList();
+        Assert.True(reaches.Max() > MathF.PI / 2f + 0.3f && reaches.Min() < 0.6f);
+    }
+
     [Fact]
     public void DaylightFollowsTheClock()
     {

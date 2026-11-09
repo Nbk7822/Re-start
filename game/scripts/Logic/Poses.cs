@@ -116,6 +116,49 @@ public static class Poses
         };
     }
 
+    /// <summary>Seconds per blow of a swing (felling, mending, fighting).</summary>
+    public const float SwingSeconds = 0.9f;
+
+    /// <summary>
+    /// How far the near arm reaches forward in side view, in radians from hanging straight down
+    /// (positive is toward the facing; the hand is in front of the body anywhere between 0 and π).
+    /// Walking swings it to and fro; a swing raises the tool high in front and brings it down fast
+    /// onto what is in front (a trunk, a roof beam, a thief); a crouch reaches down to the ground;
+    /// sitting rests it on the knees; talking gestures; carrying holds it out under the load.
+    /// </summary>
+    public static float SideArmReach(Pose pose, float phase, float time, float seed, bool carrying)
+    {
+        if (carrying) return 0.9f;
+        switch (pose)
+        {
+            case Pose.Walk:
+                return MathF.Sin(phase * MathF.Tau) * 0.5f;
+            case Pose.Swing:
+            {
+                // Raised slowly over three quarters of the blow, struck down in the last quarter.
+                float k = time / SwingSeconds + seed * 0.13f;
+                k -= MathF.Floor(k);
+                return k < 0.75f ? 0.45f + 1.65f * Ease(k / 0.75f) : 2.1f - 1.65f * Ease((k - 0.75f) / 0.25f);
+            }
+            case Pose.Crouch:
+                return 0.6f + MathF.Sin(time * 3f + seed) * 0.3f;
+            case Pose.Sit:
+                return 0.5f;
+            case Pose.Talk:
+                return 0.7f + MathF.Sin(time * 2.4f + seed) * 0.35f;
+            default:
+                return 0f;
+        }
+    }
+
+    /// <summary>The near arm's rotation in side view (the drawing rotates "down" toward -x for a positive angle).</summary>
+    public static float SideArmAngle(float reach, Facing facing) => facing == Facing.W ? reach : -reach;
+
+    /// <summary>Where the hand of an arm of <paramref name="length"/> rotated by <paramref name="angle"/> ends up across the body (+x is east).</summary>
+    public static float HandX(float angle, float length) => -MathF.Sin(angle) * length;
+
+    private static float Ease(float t) => t * t * (3f - 2f * t);
+
     /// <summary>
     /// Which way to draw someone: toward whoever they are talking to (or tending, feeding, or
     /// fighting) while they stand still, otherwise the sim's facing (the way they last stepped).

@@ -102,6 +102,10 @@ public static class Figures
         Shadow(b, tex, shadow.X, shadow.Y, 9.5f * W + MathF.Abs(shadow.X) * 0.5f, 3.4f, shadowAlpha);
 
         float bob = walking ? -MathF.Abs(MathF.Cos(s.Phase * MathF.Tau)) * 1.2f : 0f;
+
+        // A seated person's legs rest on the ground (the feet frame); the body above drops onto them.
+        if (sit) SeatedLegs(b, look, side, d, W);
+
         b.Push();
         b.Translate(0f, bob + drop);
 
@@ -120,7 +124,6 @@ public static class Figures
                 Leg(b, look, 2.6f * W, walking ? MathF.Max(0f, -sw) * 2.5f : lift, 0f, T, false);
             }
         }
-        else SeatedLegs(b, look, side, d, W);
 
         // Long hair falls behind the shoulders, seen from the front.
         if (f == Facing.S && look.HairStyle == HairStyle.Long && !look.Hood)
@@ -146,22 +149,22 @@ public static class Figures
 
         // Carried goods are held in front of the chest (or on a shoulder for timber).
         bool armsBusy = s.Carry != Carried.None;
-        float swing = walking ? sw * 0.5f
-            : s.Pose == Pose.Swing ? MathF.Sin(s.Time * 7f + s.Seed) * 0.9f - 0.6f
-            : crouch ? 0.6f + MathF.Sin(s.Time * 3f + s.Seed) * 0.3f
-            : sit ? 0.5f
-            : 0f;
-        if (armsBusy) swing *= 0.25f;
 
         if (side)
         {
-            float ang = -d * swing;
-            if (s.Pose == Pose.Talk) ang = -d * (0.7f + MathF.Sin(s.Time * 2.4f + s.Seed) * 0.35f);
-            if (armsBusy) ang = -d * 0.9f;
-            Arm(b, look, skin, hunch * 0.7f, ang, true, s.Tool, d, T);
+            // Seen from the side, the near arm reaches toward the facing (Logic/Poses), so a blow lands
+            // in front; the tool head is mirrored to lead the downstroke.
+            float ang = Poses.SideArmAngle(Poses.SideArmReach(s.Pose, s.Phase, s.Time, s.Seed, armsBusy), f);
+            Arm(b, look, skin, hunch * 0.7f, ang, true, s.Tool, -d, T);
         }
         else
         {
+            float swing = walking ? sw * 0.5f
+                : s.Pose == Pose.Swing ? MathF.Sin(s.Time * 7f + s.Seed) * 0.9f - 0.6f
+                : crouch ? 0.6f + MathF.Sin(s.Time * 3f + s.Seed) * 0.3f
+                : sit ? 0.5f
+                : 0f;
+            if (armsBusy) swing *= 0.25f;
             bool front = f == Facing.S;
             float left = 0.1f + (front ? swing * 0.3f : -swing * 0.3f);
             float right = -0.1f - (s.Pose == Pose.Swing ? MathF.Abs(swing) * 1.6f : front ? swing * 0.3f : -swing * 0.3f);
