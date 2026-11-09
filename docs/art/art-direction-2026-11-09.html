@@ -1,0 +1,582 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Return art direction (2026-11-09)</title><style>:root{--border:#444;--bg-secondary:#222;--text-primary:#eee;--text-secondary:#aaa;--accent:#d8b56c;--selected-bg:#333}body{background:#151515;color:#eee;font-family:system-ui;margin:16px}</style>
+</head><body><style>
+  .stage { max-width: 960px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); margin-bottom: .6rem; background: #111; }
+  .stage canvas { width: 100%; height: auto; display: block; }
+  .toggles { display: flex; gap: .45rem; margin: .4rem 0 .7rem; flex-wrap: wrap; align-items: center; }
+  .toggles button { font: inherit; font-size: .85rem; padding: .35rem .8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; }
+  .toggles button.on { border-color: var(--accent); background: var(--selected-bg); }
+  .toggles .sep { width: 1px; height: 1.4rem; background: var(--border); margin: 0 .3rem; }
+  .note { max-width: 960px; color: var(--text-secondary); font-size: .9rem; margin: .2rem 0 .6rem; }
+  .gap { margin-top: 1.8rem; }
+</style>
+
+<h2>The demo's people, darker and more grounded</h2>
+<p class="subtitle">Characters keep the demo's cloaks, colours, hair and marks. Everything is a shade darker and more muted, outlines are thin, shapes get a little shading and a soft shadow, and the world moves: people walk with swinging arms and turn to face where they go, trees sway, the river runs, the fire flickers. Two takes on "somewhat more realistic":</p>
+
+<div class="toggles">
+  <button data-style="a">A · Demo, deepened (high overhead, flat shapes)</button>
+  <button class="on" data-style="b">B · Grounded three-quarter (taller, shaded, depth)</button>
+  <span class="sep"></span>
+  <button class="on" data-light="day">Day</button>
+  <button data-light="dusk">Dusk</button>
+  <button data-light="night">Night</button>
+  <span class="sep"></span>
+  <button data-names="1">Names</button>
+</div>
+<div class="stage"><canvas id="camp"></canvas></div>
+<p class="note">You haul timber from the woods to the stockpile, Mira picks berries, Oren mends the broken roof section, Bram warms himself at the fire, and Ilex the vampire sleeps in the covered ruins by day. At night Ilex walks, Vale keeps watch, a thief creeps in from the south-west and a wolf prowls the treeline.</p>
+
+<h3 class="gap">Everyone at the real size: 32 px, and three times larger</h3>
+<p class="note">Each figure walks in place and turns every two seconds (front, right, back, left). The four monsters are new, drawn in the same language: a thief, a wolf, a ghoul, and a dungeon boss (the Barrow King) at twice the size of a person.</p>
+<div class="stage"><canvas id="sheet"></canvas></div>
+
+<h3 class="gap">Which is closer?</h3>
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>Demo, deepened</h3><p>Stay close to the demo's flat, high-overhead figures; just darker, thinner-lined and animated.</p></div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>Grounded three-quarter</h3><p>Taller, more realistic proportions with simple shading, trees with trunks, walls with faces, things in front hiding things behind.</p></div>
+  </div>
+  <div class="option" data-choice="mix" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content"><h3>Somewhere between</h3><p>Tell me which parts of each to keep.</p></div>
+  </div>
+</div>
+
+<script>
+(function () {
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+const INK = '#16140f';
+const W = 960, H = 560, S = 40, BAR = 30;
+let style = 'b', light = 'day', names = false;
+
+function setup(canvas, w, h) {
+  canvas.width = w * DPR; canvas.height = h * DPR;
+  const c = canvas.getContext('2d'); c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c.lineJoin = 'round'; c.lineCap = 'round'; return c;
+}
+function rng(seed) { let a = seed >>> 0; return function () { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const lerp = (a, b, t) => a + (b - a) * t;
+
+const PAL = {
+  grass: '#3b4935', grass2: '#43513b', grass3: '#33402e', soil: '#56483a', soil2: '#4b3f31', path: '#665642', pathLine: '#4b4033',
+  river: '#26414a', river2: '#38595f', bank: '#232f27', foam: '#7a948f',
+  canopy: ['#233426', '#2c4330', '#38553a'], canopyHi: '#4f6c49', trunk: '#46372a', trunkLo: '#33281e',
+  bush: '#2d4631', bushHi: '#3c5a3e', berry: '#8b383b',
+  stone: '#69665b', stoneHi: '#878373', stoneLo: '#48463e',
+  wall: '#776f5e', wallTop: '#918974', wallFace: '#5a5446', floor: '#6b604d', floorLine: '#584e3e',
+  roof: '#6a4f37', roofLine: '#3b2d21', roofHi: '#87684a', broken: '#352e25',
+  ruinFloor: '#585c4e', log: '#78603f', logEnd: '#9c805b', basket: '#665333',
+};
+const SKIN = { human: '#c09f7c', vampire: '#cfcac0' };
+const PEOPLE = [
+  { key: 'you', name: 'You', cloth: '#b08a4e', hair: '#3a372d', species: 'human', mark: 'you' },
+  { key: 'mira', name: 'Mira', cloth: '#7a9174', hair: '#74503a', species: 'human', mark: 'forager' },
+  { key: 'oren', name: 'Oren', cloth: '#9a6a4b', hair: '#4f3d2e', species: 'human', mark: 'builder' },
+  { key: 'ilex', name: 'Ilex', cloth: '#7a6476', hair: '#2b2732', species: 'vampire', mark: 'vampire' },
+  { key: 'bram', name: 'Bram', cloth: '#628585', hair: '#7a6f54', species: 'human', mark: 'carer' },
+  { key: 'nia', name: 'Nia', cloth: '#a2835d', hair: '#463729', species: 'human', mark: 'forager' },
+  { key: 'sera', name: 'Sera', cloth: '#848e5f', hair: '#614a3d', species: 'human', mark: 'builder' },
+  { key: 'vale', name: 'Vale', cloth: '#605f78', hair: '#302e3a', species: 'vampire', mark: 'vampire' },
+  { key: 'wren', name: 'Wren', cloth: '#857559', hair: '#5d4129', species: 'human', mark: 'forager' },
+  { key: 'hollis', name: 'Hollis', cloth: '#5f6d80', hair: '#423427', species: 'human', mark: 'builder' },
+];
+const P = Object.fromEntries(PEOPLE.map(p => [p.key, p]));
+const MONSTERS = [
+  { key: 'thief', name: 'Thief', kind: 'thief', cloth: '#2c2b2f', hair: '#1f1e22', species: 'human', mark: 'none' },
+  { key: 'wolf', name: 'Wolf', kind: 'wolf' },
+  { key: 'ghoul', name: 'Ghoul', kind: 'ghoul', cloth: '#4a5244', hair: '#2e322b', species: 'ghoul', mark: 'none' },
+  { key: 'king', name: 'The Barrow King', kind: 'king' },
+];
+
+function path(c, pts, close = true) { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); if (close) c.closePath(); }
+function fillStroke(c, fill, lw = 1, stroke = INK) { if (fill) { c.fillStyle = fill; c.fill(); } if (lw > 0) { c.lineWidth = lw; c.strokeStyle = stroke; c.stroke(); } }
+function ellipse(c, x, y, rx, ry, fill, lw = 0, stroke = INK, rot = 0) { c.beginPath(); c.ellipse(x, y, Math.max(.01, rx), Math.max(.01, ry), rot, 0, Math.PI * 2); fillStroke(c, fill, lw, stroke); }
+function shade(hex, f) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = n >> 8 & 255, b = n & 255; r = Math.round(Math.min(255, r * f)); g = Math.round(Math.min(255, g * f)); b = Math.round(Math.min(255, b * f)); return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1); }
+
+// ---------- figures: A = the demo's silhouette, deepened ----------
+// Units: the demo's 34x38 box, head on top. facing: s(front) e w n(back). phase: walk cycle 0..1 or null. action: idle walk work crouch sleep sit
+function figureA(c, p, o) {
+  const f = o.facing || 's', ph = o.phase, walking = ph != null, sw = walking ? Math.sin(ph * Math.PI * 2) : 0;
+  const breathe = 1 + Math.sin((o.t || 0) * 2.1 + (o.seed || 0)) * .012;
+  const vamp = p.species === 'vampire', ghoul = p.species === 'ghoul';
+  const skin = ghoul ? '#b4b39f' : SKIN[p.species] || SKIN.human;
+  const cloth = p.cloth, lw = 1.0;
+  if (o.action === 'sleep') { c.save(); c.rotate(-Math.PI / 2); c.translate(-4, 0); }
+  ellipse(c, 0, 15, 11.5, 3.8, 'rgba(0,0,0,.32)');
+  const bob = walking ? Math.abs(Math.cos(ph * Math.PI * 2)) * -1.1 : 0;
+  const crouch = o.action === 'crouch' || o.action === 'sit' ? 3 : 0;
+  c.save(); c.translate(0, bob + crouch); c.scale(1, breathe);
+  // feet
+  if (o.action !== 'sit') {
+    const side = f === 'e' || f === 'w', dir = f === 'w' ? -1 : 1;
+    const fa = walking ? sw * 2.6 : 0;
+    if (side) { ellipse(c, dir * fa, 14.2, 2.6, 1.7, '#2b2622', .8); ellipse(c, -dir * fa, 14.6, 2.6, 1.7, '#2b2622', .8); }
+    else { ellipse(c, -3.4, 14 + (walking ? fa * .5 : 0), 2.1, 1.8, '#2b2622', .8); ellipse(c, 3.4, 14 - (walking ? fa * .5 : 0), 2.1, 1.8, '#2b2622', .8); }
+  }
+  // cloak
+  let cloak;
+  if (f === 'e' || f === 'w') {
+    const d = f === 'w' ? -1 : 1;
+    cloak = vamp ? [[-7 * d, -4], [0, -9], [8 * d, -4], [10 * d, 14], [3 * d, 11], [-2 * d, 15], [-8 * d, 12]] : [[-6 * d, -3], [1 * d, -8], [7 * d, -3], [8 * d, 13], [1 * d, 15], [-7 * d, 13]];
+  } else {
+    cloak = vamp ? [[-11, -4], [0, -10], [11, -4], [14, 15], [6, 11], [0, 16], [-6, 11], [-14, 15]] : [[-9, -3], [0, -8.5], [9, -3], [10, 12], [3, 15], [-3, 15], [-10, 12]];
+    if (ghoul) cloak = [[-9, -3], [0, -8], [9, -3], [11, 13], [7, 10], [5, 15], [1, 11], [-2, 15], [-5, 11], [-8, 14], [-11, 12]];
+  }
+  path(c, cloak); fillStroke(c, cloth, lw);
+  // one soft fold of shade (light from the upper left)
+  c.save(); path(c, cloak); c.clip(); path(c, f === 'w' ? [[-14, -12], [-1, -12], [-4, 18], [-14, 18]] : [[2, -12], [16, -12], [16, 18], [5, 18]]); c.fillStyle = 'rgba(0,0,0,.16)'; c.fill(); c.restore();
+  // arms
+  const armSwing = walking ? sw * .45 : (o.action === 'work' ? Math.sin((o.t || 0) * 7) * .9 : (o.action === 'crouch' ? Math.sin((o.t || 0) * 3) * .35 + .4 : 0));
+  const arm = (sx, sy, len, ang, front) => {
+    c.save(); c.translate(sx, sy); c.rotate(ang);
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(0, len); c.lineWidth = 3.4; c.strokeStyle = INK; c.stroke(); c.lineWidth = 2.2; c.strokeStyle = shade(cloth, front ? .92 : .8); c.stroke();
+    ellipse(c, 0, len + .6, 1.5, 1.5, skin, .8); c.restore();
+  };
+  if (f === 'e' || f === 'w') { const d = f === 'w' ? -1 : 1; arm(1 * d, -1, 8, -d * armSwing, true); }
+  else { arm(-7.5, -1.5, 7.5, armSwing * .5 + .12, f === 's'); arm(7.5, -1.5, 7.5, -armSwing * .5 - .12 + (o.action === 'work' ? -Math.abs(armSwing) : 0), f === 's'); }
+  // marks (front only)
+  if (f === 's') {
+    c.save(); c.lineWidth = 1.2; c.strokeStyle = vamp ? '#d9ccb4' : shade(cloth, .55); c.beginPath();
+    if (p.mark === 'you') { c.strokeStyle = '#e2c27a'; c.moveTo(4, 8); c.lineTo(-3, 8); c.lineTo(-3, 3); c.moveTo(-6, 6); c.lineTo(-3, 3); c.lineTo(0, 6); }
+    else if (p.mark === 'builder' || p.mark === 'carer') { c.moveTo(-3.5, 8); c.lineTo(3.5, 8); c.moveTo(0, 4.5); c.lineTo(0, 11.5); }
+    else if (p.mark === 'forager') { c.moveTo(-4, 10); c.quadraticCurveTo(0, 2, 4, 5); c.quadraticCurveTo(4, 11, -4, 10); c.moveTo(-3, 10); c.lineTo(2, 6.5); }
+    else if (p.mark === 'vampire') { c.moveTo(0, 3); c.lineTo(3.5, 7.5); c.lineTo(0, 12); c.lineTo(-3.5, 7.5); c.closePath(); }
+    c.stroke(); c.restore();
+  }
+  // vampire collar
+  if (vamp) { if (f === 'e' || f === 'w') { const d = f === 'w' ? -1 : 1; path(c, [[-6 * d, -3], [-4 * d, -11], [1 * d, -4]]); } else path(c, [[-10, -4], [-5, -10], [0, -3.5], [5, -10], [10, -4]], false); fillStroke(c, '#3a3341', lw); }
+  // head
+  const hx = f === 'e' ? 1 : f === 'w' ? -1 : 0, hy = ghoul ? -5.5 : -7;
+  if (p.kind === 'thief') {
+    ellipse(c, hx, hy, 6.4, 6.3, '#252428', lw);
+    if (f !== 'n') { ellipse(c, hx + (f === 'e' ? 1.5 : f === 'w' ? -1.5 : 0), hy + 1, 3.8, 3.2, '#111013'); if (f === 's') { ellipse(c, -1.4, hy + .8, .55, .55, o.glint || '#a89f88'); ellipse(c, 1.4, hy + .8, .55, .55, o.glint || '#a89f88'); } else ellipse(c, hx + (f === 'e' ? 2.4 : -2.4), hy + .8, .55, .55, o.glint || '#a89f88'); }
+  } else {
+    ellipse(c, hx, hy, 6.1, 6.1, skin, lw);
+    c.fillStyle = p.hair; c.strokeStyle = INK; c.lineWidth = .8;
+    if (f === 'n') { ellipse(c, hx, hy - .4, 6.1, 5.9, p.hair, .8); }
+    else if (f === 's') {
+      c.beginPath(); c.moveTo(-6, hy - 1); c.quadraticCurveTo(-4, hy - 9, 3, hy - 6); c.quadraticCurveTo(7, hy - 4, 6, hy + 1); c.quadraticCurveTo(3, hy, 1, hy - 3); c.quadraticCurveTo(-2, hy, -6, hy - 1); fillStroke(c, ghoul ? null : p.hair, ghoul ? 0 : .8);
+      const eye = ghoul ? '#1a1a14' : '#2a211b';
+      ellipse(c, -2.1, hy + 1.2, ghoul ? 1.1 : .7, ghoul ? 1.2 : .8, eye); ellipse(c, 2.1, hy + 1.2, ghoul ? 1.1 : .7, ghoul ? 1.2 : .8, eye);
+      if (ghoul) { c.beginPath(); c.moveTo(-2, hy + 4); c.lineTo(2, hy + 4); c.lineWidth = .7; c.strokeStyle = '#3a382f'; c.stroke(); }
+    } else {
+      const d = f === 'w' ? -1 : 1;
+      c.beginPath(); c.moveTo(hx - 6 * d, hy + 2); c.quadraticCurveTo(hx - 6 * d, hy - 7, hx + 2 * d, hy - 6.5); c.quadraticCurveTo(hx + 1 * d, hy - 2, hx - 2 * d, hy + 3); c.closePath(); fillStroke(c, ghoul ? null : p.hair, ghoul ? 0 : .8);
+      ellipse(c, hx + 3 * d, hy + 1, .7, .8, ghoul ? '#1a1a14' : '#2a211b');
+    }
+    if (p.mark === 'you' && f !== 'n') { c.beginPath(); c.moveTo(hx - 5, hy - 3); c.quadraticCurveTo(hx, hy - 5.2, hx + 5, hy - 3); c.lineWidth = 1.2; c.strokeStyle = '#d8b56c'; c.stroke(); }
+  }
+  if (o.action === 'sleep') { c.fillStyle = 'rgba(230,225,210,.75)'; c.font = '7px sans-serif'; c.fillText('z', 8, -14 - Math.sin((o.t || 0) * 2) * 2); }
+  c.restore();
+  if (o.action === 'sleep') c.restore();
+}
+
+// ---------- figures: B = grounded three-quarter ----------
+// Anchor at the feet. ~44 units tall. Head:body about 1:3.8.
+function figureB(c, p, o) {
+  const f = o.facing || 's', ph = o.phase, walking = ph != null, sw = walking ? Math.sin(ph * Math.PI * 2) : 0;
+  const vamp = p.species === 'vampire', ghoul = p.species === 'ghoul';
+  const skin = ghoul ? '#b4b39f' : SKIN[p.species] || SKIN.human, cloth = p.cloth, lw = .95;
+  const breathe = Math.sin((o.t || 0) * 2.1 + (o.seed || 0)) * .35;
+  if (o.action === 'sleep') { // lying down, seen from three-quarter: a long shape
+    ellipse(c, 0, 0, 14, 3.5, 'rgba(0,0,0,.3)');
+    c.save(); c.translate(0, -3);
+    c.beginPath(); c.roundRect(-11, -4, 18, 7, 3); fillStroke(c, cloth, lw);
+    c.save(); c.beginPath(); c.roundRect(-11, -4, 18, 7, 3); c.clip(); c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(-11, 0.5, 18, 4); c.restore();
+    ellipse(c, 10, -1, 4.6, 4.2, skin, lw); c.beginPath(); c.moveTo(7, -4); c.quadraticCurveTo(10, -6.5, 14, -3.5); c.quadraticCurveTo(12, -3, 9, -2); c.closePath(); fillStroke(c, p.hair, .7);
+    c.beginPath(); c.moveTo(9.5, -.5); c.lineTo(11.5, -.5); c.lineWidth = .7; c.strokeStyle = '#2a211b'; c.stroke();
+    if (vamp) { path(c, [[5, -5], [7, -9], [8.5, -4]]); fillStroke(c, '#3a3341', .8); }
+    c.fillStyle = 'rgba(230,225,210,.75)'; c.font = '8px sans-serif'; c.fillText('z', 14, -9 - Math.sin((o.t || 0) * 2) * 2);
+    c.restore(); return;
+  }
+  const sit = o.action === 'sit', crouch = o.action === 'crouch';
+  const drop = sit ? 9 : crouch ? 5 : 0;
+  ellipse(c, 0, 0, 9.5, 3, 'rgba(0,0,0,.32)');
+  const bob = walking ? -Math.abs(Math.cos(ph * Math.PI * 2)) * 1.2 : 0;
+  c.save(); c.translate(0, bob + drop);
+  const side = f === 'e' || f === 'w', d = f === 'w' ? -1 : 1;
+  const hunch = ghoul ? 3 * d : 0;
+  // legs
+  const leg = (x, lift, ang) => { c.save(); c.translate(x, -13); c.rotate(ang); c.beginPath(); c.roundRect(-1.8, 0, 3.6, 13 - lift, 1.4); fillStroke(c, ghoul ? '#3a3d33' : '#2f2b26', .8); ellipse(c, 0, 13 - lift, 2.2, 1.3, '#221e1a', .7); c.restore(); };
+  if (!sit) {
+    if (side) { leg(0, 0, sw * .5); leg(0, 0, -sw * .5); }
+    else { leg(-2.6, walking ? Math.max(0, sw) * 2.5 : (crouch ? 4 : 0), 0); leg(2.6, walking ? Math.max(0, -sw) * 2.5 : (crouch ? 4 : 0), 0); }
+  }
+  // cloak / torso
+  let body;
+  if (side) body = vamp ? [[-4.5 * d + hunch, -29], [4.5 * d + hunch, -29], [7 * d, -10], [3 * d, -12.5], [-1 * d, -9.5], [-6 * d, -11]] : [[-4 * d + hunch, -28.5], [4.5 * d + hunch, -28.5], [6 * d, -11], [-5.5 * d, -11]];
+  else body = vamp ? [[-7.5, -29], [7.5, -29], [10.5, -10], [5, -12.5], [0, -9], [-5, -12.5], [-10.5, -10]] : [[-7, -28.5], [7, -28.5], [9.2, -11], [-9.2, -11]];
+  if (ghoul && !side) body = [[-7, -27.5], [7, -27.5], [9.5, -11], [6, -13.5], [3.5, -10], [0, -13], [-3.5, -10], [-6, -13.5], [-9.5, -11]];
+  path(c, body); fillStroke(c, cloth, lw);
+  c.save(); path(c, body); c.clip();
+  c.fillStyle = 'rgba(0,0,0,.2)'; if (side) c.fillRect(d > 0 ? -8 : 1, -32, 7, 24); else c.fillRect(2.5, -32, 10, 24);
+  c.strokeStyle = shade(cloth, .7); c.lineWidth = .7; c.beginPath(); c.moveTo(-3, -24); c.lineTo(-4, -12); c.moveTo(3.5, -22); c.lineTo(5, -12); c.stroke();
+  c.restore();
+  // marks: a small emblem at the chest
+  if (f === 's') {
+    c.save(); c.translate(0, -21); c.scale(.55, .55); c.lineWidth = 1.6; c.strokeStyle = vamp ? '#d9ccb4' : shade(cloth, .55); c.beginPath();
+    if (p.mark === 'you') { c.strokeStyle = '#e2c27a'; c.moveTo(4, 4); c.lineTo(-3, 4); c.lineTo(-3, -1); c.moveTo(-6, 2); c.lineTo(-3, -1); c.lineTo(0, 2); }
+    else if (p.mark === 'builder' || p.mark === 'carer') { c.moveTo(-3.5, 2); c.lineTo(3.5, 2); c.moveTo(0, -1.5); c.lineTo(0, 5.5); }
+    else if (p.mark === 'forager') { c.moveTo(-4, 4); c.quadraticCurveTo(0, -4, 4, -1); c.quadraticCurveTo(4, 5, -4, 4); }
+    else if (p.mark === 'vampire') { c.moveTo(0, -3); c.lineTo(3.5, 1.5); c.lineTo(0, 6); c.lineTo(-3.5, 1.5); c.closePath(); }
+    c.stroke(); c.restore();
+  }
+  // arms
+  const swing = walking ? sw * .5 : (o.action === 'work' ? (Math.sin((o.t || 0) * 7) * .9 - .6) : crouch ? .6 + Math.sin((o.t || 0) * 3) * .3 : (sit ? .5 : 0));
+  const arm = (x, ang, front) => { c.save(); c.translate(x + hunch * .7, -27); c.rotate(ang); c.beginPath(); c.roundRect(-1.7, 0, 3.4, 11.5, 1.6); fillStroke(c, shade(cloth, front ? .9 : .75), .8); ellipse(c, 0, 12.2, 1.6, 1.7, skin, .7); c.restore(); };
+  if (side) arm(0, -d * swing, true);
+  else { arm(-7.6, .1 + (f === 's' ? swing * .3 : -swing * .3), f === 's'); arm(7.6, -.1 - (o.action === 'work' ? Math.abs(swing) * 1.6 : (f === 's' ? swing * .3 : -swing * .3)), f === 's'); }
+  // neck and head
+  const hx = (side ? 1 * d : 0) + hunch, hy = -33.5 + breathe * .4 + (ghoul ? 2 : 0);
+  c.beginPath(); c.rect(hx - 1.6, -30.5, 3.2, 3); fillStroke(c, shade(skin, .85), .7);
+  if (vamp) { if (side) path(c, [[hx - 3 * d, -29], [hx - 5 * d, -39], [hx + 1 * d, -30]]); else path(c, [[-7, -28.5], [-6.5, -39], [-2, -30.5], [2, -30.5], [6.5, -39], [7, -28.5]]); fillStroke(c, '#3a3341', lw); }
+  if (p.kind === 'thief') {
+    ellipse(c, hx, hy, 5.6, 5.8, '#252428', lw);
+    if (f !== 'n') { ellipse(c, hx + (side ? 1.4 * d : 0), hy + 1, 3.3, 3.1, '#111013'); const g = o.glint || '#a89f88'; if (f === 's') { ellipse(c, hx - 1.2, hy + .8, .5, .5, g); ellipse(c, hx + 1.2, hy + .8, .5, .5, g); } else ellipse(c, hx + 2.2 * d, hy + .8, .5, .5, g); }
+  } else {
+    ellipse(c, hx, hy, 5.2, 5.4, skin, lw);
+    c.save(); c.beginPath(); c.ellipse(hx, hy, 5.2, 5.4, 0, 0, Math.PI * 2); c.clip(); c.fillStyle = 'rgba(0,0,0,.14)'; c.fillRect(hx + 1.5, hy - 6, 5, 12); c.restore();
+    if (f === 'n') ellipse(c, hx, hy - .3, 5.3, 5.5, p.hair, .8);
+    else if (f === 's') {
+      if (!ghoul) { c.beginPath(); c.moveTo(hx - 5.2, hy + .5); c.quadraticCurveTo(hx - 5, hy - 7, hx + 1, hy - 5.8); c.quadraticCurveTo(hx + 6, hy - 4.8, hx + 5.2, hy + .8); c.quadraticCurveTo(hx + 3, hy - 2, hx, hy - 2.4); c.quadraticCurveTo(hx - 3, hy - 1.5, hx - 5.2, hy + .5); fillStroke(c, p.hair, .75); }
+      const eye = ghoul ? '#15150f' : '#2a211b';
+      ellipse(c, hx - 1.9, hy + .9, ghoul ? 1 : .6, ghoul ? 1.1 : .75, eye); ellipse(c, hx + 1.9, hy + .9, ghoul ? 1 : .6, ghoul ? 1.1 : .75, eye);
+    } else {
+      if (!ghoul) { c.beginPath(); c.moveTo(hx - 5.2 * d, hy + 2.5); c.quadraticCurveTo(hx - 5.6 * d, hy - 6, hx + 1.5 * d, hy - 5.8); c.quadraticCurveTo(hx + .5 * d, hy - 2, hx - 1.5 * d, hy + 3); c.closePath(); fillStroke(c, p.hair, .75); }
+      ellipse(c, hx + 2.8 * d, hy + .8, .6, .75, ghoul ? '#15150f' : '#2a211b');
+      c.beginPath(); c.moveTo(hx + 5 * d, hy + .8); c.lineTo(hx + 5.9 * d, hy + 2); c.lineTo(hx + 5 * d, hy + 2.6); c.lineWidth = .7; c.strokeStyle = INK; c.stroke();
+    }
+    if (p.mark === 'you' && f !== 'n') { c.beginPath(); c.moveTo(hx - 4.6, hy - 2.6); c.quadraticCurveTo(hx, hy - 4.6, hx + 4.6, hy - 2.6); c.lineWidth = 1.1; c.strokeStyle = '#d8b56c'; c.stroke(); }
+  }
+  c.restore();
+}
+
+// ---------- beasts ----------
+function wolfA(c, o) { // overhead, facing as a direction
+  const f = o.facing || 'e', ph = o.phase, sw = ph != null ? Math.sin(ph * Math.PI * 2) : 0;
+  const ang = { e: 0, s: Math.PI / 2, w: Math.PI, n: -Math.PI / 2 }[f];
+  ellipse(c, 0, 9, 14, 4.5, 'rgba(0,0,0,.3)');
+  c.save(); c.translate(0, 2); c.rotate(ang);
+  for (const [lx, ly, s] of [[6, -4.5, 1], [6, 4.5, -1], [-6, -4.5, -1], [-6, 4.5, 1]]) ellipse(c, lx + sw * 2.2 * s, ly, 2.2, 1.5, '#38342e', .7);
+  c.beginPath(); c.moveTo(-10, 0); c.quadraticCurveTo(-17, sw * 3, -19, sw * 4.5); c.lineWidth = 3.5; c.strokeStyle = INK; c.stroke(); c.lineWidth = 2.4; c.strokeStyle = '#4f4a42'; c.stroke();
+  ellipse(c, 0, 0, 10.5, 5.2, '#57524a', .9); c.save(); c.beginPath(); c.ellipse(0, 0, 10.5, 5.2, 0, 0, Math.PI * 2); c.clip(); c.fillStyle = 'rgba(0,0,0,.2)'; c.fillRect(-11, 1, 22, 6); c.restore();
+  path(c, [[8, -4], [16, -1.2], [17.5, 0], [16, 1.2], [8, 4]]); fillStroke(c, '#5d574e', .9);
+  path(c, [[9.5, -3.4], [10.5, -6.8], [12.4, -3]]); fillStroke(c, '#4a453e', .7); path(c, [[9.5, 3.4], [10.5, 6.8], [12.4, 3]]); fillStroke(c, '#4a453e', .7);
+  ellipse(c, 13.5, -1.6, .6, .6, o.glint || '#1a1714'); ellipse(c, 13.5, 1.6, .6, .6, o.glint || '#1a1714');
+  c.restore();
+}
+function wolfB(c, o) { // side view
+  const f = o.facing || 'e', ph = o.phase, sw = ph != null ? Math.sin(ph * Math.PI * 2) : 0, d = f === 'w' ? -1 : 1;
+  ellipse(c, 0, 0, 13, 3, 'rgba(0,0,0,.3)');
+  if (f === 'n' || f === 's') { // facing toward or away: a compact chest-on view
+    for (const lx of [-3.5, 3.5]) { c.beginPath(); c.roundRect(lx - 1.5, -9, 3, 9 - Math.max(0, lx < 0 ? sw : -sw) * 2, 1.2); fillStroke(c, '#3d3933', .7); }
+    ellipse(c, 0, -12, 7, 6, '#57524a', .9);
+    if (f === 's') { ellipse(c, 0, -15, 5, 4.6, '#5d574e', .9); path(c, [[-4, -18], [-4.5, -23], [-1.5, -19]]); fillStroke(c, '#4a453e', .7); path(c, [[4, -18], [4.5, -23], [1.5, -19]]); fillStroke(c, '#4a453e', .7); ellipse(c, 0, -12.5, 2.3, 1.8, '#4a453e', .7); ellipse(c, -1.8, -15.6, .6, .6, o.glint || '#1a1714'); ellipse(c, 1.8, -15.6, .6, .6, o.glint || '#1a1714'); }
+    else { c.beginPath(); c.moveTo(0, -12); c.quadraticCurveTo(sw * 3, -20, sw * 5, -22); c.lineWidth = 3.2; c.strokeStyle = INK; c.stroke(); c.lineWidth = 2.2; c.strokeStyle = '#4f4a42'; c.stroke(); path(c, [[-4, -17], [-4.5, -22], [-1.5, -18]]); fillStroke(c, '#4a453e', .7); path(c, [[4, -17], [4.5, -22], [1.5, -18]]); fillStroke(c, '#4a453e', .7); }
+    return;
+  }
+  c.save(); c.scale(d, 1);
+  const leg = (x, s, back) => { c.save(); c.translate(x, -8); c.rotate(sw * .5 * s); c.beginPath(); c.roundRect(-1.3, 0, 2.6, 8.5, 1); fillStroke(c, back ? '#33302a' : '#3d3933', .7); c.restore(); };
+  leg(6, -1, true); leg(-7, 1, true);
+  c.beginPath(); c.moveTo(-10, -11); c.quadraticCurveTo(-16, -12 + sw * 2, -18, -9 + sw * 2); c.lineWidth = 3.4; c.strokeStyle = INK; c.stroke(); c.lineWidth = 2.3; c.strokeStyle = '#4f4a42'; c.stroke();
+  ellipse(c, 0, -11, 11, 4.8, '#57524a', .9);
+  c.save(); c.beginPath(); c.ellipse(0, -11, 11, 4.8, 0, 0, Math.PI * 2); c.clip(); c.fillStyle = '#6e685d'; c.fillRect(-11, -9.5, 22, 4); c.restore();
+  leg(7.5, 1, false); leg(-5.5, -1, false);
+  path(c, [[8, -15], [13, -16.5], [18, -13.5], [18.5, -12], [13, -11], [9, -9]]); fillStroke(c, '#5d574e', .9);
+  path(c, [[11, -16], [12, -20.5], [13.8, -16.2]]); fillStroke(c, '#4a453e', .7);
+  ellipse(c, 14.5, -14.2, .6, .6, o.glint || '#1a1714');
+  c.restore();
+}
+function kingA(c, o) { // the Barrow King, overhead, demo language at 2x
+  c.save(); c.scale(2, 2);
+  figureA(c, { cloth: '#2c2a2f', hair: '#2c2a2f', species: 'vampire', mark: 'none' }, o);
+  const f = o.facing || 's', hx = f === 'e' ? 1 : f === 'w' ? -1 : 0;
+  c.lineWidth = 1.1; c.strokeStyle = '#8a8170';
+  c.beginPath(); for (const s of [-1, 1]) { c.moveTo(hx + 3 * s, -12); c.lineTo(hx + 6 * s, -17); c.lineTo(hx + 9 * s, -18); c.moveTo(hx + 5 * s, -15.5); c.lineTo(hx + 4 * s, -19); } c.stroke();
+  for (const [x, y] of [[-7, 1], [7, 1], [-4, 7], [4, 7]]) { c.beginPath(); c.moveTo(x - 2.5, y); c.lineTo(x + 2.5, y); c.lineWidth = .8; c.strokeStyle = '#6b6672'; c.stroke(); }
+  if (f !== 'n') { const g = 'rgba(200,214,160,' + (.75 + Math.sin((o.t || 0) * 3) * .25) + ')'; if (f === 's') { ellipse(c, -2.1, -5.8, .9, .7, g); ellipse(c, 2.1, -5.8, .9, .7, g); } else ellipse(c, hx + (f === 'e' ? 3 : -3), -5.8, .9, .7, g); }
+  c.restore();
+}
+function kingB(c, o) {
+  c.save(); c.scale(2, 2);
+  figureB(c, { cloth: '#2c2a2f', hair: '#2c2a2f', species: 'vampire', mark: 'none' }, o);
+  const f = o.facing || 's', side = f === 'e' || f === 'w', d = f === 'w' ? -1 : 1, hx = side ? d : 0, hy = -33.5;
+  c.lineWidth = 1; c.strokeStyle = '#8a8170';
+  c.beginPath(); for (const s of [-1, 1]) { c.moveTo(hx + 2.5 * s, hy - 4.5); c.lineTo(hx + 5 * s, hy - 10); c.lineTo(hx + 8 * s, hy - 11); c.moveTo(hx + 4 * s, hy - 8); c.lineTo(hx + 3 * s, hy - 12); } c.stroke();
+  for (const y of [-25, -20, -15]) { c.beginPath(); c.moveTo(-6, y); c.lineTo(6, y); c.lineWidth = .7; c.strokeStyle = '#6b6672'; c.stroke(); }
+  if (f !== 'n') { const g = 'rgba(200,214,160,' + (.75 + Math.sin((o.t || 0) * 3) * .25) + ')'; if (f === 's') { ellipse(c, -1.9, hy + .9, .9, .7, g); ellipse(c, 1.9, hy + .9, .9, .7, g); } else ellipse(c, hx + 2.8 * d, hy + .8, .9, .7, g); }
+  c.restore();
+}
+
+function drawBeing(c, who, x, y, size, o) {
+  c.save(); c.translate(x, y);
+  if (style === 'a') {
+    const k = size / 38; c.scale(k, k);
+    if (who.kind === 'wolf') wolfA(c, o); else if (who.kind === 'king') kingA(c, o); else figureA(c, who, o);
+  } else {
+    const k = size / 44; c.scale(k, k);
+    if (who.kind === 'wolf') wolfB(c, o); else if (who.kind === 'king') kingB(c, o); else figureB(c, who, o);
+  }
+  c.restore();
+}
+
+// ---------- the camp ----------
+const camp = document.getElementById('camp'), cc = setup(camp, W, H);
+const R = rng(7);
+const TREES = [[1.6, 1.8, 1.15], [4.4, 1.0, 1.0], [7.6, 1.4, .95], [1.0, 5.2, 1.05], [3.0, 4.0, .85], [0.9, 9.0, 1.1], [3.2, 12.6, 1.15], [6.4, 13.2, .9], [9.4, 13.0, 1.05], [13.2, 13.4, 1.0], [17.6, 13.0, 1.1], [19.0, 1.4, 1.0], [5.6, 5.0, .9]];
+const BUSHES = [[5.2, 9.6], [6.4, 10.4], [4.8, 11.2]];
+const ROOM = { x: 9, y: 2.6, w: 5.4, h: 4.2 }, RUIN = { x: 15.2, y: 2.8, w: 3.4, h: 3.2 }, HEARTH = [11.7, 9.3], PILE = { x: 15.2, y: 8.6, w: 3.2, h: 2.4 };
+const RIVER_X = y => 20.6 + Math.sin(y * .55) * .45 + Math.sin(y * 1.3 + 1) * .2;
+const GRASS = []; for (let i = 0; i < 260; i++) GRASS.push([R() * 24, R() * 14, R()]);
+const SOIL = [[[8.5, 7.2], [12.5, 7.0], [15.0, 7.6], [18.6, 8.0], [18.8, 11.4], [15.0, 11.8], [11.5, 11.4], [9.0, 10.4]], [[3.6, 8.6], [7.4, 8.8], [7.6, 11.8], [4.2, 12.2], [3.4, 10.4]]];
+const PATH_TILES = [[11, 7], [11, 8], [12, 8], [13, 9], [14, 9], [14, 10], [10, 8], [9, 8], [8, 7], [7, 7], [6, 6]];
+
+function terrain(c, t) {
+  c.fillStyle = PAL.grass; c.fillRect(0, 0, W, H);
+  const blobs = [[[0, 0], [8, 0], [9, 3], [6, 6], [2, 7], [0, 7]], [[0, 8], [4, 9], [6, 14], [0, 14]], [[14, 12], [20, 11.5], [21, 14], [13, 14]]];
+  for (const b of blobs) { path(c, b.map(([x, y]) => [x * S, y * S])); c.fillStyle = PAL.grass3; c.fill(); }
+  for (const b of SOIL) { path(c, b.map(([x, y]) => [x * S, y * S])); c.fillStyle = PAL.soil; c.fill(); }
+  for (const [x, y] of PATH_TILES) { c.fillStyle = PAL.path; c.fillRect(x * S - 1, y * S - 1, S + 2, S + 2); }
+  for (const [x, y] of PATH_TILES) for (let k = 0; k < 3; k++) { const rr = rng(x * 31 + y * 7 + k); ellipse(c, x * S + 6 + rr() * (S - 12), y * S + 6 + rr() * (S - 12), 1.6 + rr() * 2, 1.2 + rr() * 1.4, k ? PAL.pathLine : '#7a6a52'); }
+  for (const [x, y, k] of GRASS) {
+    const px = x * S, py = y * S; if (x > 20) continue;
+    const sway = Math.sin(t * 1.6 + x * .7 + y) * 1.1;
+    c.beginPath(); c.moveTo(px, py); c.lineTo(px + sway - 1.5, py - 4 - k * 2); c.moveTo(px + 2, py); c.lineTo(px + 2 + sway + .5, py - 5 - k * 2);
+    c.lineWidth = .9; c.strokeStyle = k > .55 ? '#56664a' : '#2c3828'; c.stroke();
+  }
+  // river with flowing marks
+  c.beginPath(); c.moveTo(RIVER_X(-1) * S, -10); for (let y = 0; y <= 15; y += .25) c.lineTo(RIVER_X(y) * S, y * S); c.lineTo(W + 10, H + 10); c.lineTo(W + 10, -10); c.closePath();
+  c.fillStyle = PAL.river; c.fill(); c.lineWidth = 1.2; c.strokeStyle = PAL.bank; c.stroke();
+  for (let i = 0; i < 26; i++) {
+    const x0 = (21.3 + (i % 3) * .9) * S + (i % 2) * 8, yy = (((i * 37) % 15) + t * 1.2) % 15;
+    c.beginPath(); c.moveTo(x0, yy * S); c.quadraticCurveTo(x0 + 6, yy * S - 3, x0 + 14, yy * S); c.lineWidth = 1; c.strokeStyle = i % 4 === 0 ? PAL.foam : PAL.river2; c.stroke();
+  }
+  // faint square grid
+  c.beginPath(); for (let x = 0; x <= 24; x++) { c.moveTo(x * S + .5, 0); c.lineTo(x * S + .5, H); } for (let y = 0; y <= 14; y++) { c.moveTo(0, y * S + .5); c.lineTo(W, y * S + .5); }
+  c.lineWidth = .6; c.strokeStyle = 'rgba(0,0,0,.14)'; c.stroke();
+}
+
+function stone(c, x, y, r) { path(c, [[x - r, y], [x - r * .5, y - r * .8], [x + r * .6, y - r * .7], [x + r, y + r * .1], [x + r * .4, y + r * .8], [x - r * .6, y + r * .7]]); fillStroke(c, PAL.stone, .8); }
+
+function hearth(c, t) {
+  const [hx, hy] = [HEARTH[0] * S, HEARTH[1] * S];
+  ellipse(c, hx, hy + 3, 15, 7, 'rgba(0,0,0,.28)');
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; stone(c, hx + Math.cos(a) * 12, hy + Math.sin(a) * 8, 3.6); }
+  ellipse(c, hx, hy, 8.5, 5.5, '#2e241b', .8);
+  c.save(); c.translate(hx, hy - 1);
+  for (const [w, h, col, sp, k] of [[7, 13, '#b8562e', 7, 0], [5.5, 10, '#e39a4a', 9, 1], [3.5, 6.5, '#f3cf7a', 11, 2]]) {
+    const fl = 1 + Math.sin(t * sp + k) * .14 + Math.sin(t * sp * 1.7 + k * 2) * .08;
+    c.beginPath(); c.moveTo(-w, 0); c.quadraticCurveTo(-w * .9, -h * .6 * fl, Math.sin(t * 5 + k) * 1.5, -h * fl); c.quadraticCurveTo(w * .9, -h * .6 * fl, w, 0); c.closePath(); c.fillStyle = col; c.fill();
+  }
+  c.restore();
+  for (let i = 0; i < 3; i++) { const k = (t * .7 + i / 3) % 1; ellipse(c, hx + Math.sin(i * 5 + t) * 4, hy - 14 - k * 22, 2.5 + k * 4, 2 + k * 3, 'rgba(160,155,145,' + (.25 * (1 - k)) + ')'); }
+}
+
+function stockpile(c) {
+  const z = PILE; c.setLineDash([5, 4]); c.lineWidth = 1.1; c.strokeStyle = 'rgba(214,196,150,.5)'; c.strokeRect(z.x * S, z.y * S, z.w * S, z.h * S); c.setLineDash([]);
+  for (const [x, y, a] of [[15.7, 9.0, .1], [15.9, 9.35, -.05], [15.6, 9.7, .04]]) { c.save(); c.translate(x * S + 18, y * S); c.rotate(a); c.beginPath(); c.roundRect(-18, -5, 36, 10, 4); fillStroke(c, PAL.log, .9); ellipse(c, 17, 0, 3.2, 4.4, PAL.logEnd, .7); c.restore(); }
+  for (const [x, y] of [[17.4, 9.2], [17.4, 10.2]]) { ellipse(c, x * S, y * S, 11, 8, PAL.basket, .9); for (let i = 0; i < 5; i++) ellipse(c, x * S - 6 + i * 3, y * S - 2 + (i % 2) * 2, 2.2, 2.2, PAL.berry, .5); }
+}
+
+function bush(c, x, y, t) {
+  const px = x * S, py = y * S, sw = Math.sin(t * 1.4 + x) * .8;
+  ellipse(c, px + 3, py + 6, 15, 7, 'rgba(0,0,0,.25)');
+  ellipse(c, px + sw, py, 14, 11, PAL.bush, .9); ellipse(c, px - 4 + sw, py - 3, 7, 5, PAL.bushHi);
+  for (const [dx, dy] of [[-6, 2], [4, -3], [7, 4], [-1, 5], [0, -6]]) ellipse(c, px + dx + sw, py + dy, 2, 2, PAL.berry, .6);
+}
+
+function treeA(c, x, y, r, t, i) {
+  const px = x * S, py = y * S, rad = r * S * .62, sway = Math.sin(t * .9 + i * 1.3) * 2;
+  ellipse(c, px + 7, py + 8, rad * 1.05, rad * .8, 'rgba(0,0,0,.3)');
+  const spikes = (rr, col, dx, dy, n, k) => { c.beginPath(); for (let j = 0; j < n; j++) { const a = j / n * Math.PI * 2 - .4, s = (j % 2 ? .78 : 1) * (1 + Math.sin(i * 3 + j) * .06); const xx = px + dx + Math.cos(a) * rr * s, yy = py + dy + Math.sin(a) * rr * s; j ? c.lineTo(xx, yy) : c.moveTo(xx, yy); } c.closePath(); fillStroke(c, col, k); };
+  spikes(rad, PAL.canopy[0], sway * .4, 0, 18, 1);
+  spikes(rad * .72, PAL.canopy[1], sway * .7 - 2, -2, 14, 0);
+  spikes(rad * .42, PAL.canopy[2], sway - 4, -4, 10, 0);
+  c.strokeStyle = '#1d2b20'; c.lineWidth = .8; c.beginPath(); for (let j = 0; j < 4; j++) { const a = j * Math.PI / 2 + .5; c.moveTo(px + sway * .5, py); c.lineTo(px + sway * .5 + Math.cos(a) * rad * .6, py + Math.sin(a) * rad * .6); } c.stroke();
+}
+function treeB(c, x, y, r, t, i) { // anchor at the trunk base
+  const px = x * S, py = y * S + S * .35, rad = r * S * .55, sway = Math.sin(t * .9 + i * 1.3) * 2.2;
+  ellipse(c, px + 6, py + 2, rad * 1.1, rad * .42, 'rgba(0,0,0,.32)');
+  c.beginPath(); c.moveTo(px - 4, py); c.lineTo(px - 3, py - rad * 1.0); c.lineTo(px + 3, py - rad * 1.0); c.lineTo(px + 4, py); c.closePath(); fillStroke(c, PAL.trunk, .9);
+  c.fillStyle = PAL.trunkLo; c.fillRect(px + .5, py - rad, 3, rad);
+  const cy = py - rad * 1.55;
+  for (const [dx, dy, rr, col] of [[-rad * .45, rad * .25, .62, PAL.canopy[0]], [rad * .45, rad * .25, .6, PAL.canopy[0]], [0, 0, .78, PAL.canopy[1]], [-rad * .2, -rad * .25, .55, PAL.canopy[2]], [-rad * .3, -rad * .42, .3, PAL.canopyHi]]) {
+    const k = dy < 0 ? 1 : .55; ellipse(c, px + dx + sway * k, cy + dy, rad * rr, rad * rr * .9, col, col === PAL.canopy[0] || col === PAL.canopy[1] ? .9 : 0);
+  }
+}
+
+function roomA(c) {
+  const r = ROOM, x = r.x * S, y = r.y * S, w = r.w * S, h = r.h * S, th = 7;
+  c.fillStyle = PAL.floor; c.fillRect(x, y, w, h);
+  for (let i = 1; i < r.w; i++) { c.beginPath(); c.moveTo(x + i * S, y); c.lineTo(x + i * S, y + h); c.lineWidth = .6; c.strokeStyle = PAL.floorLine; c.stroke(); }
+  for (let k = 0; k < 3; k++) { // roof panels, the third broken
+    const rx = x + 10 + k * (w - 20) / 3, rw = (w - 20) / 3 - 4, ry = y + 10, rh = h - 26;
+    if (k < 2) { c.fillStyle = PAL.roof; c.fillRect(rx, ry, rw, rh); for (let j = 1; j < 6; j++) { c.beginPath(); c.moveTo(rx, ry + j * rh / 6); c.lineTo(rx + rw, ry + j * rh / 6); c.lineWidth = .7; c.strokeStyle = PAL.roofLine; c.stroke(); } c.fillStyle = 'rgba(255,230,180,.08)'; c.fillRect(rx, ry, rw * .35, rh); c.strokeStyle = INK; c.lineWidth = .9; c.strokeRect(rx, ry, rw, rh); }
+    else { c.setLineDash([4, 3]); c.strokeStyle = '#a15a4a'; c.lineWidth = 1; c.strokeRect(rx, ry, rw, rh); c.setLineDash([]); for (const [a, b] of [[.2, .3], [.6, .55], [.35, .8]]) { c.beginPath(); c.roundRect(rx + a * rw - 6, ry + b * rh - 2, 12, 4, 1.5); fillStroke(c, PAL.roof, .7); } }
+  }
+  for (const [a, b, ww, hh] of [[0, 0, w, th], [0, 0, th, h], [w - th, 0, th, h], [0, h - th, w * .4, th], [w * .6, h - th, w * .4, th]]) { c.fillStyle = PAL.wallTop; c.fillRect(x + a, y + b, ww, hh); c.strokeStyle = INK; c.lineWidth = 1; c.strokeRect(x + a, y + b, ww, hh); }
+  const u = RUIN, ux = u.x * S, uy = u.y * S, uw = u.w * S, uh = u.h * S;
+  c.fillStyle = PAL.ruinFloor; c.fillRect(ux, uy, uw, uh); c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(ux, uy, uw, uh);
+  c.beginPath(); c.moveTo(ux + uw / 2, uy + uh * .25); c.lineTo(ux + uw * .7, uy + uh / 2); c.lineTo(ux + uw / 2, uy + uh * .75); c.lineTo(ux + uw * .3, uy + uh / 2); c.closePath(); c.lineWidth = 1; c.strokeStyle = '#33433a'; c.stroke();
+  for (const [a, b, ww, hh] of [[0, 0, uw, th], [0, 0, th, uh], [uw - th, 0, th, uh * .5], [0, uh - th, uw * .3, th], [uw * .7, uh - th, uw * .3, th]]) { c.fillStyle = '#857f6c'; c.fillRect(ux + a, uy + b, ww, hh); c.strokeStyle = INK; c.lineWidth = 1; c.strokeRect(ux + a, uy + b, ww, hh); }
+}
+// three-quarter: same plan, but walls have a front face and a top
+function roomB_back(c) {
+  const r = ROOM, x = r.x * S, y = r.y * S, w = r.w * S, h = r.h * S, th = 7, face = 12;
+  c.fillStyle = PAL.floor; c.fillRect(x, y, w, h);
+  for (let i = 1; i < r.w; i++) { c.beginPath(); c.moveTo(x + i * S, y); c.lineTo(x + i * S, y + h); c.lineWidth = .6; c.strokeStyle = PAL.floorLine; c.stroke(); }
+  c.fillStyle = PAL.wallFace; c.fillRect(x, y + th, w, face); c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x, y + th + face, w, 5);
+  c.fillStyle = PAL.wallTop; c.fillRect(x, y, w, th); c.strokeStyle = INK; c.lineWidth = 1; c.strokeRect(x, y, w, th + face);
+  for (const xx of [x, x + w - th]) { c.fillStyle = PAL.wallTop; c.fillRect(xx, y, th, h); c.strokeRect(xx, y, th, h); }
+  const u = RUIN, ux = u.x * S, uy = u.y * S, uw = u.w * S, uh = u.h * S;
+  c.fillStyle = PAL.ruinFloor; c.fillRect(ux, uy, uw, uh); c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(ux, uy, uw, uh);
+  c.fillStyle = '#6a6555'; c.fillRect(ux, uy + th, uw, face); c.fillStyle = '#857f6c'; c.fillRect(ux, uy, uw, th); c.strokeStyle = INK; c.strokeRect(ux, uy, uw, th + face);
+  for (const xx of [ux, ux + uw - th]) { c.fillStyle = '#857f6c'; c.fillRect(xx, uy, th, uh * (xx === ux ? 1 : .5)); c.strokeRect(xx, uy, th, uh * (xx === ux ? 1 : .5)); }
+}
+function roomB_front(c) { // the front wall and the roof are drawn after the people inside
+  const r = ROOM, x = r.x * S, y = r.y * S, w = r.w * S, h = r.h * S, th = 7, face = 12;
+  for (let k = 0; k < 3; k++) {
+    const rx = x + 10 + k * (w - 20) / 3, rw = (w - 20) / 3 - 4, ry = y - 6, rh = h - 22;
+    if (k < 2) { c.fillStyle = PAL.roof; c.fillRect(rx, ry, rw, rh); c.fillStyle = shade(PAL.roof, .72); c.fillRect(rx, ry + rh, rw, 7); for (let j = 1; j < 6; j++) { c.beginPath(); c.moveTo(rx, ry + j * rh / 6); c.lineTo(rx + rw, ry + j * rh / 6); c.lineWidth = .7; c.strokeStyle = PAL.roofLine; c.stroke(); } c.fillStyle = 'rgba(255,230,180,.08)'; c.fillRect(rx, ry, rw * .35, rh); c.strokeStyle = INK; c.lineWidth = .9; c.strokeRect(rx, ry, rw, rh + 7); }
+    else { c.setLineDash([4, 3]); c.strokeStyle = '#a15a4a'; c.lineWidth = 1; c.strokeRect(rx, ry, rw, rh); c.setLineDash([]); for (const [a, b] of [[.2, .3], [.6, .55]]) { c.beginPath(); c.roundRect(rx + a * rw - 6, ry + b * rh - 2, 12, 4, 1.5); fillStroke(c, PAL.roof, .7); } }
+  }
+  for (const [a, ww] of [[0, w * .4], [w * .6, w * .4]]) { c.fillStyle = PAL.wallFace; c.fillRect(x + a, y + h - th, ww, face); c.fillStyle = PAL.wallTop; c.fillRect(x + a, y + h - th - 4, ww, th); c.strokeStyle = INK; c.lineWidth = 1; c.strokeRect(x + a, y + h - th - 4, ww, th + face); }
+  const u = RUIN, ux = u.x * S, uy = u.y * S, uw = u.w * S, uh = u.h * S;
+  for (const [a, ww] of [[0, uw * .3], [uw * .7, uw * .3]]) { c.fillStyle = '#6a6555'; c.fillRect(ux + a, uy + uh - th, ww, face); c.fillStyle = '#857f6c'; c.fillRect(ux + a, uy + uh - th - 4, ww, th); c.strokeStyle = INK; c.strokeRect(ux + a, uy + uh - th - 4, ww, th + face); }
+}
+
+// people moving through the camp
+function along(pts, speed, pause, t) { // ping-pong along waypoints, returns {x,y,dx,dy,moving}
+  const segs = []; let total = 0;
+  const all = pts.concat(pts.slice(0, -1).reverse());
+  for (let i = 0; i < all.length - 1; i++) { const [a, b] = [all[i], all[i + 1]]; const len = Math.hypot(b[0] - a[0], b[1] - a[1]) / speed; segs.push([a, b, len]); total += len; }
+  const ends = [0, pts.length - 1];
+  const cycle = total + pause * 2; let k = t % cycle;
+  let acc = 0;
+  for (let i = 0; i < segs.length; i++) {
+    if (i === 0 && k < pause / 2) return { x: segs[0][0][0], y: segs[0][0][1], dx: segs[0][1][0] - segs[0][0][0], dy: 0, moving: false, atEnd: 0 };
+    if (i === pts.length - 1) { if (k - acc < pause) return { x: segs[i][0][0], y: segs[i][0][1], dx: segs[i - 1][1][0] - segs[i - 1][0][0], dy: 0, moving: false, atEnd: 1 }; acc += pause; }
+    const [a, b, len] = segs[i];
+    const kk = k - (i === 0 ? pause / 2 : 0) - acc;
+    if (kk <= len) { const u = Math.max(0, kk / len); return { x: lerp(a[0], b[0], u), y: lerp(a[1], b[1], u), dx: b[0] - a[0], dy: b[1] - a[1], moving: true }; }
+    acc += len;
+  }
+  const last = segs[segs.length - 1]; return { x: last[1][0], y: last[1][1], dx: 0, dy: 1, moving: false, atEnd: 0 };
+}
+const facingOf = (dx, dy) => Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'w') : (dy > 0 ? 's' : 'n');
+
+function people(t) {
+  const night = light === 'night', list = [];
+  const you = along([[6.4, 5.8], [8.6, 7.6], [11.0, 8.2], [13.4, 9.6], [15.0, 9.4]], 1.5, 2.2, t);
+  list.push({ who: P.you, x: you.x, y: you.y, facing: you.moving ? facingOf(you.dx, you.dy) : (you.atEnd ? 'e' : 'w'), phase: you.moving ? (t * 1.6) % 1 : null, action: you.moving ? 'walk' : 'work', carry: you.moving && you.dx > 0 });
+  list.push({ who: P.mira, x: 5.8, y: 10.6, facing: 'w', phase: null, action: 'crouch' });
+  list.push({ who: P.oren, x: 13.2, y: 6.95, facing: 'n', phase: null, action: 'work' });
+  list.push({ who: P.bram, x: 12.6, y: 9.75, facing: 'w', phase: null, action: 'sit' });
+  if (!night) list.push({ who: P.ilex, x: 16.6, y: 4.6, facing: 's', phase: null, action: 'sleep' });
+  else {
+    const il = along([[16.6, 4.6], [16.4, 6.6], [13.6, 8.4], [12.8, 8.6]], 1.2, 3, t + 3);
+    list.push({ who: P.ilex, x: il.x, y: il.y, facing: il.moving ? facingOf(il.dx, il.dy) : 's', phase: il.moving ? (t * 1.4) % 1 : null, action: 'walk' });
+    list.push({ who: P.vale, x: 18.8, y: 7.4, facing: Math.sin(t * .5) > 0 ? 'w' : 's', phase: null, action: 'idle' });
+    const th = along([[0.6, 13.2], [3.6, 12.0], [7.6, 11.6], [10.2, 12.2]], .8, 4, t);
+    list.push({ who: MONSTERS[0], x: th.x, y: th.y, facing: th.moving ? facingOf(th.dx, th.dy) : 'e', phase: th.moving ? (t * 1.1) % 1 : null, action: 'walk', glint: '#e8c88a' });
+    const wf = along([[1.2, 3.0], [2.6, 7.4], [1.4, 10.6]], 1.0, 1.5, t + 1);
+    list.push({ who: MONSTERS[1], x: wf.x, y: wf.y, facing: wf.moving ? facingOf(wf.dx, wf.dy) : 's', phase: wf.moving ? (t * 1.8) % 1 : null, action: 'walk', glint: '#d7c37a' });
+  }
+  return list;
+}
+
+function lighting(c, t) {
+  if (light === 'day') { c.fillStyle = 'rgba(255,240,210,.04)'; c.fillRect(0, 0, W, H); return; }
+  c.save(); c.globalCompositeOperation = 'multiply';
+  c.fillStyle = light === 'dusk' ? '#b98a74' : '#38435f'; c.fillRect(0, 0, W, H);
+  c.restore();
+  c.save(); c.globalCompositeOperation = 'lighter';
+  const fl = 1 + Math.sin(t * 9) * .04 + Math.sin(t * 15) * .03;
+  const g = c.createRadialGradient(HEARTH[0] * S, HEARTH[1] * S, 4, HEARTH[0] * S, HEARTH[1] * S, (light === 'dusk' ? 120 : 170) * fl);
+  g.addColorStop(0, light === 'dusk' ? 'rgba(255,170,90,.32)' : 'rgba(255,160,80,.42)'); g.addColorStop(1, 'rgba(255,160,80,0)');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.restore();
+}
+
+function bar(c) {
+  c.fillStyle = 'rgba(17,16,13,.92)'; c.fillRect(0, H - BAR, W, BAR); c.fillStyle = '#2a2721'; c.fillRect(0, H - BAR, W, 1);
+  c.font = '12px system-ui, sans-serif'; c.textBaseline = 'middle';
+  let x = 12; for (const [label, on] of [['Build', 0], ['Orders', 0], ['Zones', 0], ['Work', 0], ['Schedule', 0], ['|', 0], ['People', 1], ['Chronicle', 1]]) { if (label === '|') { c.fillStyle = '#3a362e'; c.fillRect(x, H - BAR + 7, 1, BAR - 14); x += 12; continue; } c.fillStyle = on ? '#d8cfbb' : '#7d766a'; c.fillText(label, x, H - BAR / 2); x += c.measureText(label).width + 18; }
+  const clock = light === 'day' ? 'Day 12, 14:10 · Summer' : light === 'dusk' ? 'Day 12, 19:05 · Summer' : 'Day 12, 23:40 · Summer';
+  c.fillStyle = '#d8cfbb'; c.textAlign = 'right'; c.fillText(clock + '     Pause   ×1   ×3   ×6', W - 12, H - BAR / 2); c.textAlign = 'left';
+}
+
+function frame(now) {
+  const t = now / 1000, c = cc;
+  terrain(c, t);
+  if (style === 'a') roomA(c); else roomB_back(c);
+  stockpile(c);
+  hearth(c, t);
+  const beings = people(t);
+  const items = [];
+  for (const b of BUSHES) items.push({ y: b[1], draw: () => bush(c, b[0] * S / S, b[1], t) });
+  for (const p of beings) items.push({ y: p.y, draw: () => drawFigure(c, p, t) });
+  if (style === 'b') TREES.forEach((tr, i) => items.push({ y: tr[1] + .35, draw: () => treeB(c, tr[0], tr[1], tr[2], t, i) }));
+  items.sort((a, b) => a.y - b.y);
+  if (style === 'b') {
+    const inside = items.filter(it => false);
+    for (const it of items) it.draw();
+    roomB_front(c);
+  } else {
+    for (const it of items) it.draw();
+    TREES.forEach((tr, i) => treeA(c, tr[0], tr[1], tr[2], t, i));
+  }
+  lighting(c, t);
+  if (names) for (const p of beings) { c.font = '10px system-ui, sans-serif'; c.textAlign = 'center'; c.fillStyle = 'rgba(230,224,208,.9)'; c.fillText(p.who.name, p.x * S, p.y * S + (style === 'a' ? 22 : 12)); c.textAlign = 'left'; }
+  bar(c);
+  requestAnimationFrame(frame);
+}
+function drawFigure(c, p, t) {
+  const size = style === 'a' ? 38 : 52;
+  const o = { facing: p.facing, phase: p.phase, action: p.action, t, seed: p.x * 7, glint: light === 'night' ? p.glint : null };
+  const yy = style === 'a' ? p.y * S : p.y * S + 14;
+  drawBeing(c, p.who, p.x * S, yy, size, o);
+  if (p.carry) { c.save(); c.translate(p.x * S + (style === 'a' ? 0 : 0), yy - (style === 'a' ? 6 : 34)); c.rotate(.15); c.beginPath(); c.roundRect(-13, -3.5, 26, 7, 3); fillStroke(c, PAL.log, .8); ellipse(c, 12.5, 0, 2.4, 3.3, PAL.logEnd, .6); c.restore(); }
+}
+
+// ---------- the sheet ----------
+const sheet = document.getElementById('sheet'), SW = 960, SH = 530, sc = setup(sheet, SW, SH);
+function sheetFrame(now) {
+  const t = now / 1000, c = sc;
+  c.fillStyle = '#20231c'; c.fillRect(0, 0, SW, SH);
+  const facing = ['s', 'e', 'n', 'w'][Math.floor(t / 2) % 4];
+  const all = PEOPLE.concat(MONSTERS);
+  all.forEach((who, i) => {
+    const big = who.kind === 'king';
+    let col, row; if (i < 10) { col = i % 5; row = Math.floor(i / 5); } else { col = i - 10; row = 2; }
+    const cw = row < 2 ? SW / 5 : (col === 3 ? SW * .34 : SW * .22), cx = row < 2 ? col * cw : [0, SW * .22, SW * .44, SW * .66][col], cy = row * 150 + 6;
+    const ch = row < 2 ? 142 : 204;
+    c.fillStyle = row === 2 ? '#262a22' : '#24281f'; c.fillRect(cx + 4, cy, cw - 8, ch);
+    const walking = Math.floor(t / 2) % 2 === 0 || who.kind === 'wolf';
+    const o = { facing, phase: walking ? (t * 1.5) % 1 : null, action: walking ? 'walk' : 'idle', t, seed: i };
+    // 3x figure
+    const zoom = 32 * 3, ax = cx + cw * .42, ay = style === 'a' ? cy + (row < 2 ? 74 : 104) : cy + (row < 2 ? 122 : 184);
+    drawBeing(c, who, ax, ay, big ? zoom * .62 : zoom, o);
+    // actual 32 px, on a tile
+    const tx = cx + cw - 52, ty = cy + (row < 2 ? 92 : 150);
+    c.fillStyle = PAL.grass; c.fillRect(tx, ty, 40, 40); c.strokeStyle = 'rgba(0,0,0,.2)'; c.strokeRect(tx + .5, ty + .5, 40, 40);
+    drawBeing(c, who, tx + 20, style === 'a' ? ty + 20 : ty + 36, big ? 32 * .95 : 32, o);
+    c.font = '12px system-ui, sans-serif'; c.fillStyle = '#d8cfbb'; c.fillText(who.name, cx + 12, cy + 18);
+    if (big) { c.font = '10px system-ui, sans-serif'; c.fillStyle = '#8f887a'; c.fillText('large view at a smaller zoom; true size on the tile', cx + 12, cy + 33); }
+    c.font = '10px system-ui, sans-serif'; c.fillStyle = '#8f887a'; c.fillText('32 px', tx + 6, ty + 52);
+  });
+  requestAnimationFrame(sheetFrame);
+}
+
+document.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { style = b.dataset.style; document.querySelectorAll('[data-style]').forEach(x => x.classList.toggle('on', x === b)); });
+document.querySelectorAll('[data-light]').forEach(b => b.onclick = () => { light = b.dataset.light; document.querySelectorAll('[data-light]').forEach(x => x.classList.toggle('on', x === b)); });
+document.querySelectorAll('[data-names]').forEach(b => b.onclick = () => { names = !names; b.classList.toggle('on', names); });
+const q = new URLSearchParams(location.search); if (q.get('style')) style = q.get('style'); if (q.get('light')) light = q.get('light');
+requestAnimationFrame(frame); requestAnimationFrame(sheetFrame);
+})();
+</script>
+</body></html>
