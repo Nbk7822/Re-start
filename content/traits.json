@@ -1,0 +1,64 @@
+[
+  {
+    "id": "protective",
+    "nameKey": "trait.protective.name",
+    "descKey": "trait.protective.desc",
+    "careUrgency": 3,
+    "insultPermilleAdd": -10,
+    "fightsThieves": true
+  },
+  {
+    "id": "oathbound",
+    "nameKey": "trait.oathbound.name",
+    "descKey": "trait.oathbound.desc",
+    "promisePriority": 3,
+    "restThresholdAdd": -80
+  },
+  {
+    "id": "proud",
+    "nameKey": "trait.proud.name",
+    "descKey": "trait.proud.desc",
+    "insultPermilleAdd": 15,
+    "insultOpinionScalePct": 160,
+    "consentBias": -20
+  },
+  {
+    "id": "practical",
+    "nameKey": "trait.practical.name",
+    "descKey": "trait.practical.desc",
+    "workBias": [
+      { "work": "repair_roof", "add": 2 },
+      { "work": "forage", "add": 1 }
+    ]
+  },
+  {
+    "id": "generous",
+    "nameKey": "trait.generous.name",
+    "descKey": "trait.generous.desc",
+    "careUrgency": 2,
+    "consentBias": 20,
+    "offersBlood": true,
+    "sharesFood": true
+  },
+  {
+    "id": "independent",
+    "nameKey": "trait.independent.name",
+    "descKey": "trait.independent.desc",
+    "insultPermilleAdd": 10,
+    "consentBias": -10,
+    "priorityRespectPct": 50
+  },
+  {
+    "id": "desperate",
+    "nameKey": "trait.desperate.name",
+    "descKey": "trait.desperate.desc",
+    "stealFoodBelow": 220
+  },
+  {
+    "id": "anxious",
+    "nameKey": "trait.anxious.name",
+    "descKey": "trait.anxious.desc",
+    "fleeHealthBelow": 700,
+    "riskyWorkHealthBelow": 600
+  }
+]

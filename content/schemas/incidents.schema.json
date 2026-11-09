@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Incidents the director can fire, with integer parameters",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "textKey", "kind", "params"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "textKey": { "$ref": "#/$defs/locKey" },
+      "kind": { "enum": ["major", "minor", "good"] },
+      "params": {
+        "type": "object",
+        "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
+        "additionalProperties": { "type": "integer" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

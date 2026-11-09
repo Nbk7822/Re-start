@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Localisation table: key to template; {name} placeholders",
+  "type": "object",
+  "propertyNames": { "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+  "additionalProperties": { "type": "string" }
+}

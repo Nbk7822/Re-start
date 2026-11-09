@@ -1,0 +1,22 @@
+{
+  "ticksPerHour": 300,
+  "hoursPerDay": 24,
+  "daysPerSeason": 10,
+  "seasonsPerYear": 4,
+  "dawnHour": 6,
+  "duskHour": 19,
+  "ticksPerSecond": 20,
+  "speedMultipliers": [1, 3, 6],
+  "seasonKeys": ["season.spring", "season.summer", "season.autumn", "season.winter"],
+  "mapWidth": 48,
+  "mapHeight": 32,
+  "socialEveryTicks": 30,
+  "startBerries": 3,
+  "startTimber": 2,
+  "promiseDueHours": 48,
+  "director": {
+    "pressurePerHour": 1,
+    "majorCost": 30,
+    "minHoursBetweenMajors": 6
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The cast: who each person fundamentally is (natures come from Truths)",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["key", "nameKey", "species", "signatureTrait", "role", "color"],
+    "properties": {
+      "key": { "$ref": "#/$defs/id" },
+      "nameKey": { "$ref": "#/$defs/locKey" },
+      "species": { "$ref": "#/$defs/id" },
+      "signatureTrait": { "$ref": "#/$defs/id" },
+      "role": { "$ref": "#/$defs/id" },
+      "otherworlder": { "type": "boolean" },
+      "startsInCamp": { "type": "boolean" },
+      "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

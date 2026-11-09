@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Species: they differ in needs, not stats",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKey", "foodSource", "foodDecayPerHour", "restDecayPerHour", "socialDecayPerHour", "sleepRestorePerHour", "ticksPerTile"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKey": { "$ref": "#/$defs/locKey" },
+      "foodSource": { "description": "\"blood\" or an item id", "$ref": "#/$defs/id" },
+      "foodDecayPerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "restDecayPerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "socialDecayPerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "sleepRestorePerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "daylightBurnPerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "ticksPerTile": { "type": "integer", "minimum": 1 },
+      "canDonateBlood": { "type": "boolean" },
+      "bloodPerFeed": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "donorHealthCost": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "donorRestCost": { "type": "integer", "minimum": 0, "maximum": 1000 }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "human",
+    "nameKey": "species.human.name",
+    "foodSource": "berries",
+    "foodDecayPerHour": 25,
+    "restDecayPerHour": 30,
+    "socialDecayPerHour": 15,
+    "sleepRestorePerHour": 120,
+    "daylightBurnPerHour": 0,
+    "ticksPerTile": 6,
+    "canDonateBlood": true
+  },
+  {
+    "id": "vampire",
+    "nameKey": "species.vampire.name",
+    "foodSource": "blood",
+    "foodDecayPerHour": 18,
+    "restDecayPerHour": 30,
+    "socialDecayPerHour": 12,
+    "sleepRestorePerHour": 140,
+    "daylightBurnPerHour": 60,
+    "ticksPerTile": 6,
+    "canDonateBlood": false,
+    "bloodPerFeed": 700,
+    "donorHealthCost": 130,
+    "donorRestCost": 170
+  }
+]
