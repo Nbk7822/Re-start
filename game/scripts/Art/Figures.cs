@@ -469,7 +469,7 @@ public static class Figures
         bool dead = s.Pose == Pose.Dead, downed = s.Pose == Pose.Downed;
         float dir = s.HeadLeft ? -1f : 1f;
         float lift = s.Carried ? -25f : 0f;
-        if (!s.Carried) Shadow(b, tex, 0f, 0.5f, 15f, 3.8f, shadowAlpha);
+        if (!s.Carried && !s.OnBed) Shadow(b, tex, 0f, 0.5f, 15f, 3.8f, shadowAlpha);
 
         Color cloth = look.Cloth, skin = look.Skin, hair = look.Hair;
         float thin = 1f;
@@ -496,7 +496,14 @@ public static class Figures
 
         b.Push();
         b.Translate(0f, -2.5f + lift);
-        b.Scale(dir, 0.82f);
+        if (s.Pose == Pose.Sleep && s.OnBed)
+        {
+            // In a bed: lying along it, head on the pillow at the north end, the length foreshortened.
+            b.Translate(0f, -9f);
+            b.Rotate(-MathF.PI / 2f);
+            b.Scale(0.8f, 1f);
+        }
+        else b.Scale(dir, 0.82f);
         float heave = downed ? MathF.Sin(s.Time * 4.2f + s.Seed) * 0.35f : s.Pose == Pose.Sleep ? MathF.Sin(s.Time * 1.3f + s.Seed) * 0.25f : 0f;
 
         // Legs.
@@ -607,7 +614,7 @@ public static class Figures
     {
         if (s.Pose is Pose.Sleep or Pose.Downed or Pose.Dead)
         {
-            if (!s.Carried) Shadow(b, tex, 0f, 0.5f, 15f, 3.8f, alpha);
+            if (!s.Carried && !s.OnBed) Shadow(b, tex, 0f, 0.5f, 15f, 3.8f, alpha);
             return;
         }
         Shadow(b, tex, shadow.X, shadow.Y, 9.5f * look.Wide + MathF.Abs(shadow.X) * 0.5f, 3.4f, alpha);

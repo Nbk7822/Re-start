@@ -160,7 +160,7 @@ public sealed class WorldArt
                     TerrainKind kind = KindAt(x, y);
                     float cx = (x + 0.5f) * T, cy = (y + 0.5f) * T;
                     if (kind is TerrainKind.Soil or TerrainKind.Rock)
-                        Blob(b, k, cx + ArtHash.Signed(x, y, 3) * 3f, cy + ArtHash.Signed(x, y, 4) * 3f, T * 1.85f, ArtHash.Of(x, y, 3),
+                        Blob(b, k, cx + ArtHash.Signed(x, y, 3) * 4f, cy + ArtHash.Signed(x, y, 4) * 4f, T * 2.25f, ArtHash.Of(x, y, 3),
                             winter ? Palette.Soil.Lerp(Palette.GrassWinter, 0.25f) : Palette.Soil.Lerp(Palette.Soil2, ArtHash.Unit(x, y, 4)));
                 }
             for (int y = 0; y < _m.Height; y++)
@@ -722,18 +722,24 @@ public sealed class WorldArt
         }
     }
 
-    public void DrawSmoke(Brush b, Vector2 at, float time, float strength, float wind, int salt)
+    /// <summary>
+    /// Puffs rising and spreading on the wind: pale wood smoke from the hearth, thick dark smoke
+    /// (<paramref name="dark"/>) from someone burning in the sun.
+    /// </summary>
+    public void DrawSmoke(Brush b, Vector2 at, float time, float strength, float wind, int salt, bool dark = false)
     {
         if (strength <= 0.01f) return;
-        for (int i = 0; i < 5; i++)
+        Color tint = dark ? new Color(0.2f, 0.18f, 0.17f) : new Color(0.74f, 0.72f, 0.68f);
+        int puffs = dark ? 7 : 6;
+        for (int i = 0; i < puffs; i++)
         {
-            float k = (time * 0.28f + i / 5f + salt * 0.13f) % 1f;
+            float k = (time * (dark ? 0.45f : 0.28f) + i / (float)puffs + salt * 0.13f) % 1f;
             float x = at.X + MathF.Sin(i * 5f + time * 0.7f + salt) * 3f + k * 16f * wind;
-            float y = at.Y - 6f - k * 34f;
-            float size = 7f + k * 18f;
-            float a = 0.32f * (1f - k) * MathF.Min(1f, k * 6f) * strength;
-            if (_tex.Smoke != null) b.Texture(_tex.Smoke, x, y, size, size, k * 2f + i, Palette.Smoke.WithAlpha(a));
-            else b.Clear().Ellipse(x, y, size * 0.3f, size * 0.25f, 12).Fill(Palette.Smoke.WithAlpha(a * 0.7f));
+            float y = at.Y - 4f - k * (dark ? 30f : 38f);
+            float size = (dark ? 8f : 7f) + k * (dark ? 20f : 22f);
+            float a = (dark ? 0.85f : 0.6f) * (1f - k) * MathF.Min(1f, k * 5f) * strength;
+            if (_tex.Smoke != null) b.Texture(_tex.Smoke, x, y, size, size, k * 2f + i, tint.WithAlpha(Math.Min(1f, a)));
+            else b.Clear().Ellipse(x, y, size * 0.3f, size * 0.25f, 12).Fill(tint.WithAlpha(a * 0.7f));
         }
     }
 

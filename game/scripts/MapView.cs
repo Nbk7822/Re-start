@@ -600,7 +600,6 @@ public partial class MapView : Node2D
 
     private void Effects(World w)
     {
-        Map m = w.Map;
         float wind = w.Weather.Raining ? 1.4f : 0.6f;
         _art.DrawSmoke(_brush, _art.HearthCenter + new Vector2(0f, -8f), _time, w.Weather.Raining ? 1.3f : 1f, wind, 0);
         foreach (Character c in w.Characters)
@@ -609,13 +608,13 @@ public partial class MapView : Node2D
             Vector2 feet = s.At + new Vector2(0f, FeetOffset);
             if (GoreLog.Burning(w, c))
             {
-                _art.DrawSmoke(_brush, feet + new Vector2(0f, -TileSize * 0.6f), _time * 1.6f, 1.2f, wind, c.Id);
+                _art.DrawSmoke(_brush, feet + new Vector2(0f, -TileSize * 0.6f), _time, 1f, wind, c.Id, dark: true);
                 Gore.Embers(_brush, feet.X, feet.Y - TileSize * 0.5f, _time, c.Id);
             }
             if (c.Status != CharStatus.Dead || _gore.RemainsOf(w, c) is not Remains r) continue;
             float hours = Math.Max(0, w.Tick - r.Tick) / (float)w.Content.World.TicksPerHour;
             if (r.Kind == DeathKind.Sun && hours < 12f && _light.Night < 0.5f)
-                _art.DrawSmoke(_brush, feet + new Vector2(0f, -4f), _time * 0.8f, 0.6f, wind, c.Id);
+                _art.DrawSmoke(_brush, feet + new Vector2(0f, -4f), _time * 0.8f, 0.55f, wind, c.Id, dark: true);
             if (hours > 1f && _light.Night < 0.6f && !w.Weather.Raining)
                 Gore.Flies(_brush, feet.X, feet.Y - 4f, _time, c.Id, hours > 8f ? 6 : 3);
         }
