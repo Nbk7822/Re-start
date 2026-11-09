@@ -45,6 +45,39 @@ public class WantContentTests
         }
     }
 
+    /// <summary>
+    /// Weights add, so a want meant for one kind of person must take all its weight from that axis
+    /// (ADR-0021): whatever a cast member's secondary trait, only the otherworlder can want to go home
+    /// to Earth, and only those the sun burns can want to walk in daylight again.
+    /// </summary>
+    [Fact]
+    public void WantsMeantForOneKindOfPersonStayWithThem()
+    {
+        ContentDb db = ContentDb.Load(ContentDir);
+        WantDef home = db.WantById("find_home"), daylight = db.WantById("daylight");
+        foreach (CastDef c in db.Cast)
+        {
+            bool burns = db.SpeciesById(c.Species).DaylightBurnPerHour > 0;
+            foreach (TraitDef secondary in db.Traits.Where(t => t.Id != c.SignatureTrait))
+            {
+                string[] traits = { c.SignatureTrait, secondary.Id };
+                Assert.Equal(c.Otherworlder, Return.Sim.Systems.Growth.Weight(home, traits, c.Species, c.Role, c.Otherworlder) > 0);
+                Assert.Equal(burns, Return.Sim.Systems.Growth.Weight(daylight, traits, c.Species, c.Role, c.Otherworlder) > 0);
+            }
+        }
+    }
+
+    /// <summary>No dead content: across a couple of hundred worlds, every kind of want is somebody's nature.</summary>
+    [Fact]
+    public void EveryWantIsSomeonesNatureInSomeWorld()
+    {
+        ContentDb db = ContentDb.Load(ContentDir);
+        var drawn = new HashSet<string>(StringComparer.Ordinal);
+        for (ulong seed = 1; seed <= 200; seed++)
+            foreach (CastDef c in db.Cast) drawn.Add(Return.Sim.WorldGen.NatureOf(db, seed, c.Key).WantType);
+        Assert.Equal(db.Wants.Select(d => d.Id).OrderBy(i => i, StringComparer.Ordinal), drawn.OrderBy(i => i, StringComparer.Ordinal));
+    }
+
     [Theory]
     [InlineData("\"place\": \"shelter\"", "\"place\": \"moon\"", "moon")]
     [InlineData("\"protective\": 40", "\"brave\": 40", "brave")]
