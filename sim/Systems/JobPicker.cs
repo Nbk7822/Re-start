@@ -1,0 +1,245 @@
+using Return.Sim.Content;
+using Return.Sim.Core;
+using Return.Sim.Systems.Jobs;
+
+namespace Return.Sim.Systems;
+
+/// <summary>
+/// Chooses what an idle person does next, in the demo's order of concerns: cover from the sun,
+/// critical hunger, rest (and the injured lie down), promises, the injured, a Generous offer of
+/// blood, eating, prioritised work, company, wandering. Returns a job with its target set; travel is
+/// started by <see cref="WorkSystem"/>. Never orders anyone; it only reads state (and draws Dice for
+/// wandering).
+/// </summary>
+public static class JobPicker
+{
+    public const int InjuredBelow = 400;
+
+    private static readonly string[] WorkOrder = { "care", "repair_roof", "gather_timber", "forage", "haul", "keep_watch" };
+
+    public static Job? Choose(World w, Character c)
+    {
+        if (c.Downed || c.Status != CharStatus.Member) return null;
+        SpeciesDef sp = Places.Species(w, c);
+        bool burns = sp.DaylightBurnPerHour > 0;
+        bool daylight = Places.Daylight(w);
+        bool sunBlocked = burns && daylight;
+
+        if (sunBlocked && !w.Map.Covered(c.Pos))
+        {
+            Point spot = Places.CoveredSpot(w, c.Pos);
+            if (spot != Point.None) return new Job { Kind = JobKind.SeekCover, Target = spot, CauseEvent = c.LastHealthEvent };
+        }
+
+        if (c.Food < NeedsSystem.HungryBelow)
+        {
+            if (sp.DrinksBlood)
+            {
+                Character? donor = BloodJobs.PickDonor(w, c);
+                if (donor != null && !(sunBlocked && !w.Map.Covered(donor.Pos)))
+                    return new Job { Kind = JobKind.RequestBlood, TargetId = donor.Id, Target = donor.Pos, CauseEvent = c.LastFoodEvent };
+            }
+            else
+            {
+                Job? eat = EatJob(w, c, allowTheft: true);
+                if (eat != null) return eat;
+                Job? forage = ForageJob(w, c);
+                if (forage != null) return forage;
+            }
+        }
+
+        if (c.Health < InjuredBelow) return SleepJob(w, c);
+        int restAt = 200 + Traits.Sum(w, c, t => t.RestThresholdAdd);
+        if (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700)) return SleepJob(w, c);
+
+        Job? promise = PromiseJob(w, c);
+        if (promise != null) return promise;
+
+        if (Traits.Sum(w, c, t => t.CareUrgency) > 0 || PriorityOf(c, "care") == 1)
+        {
+            Job? care = CareJob(w, c, sunBlocked);
+            if (care != null) return care;
+        }
+
+        if (sp.CanDonateBlood && c.Health > 800 && Traits.Any(w, c, t => t.OffersBlood))
+        {
+            Character? vampire = BloodJobs.NeedyVampire(w, c);
+            if (vampire != null) return new Job { Kind = JobKind.GiveBlood, TargetId = vampire.Id, Target = vampire.Pos, CauseEvent = vampire.LastFoodEvent };
+        }
+
+        if (!sp.DrinksBlood && c.Food < NeedsSystem.FedAt)
+        {
+            Job? eat = EatJob(w, c, allowTheft: false);
+            if (eat != null) return eat;
+        }
+
+        Job? work = WorkJob(w, c, sunBlocked);
+        if (work != null) return work;
+
+        if (c.Social < 400)
+        {
+            Job? talk = SocializeJob(w, c, sunBlocked);
+            if (talk != null) return talk;
+        }
+        return WanderJob(w, c, sunBlocked);
+    }
+
+    public static int PriorityOf(Character c, string workId)
+    {
+        foreach (WorkPriority p in c.Priorities)
+            if (p.WorkId == workId) return p.Priority;
+        return 3;
+    }
+
+    private static Job? EatJob(World w, Character c, bool allowTheft)
+    {
+        string food = Places.Species(w, c).FoodSource;
+        Point tile = Places.FoodTile(w, food);
+        if (tile == Point.None) return null;
+        if (Rations.HasReservation(w, c.Id) || Rations.Unreserved(w, food) > 0)
+            return new Job { Kind = JobKind.Eat, Target = tile, CauseEvent = c.LastFoodEvent };
+        if (allowTheft && c.Food < Traits.Max(w, c, t => t.StealFoodBelow))
+            foreach (Reservation r in w.Reservations)
+                if (r.CharacterId != c.Id && r.Count > 0)
+                    return new Job { Kind = JobKind.Eat, Target = tile, TargetId = r.CharacterId, CauseEvent = c.LastFoodEvent };
+        return null;
+    }
+
+    private static Job? ForageJob(World w, Character c)
+    {
+        Bush? bush = Places.BushWithBerries(w, c.Pos);
+        return bush == null ? null : new Job { Kind = JobKind.Forage, TargetId = bush.Id, Target = bush.Pos };
+    }
+
+    private static Job SleepJob(World w, Character c) => new() { Kind = JobKind.Sleep, Target = Places.SleepSpot(w, c), CauseEvent = c.LastRestEvent };
+
+    /// <summary>An Oathbound debtor gives a hungry creditor food to keep a meal promise the camp is failing to keep.</summary>
+    private static Job? PromiseJob(World w, Character c)
+    {
+        if (Traits.Sum(w, c, t => t.PromisePriority) <= 0) return null;
+        string food = Places.Species(w, c).FoodSource;
+        if (Places.Species(w, c).DrinksBlood) food = "berries";
+        Point tile = Places.FoodTile(w, food);
+        if (tile == Point.None) return null;
+        bool canTake = Rations.HasReservation(w, c.Id) || Rations.Unreserved(w, food) > 0;
+        if (!canTake) return null;
+        foreach (Debt d in w.Debts)
+        {
+            if (d.Status != DebtStatus.Open || d.Kind != DebtKind.PromiseMeal || d.DebtorId != c.Id) continue;
+            Character? creditor = w.Find(d.CreditorId);
+            if (creditor == null || creditor.Status != CharStatus.Member || creditor.Food >= NeedsSystem.FedAt) continue;
+            if (Rations.HasReservation(w, creditor.Id) || Places.Targeted(w, JobKind.KeepPromise, d.Id, c.Id)) continue;
+            return new Job { Kind = JobKind.KeepPromise, TargetId = d.Id, Target = tile, CauseEvent = d.FormedEvent };
+        }
+        return null;
+    }
+
+    private static Job? CareJob(World w, Character c, bool sunBlocked)
+    {
+        if (c.Health < InjuredBelow) return null;
+        Character? best = null;
+        int bestDist = int.MaxValue;
+        foreach (Character p in w.Characters)
+        {
+            if (p.Id == c.Id || p.Status != CharStatus.Member) continue;
+            if (!p.Downed && p.Health >= InjuredBelow) continue;
+            if (Places.Targeted(w, JobKind.Care, p.Id, c.Id)) continue;
+            if (sunBlocked && !w.Map.Covered(p.Pos)) continue;
+            int d = c.Pos.ChebyshevTo(p.Pos);
+            if (d < bestDist) { best = p; bestDist = d; }
+        }
+        return best == null ? null : new Job { Kind = JobKind.Care, TargetId = best.Id, Target = best.Pos, CauseEvent = best.LastHealthEvent };
+    }
+
+    private static Job? WorkJob(World w, Character c, bool sunBlocked)
+    {
+        int respect = Traits.ScalePct(w, c, t => t.PriorityRespectPct);
+        bool fragile = c.Health < Traits.Max(w, c, t => t.RiskyWorkHealthBelow);
+        Job? best = null;
+        int bestScore = int.MaxValue;
+        foreach (string workId in WorkOrder)
+        {
+            int priority = PriorityOf(c, workId);
+            if (priority <= 0) continue;
+            WorkDef def = w.Content.WorkById(workId);
+            if (def.Risky && fragile) continue;
+            int score = priority * 100 - Traits.WorkBias(w, c, workId) * 60;
+            score = 250 + (score - 250) * respect / 100;
+            if (score >= bestScore) continue;
+            Job? job = Candidate(w, c, workId, def, sunBlocked);
+            if (job == null) continue;
+            best = job;
+            bestScore = score;
+        }
+        return best;
+    }
+
+    private static Job? Candidate(World w, Character c, string workId, WorkDef def, bool sunBlocked)
+    {
+        switch (workId)
+        {
+            case "care":
+                return CareJob(w, c, sunBlocked);
+            case "repair_roof":
+            {
+                if (sunBlocked || Stock.Count(w, "timber") < def.TimberCost) return null;
+                foreach (RoofSection r in w.Map.Roof)
+                    if (!r.Sound && !Places.Targeted(w, JobKind.RepairRoof, r.Index, c.Id))
+                        return new Job { Kind = JobKind.RepairRoof, TargetId = r.Index, Target = Places.FoodTile(w, "timber") };
+                return null;
+            }
+            case "gather_timber":
+            {
+                if (sunBlocked || Places.TimberNeeded(w) <= 0) return null;
+                Tree? tree = Places.StandingTree(w, c.Pos);
+                return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos) };
+            }
+            case "forage":
+                if (sunBlocked || Stock.Count(w, "berries") >= 2 * Places.HumanMembers(w)) return null;
+                return ForageJob(w, c);
+            case "haul":
+            {
+                if (sunBlocked) return null;
+                foreach (ItemStack s in w.Items)
+                    if (!w.Map.Stockpile.Contains(s.Pos) && w.Map.Passable(s.Pos) && !Places.Targeted(w, JobKind.Haul, s.Id, c.Id))
+                        return new Job { Kind = JobKind.Haul, TargetId = s.Id, Target = s.Pos };
+                return null;
+            }
+            case "keep_watch":
+            {
+                if (Places.Daylight(w) || Places.SomeoneOnWatch(w, c.Id)) return null;
+                if (c.Health < Traits.Max(w, c, t => t.FleeHealthBelow)) return null;
+                Point post = w.Map.Passable(w.Map.WatchPost) ? w.Map.WatchPost : Places.Adjacent(w, w.Map.WatchPost, c.Pos);
+                return post == Point.None ? null : new Job { Kind = JobKind.KeepWatch, Target = post };
+            }
+            default:
+                return null;
+        }
+    }
+
+    private static Job? SocializeJob(World w, Character c, bool sunBlocked)
+    {
+        Character? best = null;
+        int bestDist = int.MaxValue;
+        foreach (Character o in w.Characters)
+        {
+            if (o.Id == c.Id || o.Status != CharStatus.Member || o.Asleep || o.Downed) continue;
+            if (sunBlocked && !w.Map.Covered(o.Pos)) continue;
+            int d = c.Pos.ChebyshevTo(o.Pos);
+            if (d < bestDist && d <= 25) { best = o; bestDist = d; }
+        }
+        if (best == null) return null;
+        Point spot = Places.Adjacent(w, best.Pos, c.Pos);
+        return spot == Point.None ? null : new Job { Kind = JobKind.Socialize, TargetId = best.Id, Target = spot };
+    }
+
+    private static Job? WanderJob(World w, Character c, bool sunBlocked)
+    {
+        Point centre = sunBlocked ? c.Pos : (c.Pos.ChebyshevTo(w.Map.Hearth) > 8 ? w.Map.Hearth : c.Pos);
+        int radius = sunBlocked ? 1 : 4;
+        Point p = Places.Near(w, centre, radius);
+        if (p == Point.None || (sunBlocked && !w.Map.Covered(p))) p = c.Pos;
+        int wait = w.Rng.Dice[DiceSystem.Work].Range(DiceId.WanderWait, 60, 181);
+        return new Job { Kind = JobKind.Wander, Target = p, TargetId = wait };
+    }
+}

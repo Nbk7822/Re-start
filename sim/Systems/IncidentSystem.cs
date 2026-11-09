@@ -9,5 +9,6 @@ public static class IncidentSystem
     {
     }
 
-    public static SimEvent? Fire(World w, string incidentId, long cause = 0) => null;
+    /// <summary>Fires an incident by id. targetId names the person it happens to, when there is one.</summary>
+    public static SimEvent? Fire(World w, string incidentId, long cause = 0, int targetId = 0) => null;
 }

@@ -11,6 +11,7 @@ namespace Return.Sim.Systems;
 public static class SocialSystem
 {
     public const int InitiatePermille = 60;
+    public const int SeekingCompanyPermille = 400;
     public const int NeighbourRange = 6;
     public const int BaseInsultPermille = 50;
     public const int LowMoodInsultPermille = 250;
@@ -25,7 +26,8 @@ public static class SocialSystem
         {
             if (!CanTalk(c)) continue;
             DiceStream dice = w.Rng.Dice[DiceSystem.Social];
-            if (!dice.Chance(DiceId.SocialInitiate, InitiatePermille)) continue;
+            int initiate = c.Job?.Kind == JobKind.Socialize ? SeekingCompanyPermille : InitiatePermille;
+            if (!dice.Chance(DiceId.SocialInitiate, initiate)) continue;
             Character? partner = Nearest(w, c);
             if (partner == null) continue;
 

@@ -23,6 +23,9 @@ public enum DiceId : ushort
     SocialInitiate = 3,
     SocialInsult = 4,
     SocialDeepTalk = 5,
+    WanderTarget = 6,
+    WanderWait = 7,
+    AccidentRoll = 8,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>

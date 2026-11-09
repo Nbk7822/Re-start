@@ -166,6 +166,18 @@
   "event.needs.went_without": "{a} went without so others could eat.",
   "event.needs.food_rotted": "{n} {item} rotted in the stockpile.",
 
+  "event.work.foraged": "{a} picked {n} {item}.",
+  "event.work.felled_tree": "{a} felled a tree for timber.",
+  "event.work.roof_repaired": "{a} repaired a section of the shelter roof ({n} of {total} now sound).",
+  "event.work.cared_for": "{a} tended {b}'s wounds.",
+  "event.work.gave_blood": "{a} gave blood to {b}.",
+  "event.work.shared_meal": "{a} brought {b} a meal.",
+  "event.work.rested_safely": "{a} slept safely under cover.",
+
+  "event.social.blood_request": "{a} asked {b} for blood.",
+  "event.social.blood_refused": "{b} refused to give {a} blood.",
+  "event.social.blood_offered": "{a} offered {b} their blood.",
+  "event.social.took_meal": "{a} took the meal set aside for {b}.",
   "event.social.insulted": "{a} insulted {b}.",
   "event.social.grudge_formed": "{a} now holds a grudge against {b}.",
   "event.social.grudge_ended": "{a} let go of their grudge against {b}.",

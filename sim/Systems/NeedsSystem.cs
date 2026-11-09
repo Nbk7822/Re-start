@@ -91,7 +91,16 @@ public static class NeedsSystem
             EventArg.Char("a", c.Id), EventArg.Item("item", item.Id));
         MoodSystem.AddThought(w, c, "ate", 0, e.Id);
         AfterFed(c);
+        KeepMealPromises(w, c, e.Id);
         return e;
+    }
+
+    /// <summary>As in the demo, a meal promise is kept when its creditor is fed from camp stores before it falls due.</summary>
+    private static void KeepMealPromises(World w, Character c, long ateEvent)
+    {
+        foreach (Debt d in w.Debts)
+            if (d.Status == DebtStatus.Open && d.Kind == DebtKind.PromiseMeal && d.CreditorId == c.Id)
+                Relations.Repay(w, d, ateEvent);
     }
 
     /// <summary>Called when a character's food need is restored by any means.</summary>
