@@ -75,6 +75,7 @@ public static class IncidentSystem
                 new[] { new Effect { Kind = EffectKind.Recruitment, A = c.Id, B = inviter.Id } },
                 EventArg.Char("a", c.Id), EventArg.Char("b", inviter.Id));
             MoodSystem.AddThought(w, c, "joined_camp", inviter.Id, welcomed.Id);
+            Courtesy.SwearWelcome(w, c, inviter, welcomed);
             return welcomed;
         }
 
@@ -97,6 +98,7 @@ public static class IncidentSystem
         promise.FormedEvent = joined.Id;
         if (!rest) c.LastFoodEvent = joined.Id;
         MoodSystem.AddThought(w, c, "joined_camp", inviter.Id, joined.Id);
+        Courtesy.SwearWelcome(w, c, inviter, joined);
         return joined;
     }
 

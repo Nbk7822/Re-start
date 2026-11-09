@@ -70,5 +70,21 @@
     "canDonateBlood": false,
     "needs": ["contract"],
     "arrivalKey": "event.incident.djinn_arrives"
+  },
+  {
+    "id": "fae",
+    "nameKey": "species.fae.name",
+    "foodSource": "berries",
+    "foodDecayPerHour": 25,
+    "restDecayPerHour": 30,
+    "socialDecayPerHour": 15,
+    "sleepRestorePerHour": 120,
+    "daylightBurnPerHour": 0,
+    "ticksPerTile": 6,
+    "canDonateBlood": false,
+    "needs": ["courtesy"],
+    "cannotLie": true,
+    "grudgeDecayEveryDays": 4,
+    "arrivalKey": "event.incident.fae_arrives"
   }
 ]

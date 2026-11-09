@@ -47,5 +47,14 @@
   { "id": "bargain_refused", "textKey": "thought.bargain_refused", "mood": -4, "opinion": -6, "durationHours": 24, "emote": "anger" },
   { "id": "bargain_honoured", "textKey": "thought.bargain_honoured", "mood": 8, "opinion": 15, "durationHours": 96, "emote": "sparkle" },
   { "id": "bargain_betrayed", "textKey": "thought.bargain_betrayed", "mood": -20, "opinion": -35, "durationHours": 168, "emote": "anger" },
-  { "id": "fire_loosed", "textKey": "thought.fire_loosed", "mood": -4, "opinion": -10, "durationHours": 48, "emote": "anger" }
+  { "id": "fire_loosed", "textKey": "thought.fire_loosed", "mood": -4, "opinion": -10, "durationHours": 48, "emote": "anger" },
+
+  { "id": "word_wound", "textKey": "thought.word_wound", "mood": -4, "opinion": -10, "durationHours": 96, "emote": "anger", "stackLimit": 2 },
+  { "id": "words_kept", "textKey": "thought.words_kept", "mood": 4, "durationHours": 24, "emote": "sparkle" },
+  { "id": "kept_my_word", "textKey": "thought.kept_my_word", "mood": 6, "durationHours": 48, "emote": "sparkle" },
+  { "id": "courtesy_thin", "textKey": "thought.courtesy_thin", "mood": -6, "durationHours": 1, "emote": "sweat" },
+  { "id": "courtesy_starved", "textKey": "thought.courtesy_starved", "mood": -14, "durationHours": 1, "emote": "gloom" },
+  { "id": "spoke_truth", "textKey": "thought.spoke_truth", "mood": 2, "durationHours": 12 },
+  { "id": "told_hard_truth", "textKey": "thought.told_hard_truth", "mood": -5, "opinion": -4, "durationHours": 48, "emote": "anger", "stackLimit": 2 },
+  { "id": "heard_hard_truth", "textKey": "thought.heard_hard_truth", "mood": 0, "opinion": -12, "durationHours": 72, "emote": "question", "stackLimit": 2 }
 ]

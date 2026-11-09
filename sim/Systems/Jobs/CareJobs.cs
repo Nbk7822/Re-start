@@ -62,11 +62,13 @@ public static class CareJobs
         if (j.Stage == 0)
         {
             if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
-            if (!Rations.HasReservation(w, c.Id) && Rations.Unreserved(w, "berries") == 0) return true;
+            bool ownShare = Rations.HasReservation(w, c.Id);
+            if (!ownShare && Rations.Unreserved(w, "berries") == 0) return true;
             if (Stock.Take(w, "berries", 1) == 0) return true;
             Rations.Consume(w, c.Id);
             c.Carrying = new Carry { DefId = "berries", Count = 1 };
             j.Stage = 1;
+            j.Progress = ownShare ? 1 : 0; // remembered: giving away their own share is why they will go hungry
             return false;
         }
         if (!JobRunner.Near(w, c, j, creditor)) return JobRunner.Failed(j);
@@ -77,6 +79,7 @@ public static class CareJobs
             EventArg.Char("a", c.Id), EventArg.Char("b", creditor.Id));
         MoodSystem.AddThought(w, creditor, "ate", 0, e.Id);
         NeedsSystem.AfterFed(creditor);
+        if (j.Progress == 1) c.LastFoodEvent = e.Id;
         Relations.Repay(w, debt, e.Id);
         return true;
     }

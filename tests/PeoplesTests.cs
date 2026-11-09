@@ -492,6 +492,203 @@ public class PeoplesTests
         Assert.Contains(fire.Id, NeedsMoodTests.Ancestors(w, left.Id));
     }
 
+    // ---- Fae: courtesy, hard truths, a binding word ----
+
+    /// <summary>The fae's chain: you promise a newcomer a meal, the camp leaves them out, the promise breaks, it stings Fionn, and Fionn holds it against you.</summary>
+    [Fact]
+    public void ABrokenPromiseInCampStingsTheFaeWhoHoldTheOathBreakerToAccount()
+    {
+        World w = WorkTests.Only(1, "you", "mira", "wren", "fionn");
+        Character you = Cast(w, "you"), mira = Cast(w, "mira"), wren = Cast(w, "wren"), fionn = Cast(w, "fionn");
+        Stock.Take(w, "berries", 99);
+        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        you.Food = 900; fionn.Food = 900; mira.Food = 100; wren.Food = 250; wren.HungerStage = 1;
+        var promise = new Debt
+        {
+            Id = w.NewId(), DebtorId = you.Id, CreditorId = wren.Id, Kind = DebtKind.PromiseMeal, Status = DebtStatus.Open,
+            FormedTick = w.Tick, DueTick = w.Tick + Hours(w, 48),
+        };
+        promise.FormedEvent = w.Log.Emit(w, SystemTag.Social, "event.social.joined_promised_meal", new[] { wren.Id, you.Id }, Array.Empty<long>(),
+            new[] { new Effect { Kind = EffectKind.DebtFormed, A = you.Id, B = wren.Id, RefId = promise.Id } },
+            EventArg.Char("a", wren.Id), EventArg.Char("b", you.Id), EventArg.Num("n", 2)).Id;
+        w.Debts.Add(promise);
+        NatureNeed courtesy = NatureNeeds.Get(fionn, Courtesy.NeedId)!;
+        int before = courtesy.Value, health = fionn.Health;
+
+        Rations.Assign(w);
+
+        SimEvent broken = w.Log.Get(promise.ClosedEvent)!;
+        Assert.Equal("event.social.promise_broken", broken.Key);
+        SimEvent sting = w.Log.All.Single(e => e.Key == "event.social.word_wound");
+        Assert.Contains(broken.Id, sting.Causes);
+        Assert.Equal("The broken word stung Fionn like cold iron.", EventText.Describe(w, sting));
+        var def = w.Content.NeedById(Courtesy.NeedId);
+        Assert.Equal(before - def.Param("brokenWordLoss"), courtesy.Value);
+        Assert.Equal(health - def.Param("brokenWordHurt"), fionn.Health);
+        Assert.DoesNotContain(fionn.Thoughts, t => t.DefId == "wounded");
+        Assert.Contains(fionn.Thoughts, t => t.DefId == "word_wound" && t.AboutId == you.Id);
+
+        Grudge g = w.Grudges.Single(x => x.HolderId == fionn.Id);
+        Assert.Equal(you.Id, g.TargetId);
+        Story story = StoryEndingAt(w, g.FormedEvent);
+        SimEvent without = w.Log.All.Single(e => e.Key == "event.needs.went_without" && e.Actors[0] == wren.Id);
+        Assert.Equal(new[] { without.Id, broken.Id, sting.Id, g.FormedEvent }, story.Chain);
+        Assert.Contains(promise.FormedEvent, NeedsMoodTests.Ancestors(w, g.FormedEvent));
+        Assert.Equal(new[] { SystemTag.Needs, SystemTag.Social }, story.Systems);
+    }
+
+    [Fact]
+    public void KeptPromisesAndCourtesyHeartenTheFaeAndInsultsCutThem()
+    {
+        World w = WorkTests.Only(1, "you", "wren", "fionn");
+        Character you = Cast(w, "you"), wren = Cast(w, "wren"), fionn = Cast(w, "fionn");
+        NatureNeed courtesy = NatureNeeds.Get(fionn, Courtesy.NeedId)!;
+        var def = w.Content.NeedById(Courtesy.NeedId);
+        courtesy.Value = 300;
+        Debt d = Relations.FormDebt(w, you, wren, DebtKind.PromiseMeal, 1, 0, w.Tick + 1_000);
+        Relations.Repay(w, d, d.FormedEvent);
+        Assert.Equal(300 + def.Param("keptWordGain"), courtesy.Value);
+        Assert.Contains(fionn.Thoughts, t => t.DefId == "words_kept");
+
+        SimEvent insult = SocialSystem.Insult(w, wren, fionn);
+        Assert.Equal(300 + def.Param("keptWordGain") - def.Param("slightLoss"), courtesy.Value);
+        Assert.Equal(insult.Id, courtesy.LastEvent);
+        Courtesy.Courteous(w, fionn, deep: false);
+        Assert.Equal(300 + def.Param("keptWordGain") - def.Param("slightLoss") + def.Param("chatGain"), courtesy.Value);
+        Assert.Equal(new[] { "food", "courtesy", "rest", "social", "health" }, StateApi.Character(w, fionn.Id).Needs.Select(n => n.Need));
+    }
+
+    [Fact]
+    public void TheFaeSayHardTruthsWhereOthersWouldInsult()
+    {
+        World w = WorkTests.Only(1, "you", "mira", "fionn");
+        Character you = Cast(w, "you"), mira = Cast(w, "mira"), fionn = Cast(w, "fionn");
+        fionn.Pos = you.Pos with { X = you.Pos.X + 1 };
+        mira.Pos = you.Pos with { Y = you.Pos.Y + 1 };
+        SimEvent wrong = w.Log.Emit(w, SystemTag.Social, "event.social.promise_broken", new[] { you.Id, mira.Id }, Array.Empty<long>(), null,
+            EventArg.Char("a", you.Id), EventArg.Char("b", mira.Id));
+        Grudge g = Relations.FormGrudge(w, fionn, you, 30, wrong.Id);
+
+        // With a wrong to name, it is said before everyone; whoever is near hears what you did, and saying it eases the grudge.
+        SimEvent truth = Courtesy.HardTruth(w, fionn, you);
+        Assert.Equal("event.social.hard_truth", truth.Key);
+        Assert.Equal(new[] { g.FormedEvent }, truth.Causes);
+        Assert.Equal("Fionn told you plainly, before everyone, what you had done.", EventText.Describe(w, truth));
+        Assert.Contains(you.Thoughts, t => t.DefId == "told_hard_truth" && t.AboutId == fionn.Id);
+        Assert.Contains(mira.Thoughts, t => t.DefId == "heard_hard_truth" && t.AboutId == you.Id);
+        Assert.Equal(30 - w.Content.NeedById(Courtesy.NeedId).Param("truthEasesGrudge"), g.Intensity);
+
+        // A hearer who already thought poorly of you now holds it against you.
+        Relations.ChangeOpinion(w, mira, you.Id, -35, 0);
+        SimEvent again = Courtesy.HardTruth(w, fionn, you);
+        Grudge heard = w.Grudges.Single(x => x.HolderId == mira.Id);
+        Assert.Contains(again.Id, w.Log.Get(heard.FormedEvent)!.Causes);
+
+        // With nothing to name, they say plainly what they think, and nobody else is told anything.
+        SimEvent plain = Courtesy.HardTruth(w, fionn, mira);
+        Assert.Equal("event.social.plain_truth", plain.Key);
+
+        // In company the fae never insult: the same roll says a truth instead.
+        for (int t = 0; t < 4000; t++)
+        {
+            w.Tick = (long)t * w.Content.World.SocialEveryTicks;
+            SocialSystem.Step(w);
+        }
+        Assert.DoesNotContain(w.Log.All, e => e.Key == "event.social.insulted" && e.Actors[0] == fionn.Id);
+        Assert.True(w.Log.All.Count(e => e.Key is "event.social.hard_truth" or "event.social.plain_truth" && e.Actors[0] == fionn.Id) > 3);
+    }
+
+    [Fact]
+    public void TheFaeRememberSlightsLong()
+    {
+        World w = WorkTests.Only(1, "wren", "fionn");
+        Character wren = Cast(w, "wren"), fionn = Cast(w, "fionn");
+        Grudge fae = Relations.FormGrudge(w, fionn, wren, 10, 0);
+        Grudge human = Relations.FormGrudge(w, wren, fionn, 10, 0);
+        for (int day = 1; day <= 8; day++)
+        {
+            w.Tick = (long)day * w.Content.World.TicksPerDay;
+            SocialSystem.Hourly(w);
+        }
+        Assert.Equal(2, human.Intensity);
+        Assert.Equal(10 - 8 / TestContent.Db.SpeciesById("fae").GrudgeDecayEveryDays, fae.Intensity);
+    }
+
+    /// <summary>A fae welcomed into camp swears to repay the welcome, and does so before anything else, from their own share, the moment their host goes hungry.</summary>
+    [Fact]
+    public void AFaeKeepsTheirWordBeforeTheirOwnHunger()
+    {
+        World w = WorkTests.Only(1, "you");
+        Character you = Cast(w, "you"), fionn = Cast(w, "fionn");
+        Stock.Take(w, "berries", 99);
+        Stock.Add(w, "berries", 5, w.Map.Stockpile.Center);
+        SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: fionn.Id)!;
+        Assert.Equal("event.incident.fae_arrives", arrived.Key);
+        SimEvent joined = IncidentSystem.Join(w, fionn, arrived.Id);
+        Debt welcome = w.Debts.Single(d => d.DebtorId == fionn.Id);
+        Assert.Equal(DebtKind.Welcome, welcome.Kind);
+        Assert.Contains(joined.Effects, f => f.Kind == EffectKind.DebtFormed && f.A == fionn.Id && f.B == you.Id && f.RefId == welcome.Id);
+        SimEvent oath = w.Log.Get(welcome.FormedEvent)!;
+        Assert.Empty(oath.Effects);
+        Assert.Equal("Fionn swore to repay you for the welcome.", EventText.Describe(w, oath));
+
+        // Both hungry, one berry set aside for Fionn: Fionn carries it to you instead of eating it.
+        Stock.Take(w, "berries", 99);
+        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        fionn.Job = null;
+        fionn.Pos = w.Map.Hearth with { Y = w.Map.Hearth.Y + 2 };
+        you.Food = 120; fionn.Food = 200; fionn.HungerStage = 1; you.HungerStage = 2;
+        w.Reservations.Clear();
+        w.Reservations.Add(new Reservation { CharacterId = fionn.Id, Count = 1 });
+        Assert.Equal(JobKind.KeepPromise, JobPicker.Choose(w, fionn)?.Kind);
+        RunWork(w, 3_000, () => welcome.Status != DebtStatus.Open);
+
+        Assert.Equal(DebtStatus.Repaid, welcome.Status);
+        SimEvent kept = w.Log.Get(welcome.ClosedEvent)!;
+        Assert.Equal("Fionn kept their word to you.", EventText.Describe(w, kept));
+        SimEvent meal = w.Log.All.Single(e => e.Key == "event.work.shared_meal");
+        Assert.Equal(meal.Id, fionn.LastFoodEvent);
+        Assert.Contains(fionn.Thoughts, t => t.DefId == "kept_my_word");
+        Story story = StoryEndingAt(w, kept.Id);
+        Assert.Equal(new[] { arrived.Id, joined.Id, oath.Id, meal.Id, kept.Id }, story.Chain);
+    }
+
+    [Fact]
+    public void WhatAFaeOwesIsSworn()
+    {
+        World w = WorkTests.Only(1, "mira", "fionn");
+        Character mira = Cast(w, "mira"), fionn = Cast(w, "fionn");
+        Debt d = Relations.FormDebt(w, fionn, mira, DebtKind.Care, 1, 0);
+        Assert.Equal("Fionn swore to repay Mira for tending their wounds.", EventText.Describe(w, w.Log.Get(d.FormedEvent)!));
+        Debt human = Relations.FormDebt(w, mira, fionn, DebtKind.Care, 1, 0);
+        Assert.Equal("event.social.owes_care", w.Log.Get(human.FormedEvent)!.Key);
+    }
+
+    [Fact]
+    public void AFaeWhoCannotBearTheBrokenWordsLeaves()
+    {
+        World w = WorkTests.Only(1, "you", "fionn");
+        Character fionn = Cast(w, "fionn");
+        NatureNeed courtesy = NatureNeeds.Get(fionn, Courtesy.NeedId)!;
+        SimEvent broken = w.Log.Emit(w, SystemTag.Social, "event.test.broken", new[] { fionn.Id }, Array.Empty<long>());
+        Courtesy.WordBroken(w, 0, broken);
+        Courtesy.WordBroken(w, 0, broken);
+        Courtesy.WordBroken(w, 0, broken);
+        var def = w.Content.NeedById(Courtesy.NeedId);
+        Assert.True(courtesy.Value < def.CriticalBelow);
+        for (int h = 0; h <= def.LeavesAfterCriticalHours + 1 && fionn.Status == CharStatus.Member; h++)
+        {
+            w.Tick += Hours(w, 1);
+            NeedsSystem.Hourly(w);
+            SocialSystem.Hourly(w);
+        }
+        Assert.Equal(CharStatus.Left, fionn.Status);
+        SimEvent left = w.Log.All.Single(e => e.Key == "event.social.left_camp");
+        HashSet<long> ancestors = NeedsMoodTests.Ancestors(w, left.Id);
+        Assert.Contains(broken.Id, ancestors);
+        Assert.Contains(w.Log.All, e => e.Key == "event.needs.courtesy_critical" && ancestors.Contains(e.Id));
+    }
+
     [Fact]
     public void TheLivingAreUneasyAroundTheNewlyDeadAndWarmWithTime()
     {

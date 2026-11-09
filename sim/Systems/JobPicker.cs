@@ -33,6 +33,13 @@ public static class JobPicker
             if (spot != Point.None) return new Job { Kind = JobKind.SeekCover, Target = spot, CauseEvent = c.LastHealthEvent };
         }
 
+        // One who cannot lie keeps their word before anything else, even their own hunger (ADR-0022).
+        if (sp.CannotLie)
+        {
+            Job? word = Courtesy.KeepWordJob(w, c, sunBlocked);
+            if (word != null) return word;
+        }
+
         if (c.Food < NeedsSystem.HungryBelow)
         {
             if (sp.DrinksBlood && !BloodJobs.RecentlyRebuffed(w, c))

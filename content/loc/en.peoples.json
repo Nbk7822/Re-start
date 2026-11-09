@@ -65,5 +65,33 @@
   "event.social.djinn_trouble": "{a}, wronged and restless, let the fire loose: {n} {item} burned in the stockpile.",
   "event.social.djinn_trouble_zero": "{a}, wronged and restless, let the fire loose, but there was nothing in the stockpile to burn.",
 
-  "cast.qamar.name": "Qamar"
+  "cast.qamar.name": "Qamar",
+
+  "species.fae.name": "Fae",
+  "need.courtesy": "Courtesy",
+  "debt.welcome": "a welcome",
+
+  "thought.word_wound": "Someone broke their word near me",
+  "thought.words_kept": "Words kept around me",
+  "thought.kept_my_word": "Kept my word",
+  "thought.courtesy_thin": "Among discourtesy and broken words",
+  "thought.courtesy_starved": "Sick at heart among broken words",
+  "thought.spoke_truth": "Said what had to be said",
+  "thought.told_hard_truth": "Was told a hard truth",
+  "thought.heard_hard_truth": "Heard what someone had done",
+
+  "event.incident.fae_arrives": "{a} came out of the hill mist, one of the Good Folk, and asked leave to stay.",
+  "event.needs.courtesy_low": "{a} is sick at heart at the camp's broken words and poor manners.",
+  "event.needs.courtesy_critical": "{a} can hardly bear to stay where words are not kept.",
+  "event.social.word_wound": "The broken word stung {a} like cold iron.",
+  "event.social.hard_truth": "{a} told {b} plainly, before everyone, what {b} had done.",
+  "event.social.plain_truth": "{a} told {b} plainly what they thought of them.",
+  "event.social.swore_welcome": "{a} swore to repay {b} for the welcome.",
+  "event.social.owes_care_sworn": "{a} swore to repay {b} for tending their wounds.",
+  "event.social.owes_blood_sworn": "{a} swore to repay {b} for the blood.",
+  "event.social.owes_meal_sworn": "{a} swore to repay {b} for a shared meal.",
+  "event.social.owes_rescue_sworn": "{a} swore to repay {b} for their life.",
+  "event.social.word_kept": "{a} kept their word to {b}.",
+
+  "cast.fionn.name": "Fionn"
 }

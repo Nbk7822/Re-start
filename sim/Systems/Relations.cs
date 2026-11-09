@@ -104,8 +104,11 @@ public static class Relations
             DebtKind.Blood => "event.social.owes_blood",
             DebtKind.Rescue => "event.social.owes_rescue",
             DebtKind.Meal => "event.social.owes_meal",
+            DebtKind.Welcome => "event.social.swore_welcome",
             _ => "event.social.owes_care",
         };
+        // One who cannot lie has sworn to repay what they owe (ADR-0022).
+        if ((kind is DebtKind.Blood or DebtKind.Rescue or DebtKind.Meal or DebtKind.Care) && Courtesy.Sworn(w, debtor.Id)) key += "_sworn";
         SimEvent e = w.Log.Emit(w, SystemTag.Social, key, new[] { debtor.Id, creditor.Id }, new[] { cause },
             new[] { new Effect { Kind = EffectKind.DebtFormed, A = debtor.Id, B = creditor.Id, RefId = d.Id } },
             EventArg.Char("a", debtor.Id), EventArg.Char("b", creditor.Id));
@@ -116,7 +119,8 @@ public static class Relations
     public static SimEvent Repay(World w, Debt d, long cause)
     {
         d.Status = DebtStatus.Repaid;
-        string key = d.IsPromise ? "event.social.promise_kept" : "event.social.debt_repaid";
+        string key = d.IsPromise ? "event.social.promise_kept"
+            : Courtesy.Sworn(w, d.DebtorId) ? "event.social.word_kept" : "event.social.debt_repaid";
         SimEvent e = w.Log.Emit(w, SystemTag.Social, key, new[] { d.DebtorId, d.CreditorId }, new[] { cause, d.FormedEvent },
             new[] { new Effect { Kind = EffectKind.DebtRepaid, A = d.DebtorId, B = d.CreditorId, RefId = d.Id } },
             EventArg.Char("a", d.DebtorId), EventArg.Char("b", d.CreditorId));
@@ -124,6 +128,7 @@ public static class Relations
         Character? creditor = w.Find(d.CreditorId);
         if (d.IsPromise && creditor != null && creditor.Status == CharStatus.Member)
             MoodSystem.AddThought(w, creditor, "promise_kept", d.DebtorId, e.Id);
+        Courtesy.WordKept(w, d.DebtorId, d.IsPromise, e);
         return e;
     }
 
@@ -140,6 +145,7 @@ public static class Relations
             MoodSystem.AddThought(w, creditor, "promise_broken", debtor.Id, e.Id);
             FormGrudge(w, creditor, debtor, 40, e.Id);
         }
+        Courtesy.WordBroken(w, d.DebtorId, e);
         return e;
     }
 

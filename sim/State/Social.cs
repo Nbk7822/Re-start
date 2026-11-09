@@ -30,6 +30,8 @@ public enum DebtKind
     Rescue,
     PromiseMeal,
     PromiseRest,
+    /// <summary>A fae's sworn debt to whoever welcomed them into the camp (ADR-0022).</summary>
+    Welcome,
 }
 
 public enum DebtStatus

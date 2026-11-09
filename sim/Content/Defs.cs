@@ -65,6 +65,12 @@ public sealed class SpeciesDef
     /// <summary>Work their nature will not do, whatever their priorities say (a dryad never fells a tree).</summary>
     public List<string> RefusesWork { get; init; } = new();
 
+    /// <summary>They cannot lie (the fae): they say hard truths where others insult, and what they owe they have sworn to repay, first.</summary>
+    public bool CannotLie { get; init; }
+
+    /// <summary>Grudges they hold fade a point only every this many days: slights are remembered long (the fae).</summary>
+    public int GrudgeDecayEveryDays { get; init; } = 1;
+
     public bool DrinksBlood => FoodSource == "blood";
 
     /// <summary>foodSource "none": they eat nothing from the stores and never go hungry (ADR-0022).</summary>

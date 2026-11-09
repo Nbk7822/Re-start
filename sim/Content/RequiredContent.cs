@@ -26,6 +26,7 @@ public static class RequiredContent
         // The four peoples (ADR-0022).
         "at_purpose", "uneasy_near_dead", "among_trees", "tree_felled", "own_tree_felled",
         "bound_by_bargain", "bargain_refused", "bargain_honoured", "bargain_betrayed", "fire_loosed",
+        "word_wound", "words_kept", "kept_my_word", "spoke_truth", "told_hard_truth", "heard_hard_truth",
     };
 
     /// <summary>Every incident M0 has behaviour for, with the params that behaviour reads.</summary>
@@ -52,6 +53,11 @@ public static class RequiredContent
         {
             "boundRestorePerHour", "priceAmount", "reserveDays", "serviceBias", "offerCooldownHours", "minTermDays", "betrayalLoss",
             "grudgeIntensity", "troubleTimber",
+        }),
+        ("courtesy", new[]
+        {
+            "brokenWordLoss", "brokenWordHurt", "keptWordGain", "chatGain", "deepTalkGain", "slightLoss", "truthEasesGrudge",
+            "witnessGrudgeIntensity", "grudgeIntensity",
         }),
     };
 }

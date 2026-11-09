@@ -172,6 +172,7 @@ public static class Bargains
         MoodSystem.AddThought(w, djinn, "bargain_betrayed", patron.Id, broken.Id);
         if (NatureNeeds.Get(djinn, NeedId) is { } n) NatureNeeds.Adjust(w, djinn, n, -def.Param("betrayalLoss"), broken.Id);
         Relations.FormGrudge(w, djinn, patron, def.Param("grudgeIntensity"), broken.Id);
+        Courtesy.WordBroken(w, patron.Id, broken, oath: false);
         return false;
     }
 
@@ -186,6 +187,7 @@ public static class Bargains
         MoodSystem.AddThought(w, patron, "bargain_honoured", djinn.Id, kept.Id);
         // Unbound again from here: its next restlessness follows from this bargain's end.
         if (NatureNeeds.Get(djinn, NeedId) is { } n) n.LastEvent = kept.Id;
+        Courtesy.WordKept(w, 0, true, kept);
     }
 
     /// <summary>Burning, unbound and wronged (it holds a grudge), the djinn lets the fire loose once, burning timber in the stockpile; the camp holds it against them.</summary>

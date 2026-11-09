@@ -46,7 +46,8 @@ public static class SocialSystem
                 + (c.Mood < LowMoodBelow ? LowMoodInsultPermille : 0) + (grudge != null ? GrudgeInsultPermille : 0);
             if (dice.Chance(DiceId.SocialInsult, Math.Clamp(insult, 0, 1000)))
             {
-                Insult(w, c, partner);
+                if (Places.Species(w, c).CannotLie) Courtesy.HardTruth(w, c, partner); // the fae cannot sneer; they say it plainly (ADR-0022)
+                else Insult(w, c, partner);
                 continue;
             }
             bool close = Relations.Opinion(w, c.Id, partner.Id) >= 30 && c.Mood >= 50 && partner.Mood >= 50;
@@ -56,6 +57,8 @@ public static class SocialSystem
                 MoodSystem.AddThought(w, partner, "deep_talk", c.Id, 0);
                 c.Social = Math.Min(1000, c.Social + 250);
                 partner.Social = Math.Min(1000, partner.Social + 250);
+                Courtesy.Courteous(w, c, deep: true);
+                Courtesy.Courteous(w, partner, deep: true);
             }
             else
             {
@@ -65,6 +68,8 @@ public static class SocialSystem
                 MoodSystem.AddThought(w, partner, "chatted", c.Id, 0, warmth * fromP / 100);
                 Unease.Feel(w, c, partner, fromC);
                 Unease.Feel(w, partner, c, fromP);
+                Courtesy.Courteous(w, c, deep: false);
+                Courtesy.Courteous(w, partner, deep: false);
                 c.Social = Math.Min(1000, c.Social + 150);
                 partner.Social = Math.Min(1000, partner.Social + 150);
             }
@@ -85,6 +90,7 @@ public static class SocialSystem
             EventArg.Char("a", actor.Id), EventArg.Char("b", target.Id));
         MoodSystem.AddThought(w, target, "insulted", actor.Id, e.Id, Traits.ScalePct(w, target, t => t.InsultOpinionScalePct));
         target.Social = Math.Max(0, target.Social - 50);
+        Courtesy.Slighted(w, target, e);
         if (Relations.Opinion(w, target.Id, actor.Id) <= GrudgeAtOpinion && Relations.ActiveGrudge(w, target.Id, actor.Id) == null)
             Relations.FormGrudge(w, target, actor, 30, e.Id);
         return e;
@@ -121,6 +127,8 @@ public static class SocialSystem
             if (!g.Active) continue;
             Character? holder = w.Find(g.HolderId);
             if (holder == null || holder.Status != CharStatus.Member) continue;
+            int every = Places.Species(w, holder).GrudgeDecayEveryDays; // the fae remember slights long (ADR-0022)
+            if (every > 1 && Calendar.Day(w.Tick, w.Content.World) % every != 0) continue;
             int decay = holder != null && Traits.Any(w, holder, t => t.SharesFood) ? 2 : 1;
             g.Intensity -= decay;
             if (g.Intensity <= 0) Relations.EndGrudge(w, g);

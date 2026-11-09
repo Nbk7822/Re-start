@@ -14,8 +14,13 @@ public sealed record CharacterNature(string SecondaryTrait);
 public static class WorldGen
 {
     private const int TreeTarget = 24;
-    private const int BushClusters = 3;
-    private const int BushesPerCluster = 4;
+
+    /// <summary>
+    /// Bushes per cluster (ADR-0013's three clusters of four). The fourth, smaller cluster feeds the one
+    /// extra mouth the peoples brought (the fae eat berries; ADR-0022), keeping winter's half rations per
+    /// head. It is keyed after the first three, so none of their bushes moves.
+    /// </summary>
+    private static readonly int[] BushesInCluster = { 4, 4, 4, 2 };
     private const int StartBerriesOnBush = 4;
     private const int LateArrivals = 3;
 
@@ -182,15 +187,15 @@ public static class WorldGen
         }
 
         // Berry bushes in small clusters; each cluster centre is itself rejection-sampled onto open ground.
-        for (uint c = 0; c < BushClusters; c++)
+        for (uint c = 0; c < BushesInCluster.Length; c++)
         {
-            int placed = 0;
-            for (uint attempt = 0; attempt < 40 && placed < BushesPerCluster; attempt++)
+            int placed = 0, wanted = BushesInCluster[c];
+            for (uint attempt = 0; attempt < 40 && placed < wanted; attempt++)
             {
                 ulong key = c * 64 + attempt;
                 var centre = new Point(t.Range(TruthId.BushPlacement, key, 0, 3, width - 12), t.Range(TruthId.BushPlacement, key, 1, 3, height - 3));
                 if (!Open(centre)) continue;
-                for (uint k = 0; k < 16 && placed < BushesPerCluster; k++)
+                for (uint k = 0; k < 16 && placed < wanted; k++)
                 {
                     var p = new Point(centre.X + t.Range(TruthId.BushPlacement, key, 2 + 2 * k, -2, 3), centre.Y + t.Range(TruthId.BushPlacement, key, 3 + 2 * k, -2, 3));
                     if (!Open(p)) continue;

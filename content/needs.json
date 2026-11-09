@@ -55,5 +55,23 @@
       "boundRestorePerHour": 60, "priceAmount": 1, "reserveDays": 2, "serviceBias": 3, "offerCooldownHours": 3,
       "minTermDays": 3, "betrayalLoss": 400, "grudgeIntensity": 50, "troubleTimber": 3
     }
+  },
+  {
+    "id": "courtesy",
+    "nameKey": "need.courtesy",
+    "start": 700,
+    "decayPerHour": 0,
+    "lowBelow": 500,
+    "criticalBelow": 250,
+    "satisfiedAt": 600,
+    "lowThought": "courtesy_thin",
+    "criticalThought": "courtesy_starved",
+    "lowEventKey": "event.needs.courtesy_low",
+    "criticalEventKey": "event.needs.courtesy_critical",
+    "leavesAfterCriticalHours": 24,
+    "params": {
+      "brokenWordLoss": 250, "brokenWordHurt": 50, "keptWordGain": 100, "chatGain": 15, "deepTalkGain": 50, "slightLoss": 120,
+      "truthEasesGrudge": 10, "witnessGrudgeIntensity": 20, "grudgeIntensity": 25
+    }
   }
 ]

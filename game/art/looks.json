@@ -15,6 +15,7 @@
     "hollis": {                     "hair": "#423427", "skin": "#8d6649", "build": "tall",    "hairStyle": "cropped", "beard": true },
     "ketil":  {                     "hair": "#5b574d", "skin": "#a4a698", "build": "tall",    "hairStyle": "long", "beard": true },
     "dryope": {                     "hair": "#4f5a30", "skin": "#b39a74", "build": "slight",  "hairStyle": "long" },
-    "qamar":  {                     "hair": "#1f1a18", "skin": "#9a6c4e", "build": "tall",    "hairStyle": "tied" }
+    "qamar":  {                     "hair": "#1f1a18", "skin": "#9a6c4e", "build": "tall",    "hairStyle": "tied" },
+    "fionn":  {                     "hair": "#c9b48a", "skin": "#d8c4ac", "build": "slight",  "hairStyle": "long" }
   }
 }
