@@ -21,6 +21,7 @@ public sealed class World
     public Map Map { get; set; } = new();
     public List<Character> Characters { get; set; } = new();
     public List<ItemStack> Items { get; set; } = new();
+    public List<Reservation> Reservations { get; set; } = new();
     public List<Grudge> Grudges { get; set; } = new();
     public List<Debt> Debts { get; set; } = new();
     public RationPolicy Policy { get; set; } = RationPolicy.Hungriest;

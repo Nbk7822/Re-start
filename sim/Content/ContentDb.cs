@@ -41,6 +41,7 @@ public sealed class ContentDb
     public TraitDef TraitById(string id) => Find(_traits, id, "traits.json");
     public ItemDef ItemById(string id) => Find(_items, id, "items.json");
     public WorkDef WorkById(string id) => Find(_work, id, "work.json");
+    public WorkDef? TryWork(string id) => _work.TryGetValue(id, out WorkDef? def) ? def : null;
     public RoleDef RoleById(string id) => Find(_roles, id, "roles.json");
     public ThoughtDef ThoughtById(string id) => Find(_thoughts, id, "thoughts.json");
     public IncidentDef IncidentById(string id) => Find(_incidents, id, "incidents.json");

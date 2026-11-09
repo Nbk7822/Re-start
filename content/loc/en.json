@@ -152,6 +152,20 @@
   "policy.promises_first": "promised meals come first",
   "policy.self_first": "you eat first",
 
+  "event.needs.ate": "{a} ate {item}.",
+  "event.needs.hungry": "{a} is getting hungry.",
+  "event.needs.starving": "{a} is starving.",
+  "event.needs.thirsting": "{a} is thirsting for blood.",
+  "event.needs.blood_starved": "{a} is weak with blood hunger.",
+  "event.needs.sun_burn": "{a} is burning in the sunlight.",
+  "event.needs.collapsed": "{a} collapsed.",
+  "event.needs.died": "{a} died.",
+  "event.needs.died_starving": "{a} starved to death.",
+  "event.needs.died_blood": "{a} withered away for lack of blood.",
+  "event.needs.died_sun": "{a} burned to death in the sun.",
+  "event.needs.went_without": "{a} went without so others could eat.",
+  "event.needs.food_rotted": "{n} {item} rotted in the stockpile.",
+
   "event.world.ration_policy": "You decided that when food runs short, {policy}.",
   "event.world.work_priority": "{a}'s priority for {work} is now {n}.",
 
