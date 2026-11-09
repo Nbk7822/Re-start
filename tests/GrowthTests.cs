@@ -269,6 +269,27 @@ public class GrowthTests
         Assert.Throws<InvalidOperationException>(() => Growth.ChangeTrait(w, mira, null, NotHeld(mira), why));
     }
 
+    /// <summary>
+    /// A refused change leaves no trace. A trait content no longer has (a snapshot from before a mod
+    /// dropped it) fails before anything changes, so no trait ever changes without its beat.
+    /// </summary>
+    [Fact]
+    public void ARefusedTraitChangeChangesNothing()
+    {
+        World w = WorkTests.Only(1, "mira");
+        Character mira = Cast(w, "mira");
+        long why = Mark(w, "event.test.trial", mira.Id).Id;
+        mira.Traits[1] = "forgotten";
+        mira.Growth.TraitOrigins[1].TraitId = "forgotten";
+        string before = Json(mira);
+        int logged = w.Log.All.Count;
+
+        Assert.Throws<ContentException>(() => Growth.ChangeTrait(w, mira, "forgotten", NotHeld(mira), why));
+        Assert.Throws<ContentException>(() => Growth.ChangeTrait(w, mira, "forgotten", null, why));
+        Assert.Equal(before, Json(mira));
+        Assert.Equal(logged, w.Log.All.Count);
+    }
+
     [Fact]
     public void ChangingATraitRecordsWhereItCameFromAndLogsABeat()
     {

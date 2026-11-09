@@ -155,9 +155,11 @@ public static class Growth
         List<TraitOrigin> origins = c.Growth.TraitOrigins;
         if (!InStep(c))
             throw new InvalidOperationException($"{Who(c)}'s trait origins are out of step with their traits; every trait change must go through Growth.ChangeTrait.");
+        // Every check and lookup comes before anything changes, so a refused change leaves no trace.
+        TraitDef? gained = null, lost = null;
         if (to != null)
         {
-            w.Content.TraitById(to);
+            gained = w.Content.TraitById(to);
             if (c.Traits.Contains(to)) throw new ArgumentException($"{Who(c)} is already {to}.", nameof(to));
         }
         int at = -1;
@@ -165,6 +167,7 @@ public static class Growth
         {
             at = c.Traits.IndexOf(from);
             if (at < 0) throw new ArgumentException($"{Who(c)} is not {from}.", nameof(from));
+            lost = w.Content.TraitById(from);
         }
 
         if (to == null)
@@ -188,8 +191,8 @@ public static class Growth
         }
 
         var args = new List<EventArg> { EventArg.Char("a", c.Id) };
-        if (to != null) args.Add(EventArg.Key("trait", w.Content.TraitById(to).NameKey));
-        if (from != null) args.Add(EventArg.Key("from", w.Content.TraitById(from).NameKey));
+        if (gained != null) args.Add(EventArg.Key("trait", gained.NameKey));
+        if (lost != null) args.Add(EventArg.Key("from", lost.NameKey));
         string key = from == null ? "event.growth.trait_gained" : to == null ? "event.growth.trait_lost" : "event.growth.trait_changed";
         return w.Log.Emit(w, SystemTag.Growth, key, new[] { c.Id }, new[] { cause }, null, args.ToArray());
     }
