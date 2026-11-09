@@ -100,3 +100,39 @@ Twelve berry bushes regrow two berries a day for three seasons. Winter opens wit
 ### 4.10 Map
 
 A small grid (48 × 32) generated from Truths: a river, rocks, trees, berry bushes, and the demo's ruined camp: a shelter whose roof has three broken sections (repairs cost timber), covered ruins where vampires shelter by day, a hearth, and a stockpile.
+
+## 5. Character growth and arcs (fixed decision 12)
+
+The founder's addendum of 2026-11-09, recorded as given (ADR-0020).
+
+Companions must visibly change over a lifetime: body, role, traits and heart. Static RimWorld-style pawns are a failure state. Growth is event-driven, never grind-driven, and every change is a logged story beat with a cause.
+
+### 5.1 Mechanics
+
+1. **Arc state per character:** want -> obstacle -> turning point -> resolution (or failed/abandoned). The director seeds incidents to advance stalled arcs. The want is generated at creation and may change after a resolution.
+2. **Trait mutation through experience:** traits are not fixed. Experiences (near-death, betrayal, command, grief, mercy received or given) roll on trait-change tables. Every change logs cause and tick.
+3. **Evolution:** a rare transformation triggered by naming, oaths, or player milestones (founding, coronation). Offers 2-3 paths; the character's want weights the choice. Changes subspecies, role, abilities and sprite parts.
+4. **Niche:** recruit generation is biased toward unfilled court roles. The director tracks redundancy; a redundant character gets a niche, a departure arc, or a spotlight.
+5. **Shared memory:** each character stores references to significant shared events (with the player and with each other) that feed templated thoughts and dialogue. Memories are wiped by rewind and survive death only in others' memories.
+6. **Underdog payoff:** the director flags low-power, high-exposure characters and reserves a crisis where their want aligns with the moment.
+7. **Decline:** aging, grief, trauma and resentment. Growth can be negative. Powerful lieutenants may develop ambitions that conflict with the player's.
+8. **Rewind interaction:** Truths keep a character's nature; Dice re-roll their experiences, so the same person grows differently across timelines. The Chronicle records prior-timeline versions.
+
+### 5.2 Data model
+
+- Character: traits[] with origin (generated | mutated{cause, tick}); want{type, target, state}; arc{stage, stalledSinceTick}; role; evolutionTier; memories[] (eventId, salience, valence); relationships via the existing graph.
+- Content (JSON, schema-validated): trait_mutations.json (trigger -> from -> to, probability), evolution_paths.json (species, tier, trigger, options), wants.json, arc_incidents.json.
+- Story log: emit a beat for every trait change, evolution and arc stage transition. The story detector counts arc completions as stories.
+
+### 5.3 Scope
+
+- **M0:** data fields and logging only (want, arc stage, trait origin). No director logic.
+- **M1:** trait mutation tables, arc stage advancement, naming-triggered evolution for 2 species.
+- **Later:** underdog payoff, decline, rewind-variant chronicle, generative memory text.
+
+### 5.4 Acceptance
+
+- Soak 100 worlds x 20 years: at least 70% of companions alive 5+ years have at least one trait mutation and one arc transition; at least 30% complete an arc.
+- The story log can answer "how did X become who they are" as a causal chain of incident ids.
+- No growth from grind: every trait change references an incident id.
+- All mutation and evolution rolls use the Dice stream with purpose tags.

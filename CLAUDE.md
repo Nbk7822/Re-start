@@ -15,6 +15,7 @@ The player is a person from Earth reincarnated into a procedurally generated fan
 9. Rewinds generate story: a Distortion meter spawns anomalies; a Chronicle of Lost Futures records abandoned timelines as legends.
 10. Characters: RimWorld-grade needs, mood and traits, plus a relationship graph where grudges, debts, oaths and ambitions are first-class objects. Dialogue is templated in v1; any generative text must derive from stored state.
 11. Art: very basic and functional in the RimWorld spirit, with our own silhouette language. Prototype art is colored rectangles and text.
+12. Character growth and arcs: companions visibly change over a lifetime (body, role, traits, heart); static pawns are a failure state. Growth is event-driven, never grind-driven, and every change is a logged story beat with a cause: an arc per character (want, obstacle, turning point, resolution), trait mutation through experience, rare evolutions, niches, shared memories, underdog payoffs and decline. Truths keep a character's nature; Dice re-roll their experiences. Full addendum, data model, scope and acceptance: BIBLE.md section 5.
 
 ## Tech constraints (non-negotiable)
 - Godot 4.x with C#/.NET.
