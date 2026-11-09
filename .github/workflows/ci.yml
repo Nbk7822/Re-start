@@ -19,6 +19,8 @@ jobs:
           dotnet-version: "8.0.x"
       - name: Build and test
         run: dotnet test Return.sln -c Release
+      - name: Build Godot view
+        run: dotnet build game/Return.Game.csproj -c Release
 
   soak:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
