@@ -127,6 +127,46 @@ public class WantContentTests
         File.WriteAllText(wants, Regex.Replace(File.ReadAllText(wants), "\"base\": \\d+", "\"base\": 0"));
         var ex = Assert.Throws<ContentException>(() => ContentDb.Load(dir));
         Assert.Contains("wants.json", ex.Message);
+        Assert.Contains("alone", ex.Message);
+    }
+
+    private const string Protect = "{ \"id\": \"protect_person\", \"textKey\": \"want.protect_person.text\", \"beatKey\": \"event.growth.want_protect_person\", \"target\": \"person\", \"pick\": \"best_chemistry\", \"weights\": { \"base\": 9 } }";
+
+    /// <summary>
+    /// A base weight is not enough if adds can take it away: an Independent person alone in the world
+    /// could want nothing here ("accepted" falls to zero for them, and the other want needs someone).
+    /// </summary>
+    [Fact]
+    public void AWantThatAddsCanCancelDoesNotCountForSomeoneAlone()
+    {
+        string dir = CopyContent();
+        File.WriteAllText(Path.Combine(dir, "wants.json"), "[" + Protect + ", { \"id\": \"accepted\", \"textKey\": \"want.accepted.text\", "
+            + "\"beatKey\": \"event.growth.want_accepted\", \"target\": \"none\", \"weights\": { \"base\": 6, \"traits\": { \"independent\": -6 } } }]");
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(dir));
+        Assert.Contains("wants.json", ex.Message);
+        Assert.Contains("alone", ex.Message);
+    }
+
+    /// <summary>A want about a place (or an item) needs nobody else either, so it is enough for someone alone.</summary>
+    [Fact]
+    public void AWantAboutAPlaceIsEnoughForSomeoneAlone()
+    {
+        string dir = CopyContent();
+        File.WriteAllText(Path.Combine(dir, "wants.json"), "[" + Protect + ", { \"id\": \"own_roof\", \"textKey\": \"want.own_roof.text\", "
+            + "\"beatKey\": \"event.growth.want_own_roof\", \"target\": \"place\", \"place\": \"shelter\", \"weights\": { \"base\": 3 } }]");
+        Assert.Equal(2, ContentDb.Load(dir).Wants.Count);
+    }
+
+    /// <summary>The player can want anything, so every want's beat needs its second-person form; a mod that forgets one fails at load, not with "You wants…" in play.</summary>
+    [Fact]
+    public void EveryWantBeatNeedsItsSecondPersonFormAtLoad()
+    {
+        string dir = CopyContent();
+        string en = Path.Combine(dir, "loc", "en.json");
+        File.WriteAllText(en, File.ReadAllText(en).Replace("\"event.growth.want_trust_you_a\"", "\"event.growth.want_trust_you_x\"", StringComparison.Ordinal));
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(dir));
+        Assert.Contains("wants.json", ex.Message);
+        Assert.Contains("event.growth.want_trust_you_a", ex.Message);
     }
 
     private static string CopyContent()

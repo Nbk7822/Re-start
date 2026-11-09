@@ -165,17 +165,21 @@ public sealed class ContentDb
         ValidateWants();
     }
 
-    /// <summary>Wants name real traits, species, roles, items and camp places, and someone alone in the world can still want something.</summary>
+    /// <summary>
+    /// Wants name real traits, species, roles, items and camp places; every beat has the second-person form
+    /// used when the player wants it; and someone alone in the world can still want something: at least
+    /// one want not about a person weighs above zero for anyone at all (see <see cref="LowestWeight"/>).
+    /// </summary>
     private void ValidateWants()
     {
         bool fallback = false;
         foreach (WantDef d in Wants)
         {
-            RequireLoc("wants.json", d.Id, d.TextKey, d.BeatKey);
+            RequireLoc("wants.json", d.Id, d.TextKey, d.BeatKey, d.BeatKey + "_you_a");
+            if (d.Target != "person" && LowestWeight(d.Weights) > 0) fallback = true;
             switch (d.Target)
             {
                 case "none":
-                    if (d.Weights.Base > 0) fallback = true;
                     break;
                 case "person":
                     if (d.Pick is not ("best_chemistry" or "worst_chemistry"))
@@ -200,7 +204,23 @@ public sealed class ContentDb
             foreach (string r in d.Weights.Roles.Keys)
                 if (!_roles.ContainsKey(r)) Fail("wants.json", $"'{d.Id}' weighs unknown role '{r}'");
         }
-        if (!fallback) Fail("wants.json", "needs a want about nothing in particular with a base weight, so someone alone in the world can still want something");
+        if (!fallback)
+            Fail("wants.json", "needs a want not about a person whose base outweighs all its negative adds together, so anyone alone in the world can still want something");
+    }
+
+    /// <summary>
+    /// The least a want can weigh for anyone: its base, every negative trait add at once (people may hold
+    /// any traits once traits change), the species and the role that count against it most, and a negative
+    /// otherworlder add. Above zero, nobody can be put off it entirely.
+    /// </summary>
+    private static int LowestWeight(WantWeights x)
+    {
+        int low = x.Base + Math.Min(0, x.Otherworlder);
+        foreach (int add in x.Traits.Values) low += Math.Min(0, add);
+        int species = 0, role = 0;
+        foreach (int add in x.Species.Values) species = Math.Min(species, add);
+        foreach (int add in x.Roles.Values) role = Math.Min(role, add);
+        return low + species + role;
     }
 
     private void RequireLoc(string file, string id, params string[] keys)
