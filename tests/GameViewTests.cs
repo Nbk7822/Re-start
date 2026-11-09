@@ -432,6 +432,51 @@ public class GameViewTests
     }
 
     [Fact]
+    public void GoreDoesNotDependOnHowManyTicksAFrameRuns()
+    {
+        // Seed 34's thief fight: blows are health drops between looks, so a gore log that looked only
+        // once a frame would merge blows, thin the drip trail and misplace marks on a long frame.
+        const long Start = 188_500, Span = 1_500;
+        Simulation perTick = Simulation.Create(Content, 34), perFrame = Simulation.Create(Content, 34);
+        perTick.Advance(Start);
+        perFrame.Advance(Start);
+        var everyTick = new GoreLog();
+        var framed = new GoreLog();
+        everyTick.Observe(perTick.World);
+        framed.Observe(perFrame.World);
+        for (long t = 0; t < Span; t++)
+        {
+            perTick.Step();
+            everyTick.Observe(perTick.World);
+        }
+
+        // Frames of very different lengths (up to TickClock.MaxTicksPerFrame), each followed by the
+        // map's own look in MapView._Process, which must then add nothing.
+        int[] frames = { 1, 2, 3, TickClock.MaxTicksPerFrame, 37, 0, 120, 7 };
+        long done = 0;
+        for (int i = 0; done < Span; i++)
+        {
+            long n = Math.Min(frames[i % frames.Length], Span - done);
+            ViewStepper.Run(perFrame, n, framed.Observe);
+            framed.Observe(perFrame.World);
+            done += n;
+        }
+
+        Assert.Equal(perTick.StateHash(), perFrame.StateHash());
+        Assert.Contains(everyTick.Decals, d => d.Kind is DecalKind.Splatter or DecalKind.Drops);
+        Assert.Equal(everyTick.Decals.Select(Describe), framed.Decals.Select(Describe));
+    }
+
+    [Fact]
+    public void TheViewStepsTheSimOnlyThroughTheWitnessedLoop()
+    {
+        string host = File.ReadAllText(Path.Combine(TestPaths.Root, "game", "scripts", "SimHost.cs"));
+        Assert.DoesNotContain("Sim.Step(", host, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Advance(", host.Replace("Clock.Advance(", "", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Matches(host, @"ViewStepper\.Run\(Sim, [^;]+, _witness\)").Count);
+    }
+
+    [Fact]
     public void ADeathByWoundsLeavesABodyInItsBlood()
     {
         Simulation sim = Simulation.Create(Content, 1);

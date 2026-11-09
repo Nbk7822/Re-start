@@ -160,7 +160,7 @@ public partial class MapView : Node2D
         FrameProbe.AttachIfAsked(host, this);
     }
 
-    /// <summary>Lets the gore log see a tick the view did not draw (SimHost's warm-up), so blood lands where it fell.</summary>
+    /// <summary>Lets the gore log see every tick the view runs (ViewStepper), drawn or not, so blood lands where it fell.</summary>
     public void Witness(World w) => _gore.Observe(w);
 
     /// <summary>Centre of a tile in map pixels.</summary>

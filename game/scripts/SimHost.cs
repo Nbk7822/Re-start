@@ -35,6 +35,7 @@ public partial class SimHost : Node
     private BottomBar _bar = null!;
     private InspectorPanel _inspector = null!;
     private TileTooltip _tooltip = null!;
+    private Action<World>? _witness;
     private bool _running;
 
     public Simulation Sim { get; private set; } = null!;
@@ -83,13 +84,9 @@ public partial class SimHost : Node
         Sim = Simulation.Create(Content, ReadSeed());
         Clock = new TickClock(Content.World.TicksPerSecond, Content.World.SpeedMultipliers);
         _map = GetNode<MapView>("MapView");
-        // The warm-up steps one tick at a time so the map sees where people were hurt (Sim.Advance is the same loop).
-        long warmUp = ReadTicks();
-        for (long t = 0; t < warmUp; t++)
-        {
-            Sim.Step();
-            _map.Witness(World);
-        }
+        // Every tick the view runs, warm-up or live, is witnessed by the map, so blood lands where it fell.
+        _witness = _map.Witness;
+        ViewStepper.Run(Sim, ReadTicks(), _witness);
 
         _camera = GetNode<CameraRig>("Camera");
         _bar = GetNode<BottomBar>("Ui/BottomBar");
@@ -124,8 +121,7 @@ public partial class SimHost : Node
     public override void _Process(double delta)
     {
         if (!_running) return;
-        int ticks = Clock.Advance(delta);
-        for (int i = 0; i < ticks; i++) Sim.Step();
+        ViewStepper.Run(Sim, Clock.Advance(delta), _witness);
     }
 
     public override void _UnhandledKeyInput(InputEvent e)
