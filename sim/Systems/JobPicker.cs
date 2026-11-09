@@ -17,6 +17,9 @@ public static class JobPicker
 
     private static readonly string[] WorkOrder = { "care", "repair_roof", "gather_timber", "forage", "haul", "keep_watch" };
 
+    /// <summary>The kinds of work a person's priorities apply to, in the order ties are broken.</summary>
+    public static IReadOnlyList<string> PrioritizedWork => WorkOrder;
+
     public static Job? Choose(World w, Character c)
     {
         if (c.Downed || c.Status != CharStatus.Member) return null;

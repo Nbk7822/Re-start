@@ -233,6 +233,43 @@ public class GameViewTests
     }
 
     [Fact]
+    public void PriorityButtonsCycleOneToFourThenNever()
+    {
+        var seen = new List<int>();
+        int p = 1;
+        for (int i = 0; i < 6; i++) { seen.Add(p); p = ViewText.NextPriority(p); }
+        Assert.Equal(new[] { 1, 2, 3, 4, 0, 1 }, seen);
+        Assert.Equal("–", ViewText.PriorityLabel(0));
+        Assert.Equal("2", ViewText.PriorityLabel(2));
+        Assert.Equal("2…", ViewText.PriorityButton(new WorkPriorityState("forage", "Forage", 2, true)));
+        Assert.Equal("2", ViewText.PriorityButton(new WorkPriorityState("forage", "Forage", 2, false)));
+    }
+
+    [Fact]
+    public void EveryRationPolicyHasAChoiceAndAHint()
+    {
+        foreach (RationPolicy p in Enum.GetValues<RationPolicy>())
+        {
+            Assert.DoesNotContain("⟦", ViewText.PolicyOption(p));
+            Assert.DoesNotContain("⟦", ViewText.PolicyHint(p));
+        }
+        Assert.Equal("You eat first", ViewText.PolicyOption(RationPolicy.SelfFirst));
+    }
+
+    [Fact]
+    public void WorkListShowsWhatEachPersonDoesFirst()
+    {
+        var sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        int mira = w.Characters.First(c => c.CastKey == "mira").Id;
+        ViewText.PersonLine line = ViewText.WorkLines(w).Single(l => l.Id == mira);
+        Assert.Equal("Mira — first: Forage", line.Text);
+        foreach (WorkPriorityState s in StateApi.WorkPriorities(w, mira))
+            if (s.Priority == 1) sim.Enqueue(new SetWorkPriority(w.Tick, mira, s.WorkId, 2));
+        Assert.Equal("Mira — nothing marked first", ViewText.WorkLines(w).Single(l => l.Id == mira).Text);
+    }
+
+    [Fact]
     public void EveryUiKeyTheViewUsesExists()
     {
         var keyLiteral = new Regex("\"(ui\\.[a-z0-9_.]+)\"", RegexOptions.CultureInvariant);

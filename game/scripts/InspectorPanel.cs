@@ -2,14 +2,15 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Return.Game.Logic;
+using Return.Sim;
 using Return.Sim.Api;
 
 namespace Return.Game;
 
 /// <summary>
 /// The person inspector, opened by clicking someone on the map: name, species, status, current
-/// job, needs and mood as small bars with numbers, traits, opinions, grudges, debts and recent
-/// thoughts, all from StateApi.Character. It floats near the right edge, refreshes a few times a
+/// job, needs and mood as small bars with numbers, traits, work priorities (click to change: an
+/// order through SimHost.Order), opinions, grudges, debts and recent thoughts, all from StateApi. It floats near the right edge, refreshes a few times a
 /// second, and closes with its × button, Esc, or a click on empty map.
 /// </summary>
 public partial class InspectorPanel : PanelContainer
@@ -35,6 +36,10 @@ public partial class InspectorPanel : PanelContainer
     private VBoxContainer _grudges = null!;
     private VBoxContainer _debts = null!;
     private VBoxContainer _thoughts = null!;
+    private VBoxContainer _workSection = null!;
+    private GridContainer _workGrid = null!;
+    private readonly List<(Label Name, Button Value)> _workRows = new();
+    private IReadOnlyList<WorkPriorityState> _workState = Array.Empty<WorkPriorityState>();
     private readonly List<BarRow> _barRows = new();
     private readonly StyleBoxFlat[] _fills = new StyleBoxFlat[3];
 
@@ -111,6 +116,16 @@ public partial class InspectorPanel : PanelContainer
         _traits = WrappingLabel();
         _content.AddChild(_traits);
 
+        _workSection = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _workSection.AddThemeConstantOverride("separation", 2);
+        _workSection.AddChild(new Control { CustomMinimumSize = new Vector2(0, 4), MouseFilter = MouseFilterEnum.Ignore });
+        _workSection.AddChild(Ui.MakeLabel(Ui.T("ui.inspector.work"), Ui.SmallFontSize, Ui.Accent));
+        _workGrid = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _workGrid.AddThemeConstantOverride("h_separation", 8);
+        _workGrid.AddThemeConstantOverride("v_separation", 2);
+        _workSection.AddChild(_workGrid);
+        _content.AddChild(_workSection);
+
         _opinions = AddList(Ui.T("ui.inspector.opinions"));
         _grudges = AddList(Ui.T("ui.inspector.grudges"));
         _debts = AddList(Ui.T("ui.inspector.debts"));
@@ -156,6 +171,7 @@ public partial class InspectorPanel : PanelContainer
         for (int i = 0; i < _barRows.Count; i++) _barRows[i].SetVisible(i <= s.Needs.Count);
 
         _traits.Text = ViewText.JoinList(s.Traits);
+        RefreshWork();
 
         var lines = new List<string>();
         foreach (OpinionState o in s.Opinions) lines.Add(ViewText.OpinionLine(o));
@@ -172,6 +188,56 @@ public partial class InspectorPanel : PanelContainer
         lines.Clear();
         for (int i = s.RecentThoughts.Count - 1; i >= 0; i--) lines.Add(s.RecentThoughts[i]);
         SetLines(_thoughts, lines);
+    }
+
+    /// <summary>One row per kind of work: its name and a button showing the priority (1 first … 4, – never).</summary>
+    private void RefreshWork()
+    {
+        World w = _host!.World;
+        Character? c = w.Find(_host.SelectedId);
+        _workSection.Visible = c is { Status: CharStatus.Member };
+        if (!_workSection.Visible) return;
+        _workState = StateApi.WorkPriorities(w, c!.Id);
+        while (_workRows.Count < _workState.Count)
+        {
+            int index = _workRows.Count;
+            Label name = Ui.MakeLabel("", Ui.SmallFontSize);
+            name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            Button value = Ui.MakeButton("", Ui.T("ui.inspector.priority_hint"));
+            value.CustomMinimumSize = new Vector2(48, 0);
+            value.Pressed += () => CyclePriority(index);
+            _workGrid.AddChild(name);
+            _workGrid.AddChild(value);
+            _workRows.Add((name, value));
+        }
+        for (int i = 0; i < _workRows.Count; i++)
+        {
+            bool visible = i < _workState.Count;
+            _workRows[i].Name.Visible = visible;
+            _workRows[i].Value.Visible = visible;
+            if (!visible) continue;
+            _workRows[i].Name.Text = _workState[i].Work;
+            _workRows[i].Value.Text = ViewText.PriorityButton(_workState[i]);
+            _workRows[i].Value.Modulate = _workState[i].Priority <= 0 ? Ui.Dim : Colors.White;
+        }
+    }
+
+    /// <summary>Presses the nth work priority button through its signal (RETURN_PRESS checks).</summary>
+    public bool PressPriority(int index)
+    {
+        if (_host == null || _host.SelectedId == 0) return false;
+        Refresh();
+        if (index < 0 || index >= _workRows.Count || !_workSection.Visible) return false;
+        _workRows[index].Value.EmitSignal(BaseButton.SignalName.Pressed);
+        return true;
+    }
+
+    private void CyclePriority(int index)
+    {
+        if (_host == null || _host.SelectedId == 0 || index >= _workState.Count) return;
+        WorkPriorityState s = _workState[index];
+        _host.Order(new SetWorkPriority(_host.World.Tick, _host.SelectedId, s.WorkId, ViewText.NextPriority(s.Priority)));
+        Refresh();
     }
 
     private void SetBar(int row, string label, int value, int max)

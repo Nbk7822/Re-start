@@ -21,6 +21,12 @@ public sealed record FactionState(string Id, string Name, IReadOnlyList<int> Mem
 public sealed record LocationState(int X, int Y, string Terrain, IReadOnlyList<string> Contents, IReadOnlyList<int> Characters);
 public sealed record IncidentState(long EventId, long Tick, string When, string Key, string Text, IReadOnlyList<long> Consequences);
 
+/// <summary>A person's priority for one kind of work: 1 is done first, then 2, 3, 4; 0 means never. Pending: an order not yet applied (time is paused).</summary>
+public sealed record WorkPriorityState(string WorkId, string Work, int Priority, bool Pending);
+
+/// <summary>The camp's ration policy: what applies now, what will apply once pending orders land, and that policy in words.</summary>
+public sealed record PolicyState(RationPolicy Current, RationPolicy Effective, bool Pending, string Text);
+
 /// <summary>
 /// The text-state API: structured, localised reads of the world for the view, the headless runner,
 /// mods and AI agents. Reads never change state.
@@ -38,6 +44,35 @@ public static class StateApi
     };
 
     public static string Json<T>(T state) => JsonSerializer.Serialize(state, JsonOptions);
+
+    /// <summary>
+    /// A person's work priorities for every kind of work priorities apply to, counting orders that
+    /// are queued but not yet applied (so a paused game shows what the player just chose).
+    /// </summary>
+    public static IReadOnlyList<WorkPriorityState> WorkPriorities(World w, int id)
+    {
+        Character c = w.Get(id);
+        var list = new List<WorkPriorityState>();
+        foreach (string workId in Systems.JobPicker.PrioritizedWork)
+        {
+            int priority = Systems.JobPicker.PriorityOf(c, workId);
+            bool pending = false;
+            foreach (Command cmd in w.PendingCommands)
+                if (cmd is SetWorkPriority p && p.CharacterId == id && p.WorkId == workId) { priority = p.Priority; pending = true; }
+            list.Add(new WorkPriorityState(workId, w.Content.Loc.Get(w.Content.WorkById(workId).NameKey), priority, pending));
+        }
+        return list;
+    }
+
+    /// <summary>The ration policy, counting a queued order that has not applied yet.</summary>
+    public static PolicyState Policy(World w)
+    {
+        RationPolicy effective = w.Policy;
+        bool pending = false;
+        foreach (Command cmd in w.PendingCommands)
+            if (cmd is SetRationPolicy p) { effective = p.Policy; pending = true; }
+        return new PolicyState(w.Policy, effective, pending && effective != w.Policy, w.Content.Loc.Get(SetRationPolicy.PolicyKey(effective)));
+    }
 
     public static CharacterState Character(World w, int id)
     {

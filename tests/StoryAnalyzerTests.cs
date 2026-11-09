@@ -158,6 +158,45 @@ public class StateApiTests
     }
 
     [Fact]
+    public void WorkPrioritiesShowOrdersBeforeTheyApply()
+    {
+        var s = Simulation.Create(TestContent.Db, 1);
+        World w = s.World;
+        int mira = w.Characters.First(c => c.CastKey == "mira").Id;
+        WorkPriorityState forage = StateApi.WorkPriorities(w, mira).Single(p => p.WorkId == "forage");
+        Assert.Equal(1, forage.Priority);
+        Assert.False(forage.Pending);
+        Assert.Equal(Return.Sim.Systems.JobPicker.PrioritizedWork.Count, StateApi.WorkPriorities(w, mira).Count);
+
+        s.Enqueue(new SetWorkPriority(w.Tick, mira, "forage", 0));
+        forage = StateApi.WorkPriorities(w, mira).Single(p => p.WorkId == "forage");
+        Assert.Equal(0, forage.Priority);
+        Assert.True(forage.Pending);
+
+        s.Step();
+        forage = StateApi.WorkPriorities(w, mira).Single(p => p.WorkId == "forage");
+        Assert.Equal(0, forage.Priority);
+        Assert.False(forage.Pending);
+    }
+
+    [Fact]
+    public void PolicyShowsAnOrderBeforeItApplies()
+    {
+        var s = Simulation.Create(TestContent.Db, 1);
+        World w = s.World;
+        Assert.Equal(RationPolicy.Hungriest, StateApi.Policy(w).Effective);
+        s.Enqueue(new SetRationPolicy(w.Tick, RationPolicy.PromisesFirst));
+        PolicyState p = StateApi.Policy(w);
+        Assert.Equal(RationPolicy.Hungriest, p.Current);
+        Assert.Equal(RationPolicy.PromisesFirst, p.Effective);
+        Assert.True(p.Pending);
+        Assert.Equal("promised meals come first", p.Text);
+        s.Step();
+        Assert.False(StateApi.Policy(w).Pending);
+        Assert.Equal(RationPolicy.PromisesFirst, w.Policy);
+    }
+
+    [Fact]
     public void EventTextResolvesNames()
     {
         World w = WorldGen.Create(TestContent.Db, 2);

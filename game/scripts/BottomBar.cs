@@ -3,13 +3,16 @@ using System.Collections.Generic;
 using Godot;
 using Return.Game.Logic;
 using Return.Sim;
+using Return.Sim.Api;
 
 namespace Return.Game;
 
 /// <summary>
-/// The one menu bar along the bottom edge (ADR-0008): Build, Orders, Zones, Work and Schedule
-/// (shown but disabled in M0), People and Chronicle (each opens a small list on demand), the clock,
-/// and pause plus the speed buttons with the active one highlighted. Nothing else stays on screen.
+/// The one menu bar along the bottom edge (ADR-0008): Build, Zones and Schedule (shown but disabled
+/// until the sim has them), Orders (the ration policy) and Work (who does what first), People and
+/// Chronicle, each opening a small list on demand; then the clock, and pause plus the speed buttons
+/// with the active one highlighted. Nothing else stays on screen. Choices become commands through
+/// SimHost.Order.
 /// </summary>
 public partial class BottomBar : PanelContainer
 {
@@ -18,18 +21,18 @@ public partial class BottomBar : PanelContainer
     private const float PopupGap = 6f;
     private const double RefreshSeconds = 0.25;
 
-    private static readonly string[] FutureTools =
-    {
-        "ui.bar.build", "ui.bar.orders", "ui.bar.zones", "ui.bar.work", "ui.bar.schedule",
-    };
-
     private SimHost? _host;
     private Label _clock = null!;
     private readonly List<Button> _speedButtons = new();
+    private ListPopup _orders = null!;
+    private ListPopup _work = null!;
     private ListPopup _people = null!;
     private ListPopup _chronicle = null!;
     private ListPopup? _open;
     private readonly List<int> _peopleIds = new();
+    private readonly List<int> _workIds = new();
+    private readonly List<(RationPolicy Policy, Button Button)> _policyButtons = new();
+    private Label? _ordersPending;
     private long _clockTick = -1;
     private double _refresh;
 
@@ -52,17 +55,18 @@ public partial class BottomBar : PanelContainer
         row.AddThemeConstantOverride("separation", 6);
         AddChild(row);
 
-        foreach (string key in FutureTools)
-        {
-            Button b = Ui.MakeButton(Ui.T(key), Ui.T("ui.bar.not_yet"));
-            b.Disabled = true;
-            row.AddChild(b);
-        }
-        row.AddChild(new VSeparator());
-
         Node layer = GetParent();
+        _orders = new ListPopup(layer, Ui.T("ui.orders.title"), 320f);
+        _work = new ListPopup(layer, Ui.T("ui.work.title"), 380f);
         _people = new ListPopup(layer, Ui.T("ui.people.title"), 300f);
         _chronicle = new ListPopup(layer, Ui.T("ui.chronicle.title"), 540f);
+
+        row.AddChild(NotYet("ui.bar.build"));
+        row.AddChild(Toggle(_orders, Ui.T("ui.bar.orders"), Ui.T("ui.bar.orders_hint")));
+        row.AddChild(NotYet("ui.bar.zones"));
+        row.AddChild(Toggle(_work, Ui.T("ui.bar.work"), Ui.T("ui.bar.work_hint")));
+        row.AddChild(NotYet("ui.bar.schedule"));
+        row.AddChild(new VSeparator());
         row.AddChild(Toggle(_people, Ui.T("ui.bar.people"), Ui.T("ui.bar.people_hint")));
         row.AddChild(Toggle(_chronicle, Ui.T("ui.bar.chronicle"), Ui.T("ui.bar.chronicle_hint")));
 
@@ -94,6 +98,15 @@ public partial class BottomBar : PanelContainer
         UpdateClock();
     }
 
+    /// <summary>Opens a list by name (orders, work, people, chronicle); false if there is no such list.</summary>
+    public bool Open(string name)
+    {
+        ListPopup? popup = name switch { "orders" => _orders, "work" => _work, "people" => _people, "chronicle" => _chronicle, _ => null };
+        if (popup == null) return false;
+        SetOpen(popup);
+        return true;
+    }
+
     /// <summary>Closes the open list, if any; true when something was closed.</summary>
     public bool ClosePopups()
     {
@@ -112,9 +125,18 @@ public partial class BottomBar : PanelContainer
         {
             _refresh = RefreshSeconds;
             if (_open == _people) RefreshPeople();
-            else RefreshChronicle();
+            else if (_open == _chronicle) RefreshChronicle();
+            else if (_open == _orders) RefreshOrders();
+            else RefreshWork();
         }
         Place(_open);
+    }
+
+    private static Button NotYet(string key)
+    {
+        Button b = Ui.MakeButton(Ui.T(key), Ui.T("ui.bar.not_yet"));
+        b.Disabled = true;
+        return b;
     }
 
     private Button Toggle(ListPopup popup, string text, string hint)
@@ -129,7 +151,7 @@ public partial class BottomBar : PanelContainer
     private void SetOpen(ListPopup? popup)
     {
         _open = popup;
-        foreach (ListPopup p in new[] { _people, _chronicle })
+        foreach (ListPopup p in new[] { _orders, _work, _people, _chronicle })
         {
             bool open = p == popup;
             p.Panel.Visible = open;
@@ -184,6 +206,93 @@ public partial class BottomBar : PanelContainer
         _host.FocusCamera(c.Pos);
     }
 
+    /// <summary>"When food runs short": the three ration policies, the current one pressed.</summary>
+    private void RefreshOrders()
+    {
+        if (_policyButtons.Count == 0)
+        {
+            var group = new ButtonGroup();
+            foreach (RationPolicy p in Enum.GetValues<RationPolicy>())
+            {
+                RationPolicy policy = p;
+                Button b = Ui.MakeButton(ViewText.PolicyOption(policy), ViewText.PolicyHint(policy));
+                b.ToggleMode = true;
+                b.ButtonGroup = group;
+                b.Alignment = HorizontalAlignment.Left;
+                b.Pressed += () => ChoosePolicy(policy);
+                _orders.Rows.AddChild(b);
+                _policyButtons.Add((policy, b));
+            }
+            Label note = Ui.MakeLabel(Ui.T("ui.orders.note"), Ui.SmallFontSize, Ui.Dim);
+            note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _orders.Rows.AddChild(note);
+            _ordersPending = Ui.MakeLabel(Ui.T("ui.orders.pending"), Ui.SmallFontSize, Ui.Accent);
+            _orders.Rows.AddChild(_ordersPending);
+        }
+        PolicyState s = StateApi.Policy(_host!.World);
+        foreach ((RationPolicy policy, Button button) in _policyButtons) button.SetPressedNoSignal(policy == s.Effective);
+        _ordersPending!.Visible = s.Pending;
+    }
+
+    /// <summary>Presses the nth ration policy button through its signal (RETURN_PRESS checks).</summary>
+    public bool PressPolicy(int index)
+    {
+        if (_host == null) return false;
+        RefreshOrders();
+        if (index < 0 || index >= _policyButtons.Count) return false;
+        _policyButtons[index].Button.EmitSignal(BaseButton.SignalName.Pressed);
+        RefreshOrders();
+        return true;
+    }
+
+    private void ChoosePolicy(RationPolicy policy)
+    {
+        if (_host == null) return;
+        if (StateApi.Policy(_host.World).Effective != policy) _host.Order(new SetRationPolicy(_host.World.Tick, policy));
+        _refresh = 0;
+    }
+
+    /// <summary>Each member and what they do first; clicking one opens their inspector, where priorities are set.</summary>
+    private void RefreshWork()
+    {
+        if (_work.Rows.GetChildCount() == 0)
+        {
+            Label hint = Ui.MakeLabel(Ui.T("ui.work.hint"), Ui.SmallFontSize, Ui.Dim);
+            hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _work.Rows.AddChild(hint);
+        }
+        IReadOnlyList<ViewText.PersonLine> lines = ViewText.WorkLines(_host!.World);
+        _workIds.Clear();
+        foreach (ViewText.PersonLine line in lines) _workIds.Add(line.Id);
+        int rows = Math.Max(1, lines.Count);
+        while (_work.Rows.GetChildCount() - 1 < rows)
+        {
+            int index = _work.Rows.GetChildCount() - 1;
+            Button b = Ui.MakeButton("");
+            b.Flat = true;
+            b.Alignment = HorizontalAlignment.Left;
+            b.Pressed += () => OnWorkPersonPressed(index);
+            _work.Rows.AddChild(b);
+        }
+        for (int i = 1; i < _work.Rows.GetChildCount(); i++)
+        {
+            var b = _work.Rows.GetChild<Button>(i);
+            int k = i - 1;
+            b.Visible = k < rows;
+            b.Disabled = lines.Count == 0;
+            b.Text = lines.Count == 0 ? Ui.T("ui.people.empty") : k < lines.Count ? lines[k].Text : "";
+        }
+    }
+
+    private void OnWorkPersonPressed(int index)
+    {
+        if (_host == null || index >= _workIds.Count) return;
+        Character? c = _host.World.Find(_workIds[index]);
+        if (c == null) return;
+        _host.Select(c.Id);
+        _host.FocusCamera(c.Pos);
+    }
+
     private void RefreshChronicle()
     {
         IReadOnlyList<string> lines = ViewText.Chronicle(_host!.World);
@@ -203,7 +312,7 @@ public partial class BottomBar : PanelContainer
         }
     }
 
-    /// <summary>Sits the list just above the bar, under its button, as tall as its rows allow.</summary>
+    /// <summary>Sits the list just above the bar, under its button, as tall as its rows allow, and clear of an open inspector.</summary>
     private void Place(ListPopup p)
     {
         Vector2 vp = GetViewportRect().Size;
@@ -212,7 +321,8 @@ public partial class BottomBar : PanelContainer
         p.Scroll.CustomMinimumSize = new Vector2(p.Width, Mathf.Min(p.Rows.GetCombinedMinimumSize().Y, maxRows));
         Vector2 size = p.Panel.GetCombinedMinimumSize();
         p.Panel.Size = size;
-        float x = Mathf.Clamp(p.Toggle.GlobalPosition.X, PopupGap, Mathf.Max(PopupGap, vp.X - size.X - PopupGap));
+        float right = Mathf.Min(vp.X, _host?.InspectorLeft ?? vp.X);
+        float x = Mathf.Clamp(p.Toggle.GlobalPosition.X, PopupGap, Mathf.Max(PopupGap, right - size.X - PopupGap));
         p.Panel.Position = new Vector2(x, vp.Y - bar - PopupGap - size.Y);
     }
 

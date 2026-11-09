@@ -19,6 +19,11 @@ namespace Return.Game;
 ///   RETURN_SEED=n        world seed (default 1)
 ///   RETURN_TICKS=n       advance n ticks before the first frame
 ///   RETURN_SELECT=key    open the inspector for that cast key (e.g. "you")
+///   RETURN_OPEN=name     open a bar list at start: orders, work, people or chronicle
+///   RETURN_PAUSE=1       start paused
+///   RETURN_PRESS=list    after 1 s, press buttons as a player would: "policy:N" (the Nth ration
+///                        policy in Orders) and "priority:N" (the Nth work priority in the open
+///                        inspector), comma-separated
 ///   RETURN_SCREENSHOT=p  save the window to PNG file p about 3 s after start, then quit
 /// </summary>
 public partial class SimHost : Node
@@ -43,8 +48,17 @@ public partial class SimHost : Node
     /// <summary>The character whose inspector is open; 0 when none.</summary>
     public int SelectedId { get; private set; }
 
+    /// <summary>The left edge of the open inspector in screen pixels, or the window's width when it is closed.</summary>
+    public float InspectorLeft => _inspector.Visible ? _inspector.GlobalPosition.X : _inspector.GetViewportRect().Size.X;
+
     /// <summary>Height of the bottom menu bar in screen pixels (the map is visible above it).</summary>
     public float BarHeight => Mathf.Max(_bar.Size.Y, BottomBar.Height);
+
+    /// <summary>
+    /// The only way the view changes the world: a tick-stamped command for the next tick, so it is
+    /// recorded, replayable and part of the determinism test like any other input.
+    /// </summary>
+    public void Order(Command command) => Sim.Enqueue(command);
 
     public event Action? SpeedChanged;
 
@@ -91,6 +105,12 @@ public partial class SimHost : Node
             if (c == null) GD.PushWarning("Return: RETURN_SELECT names no cast member '" + select + "'.");
             else Select(c.Id);
         }
+
+        string? open = Env("RETURN_OPEN");
+        if (open != null && !_bar.Open(open)) GD.PushWarning("Return: RETURN_OPEN names no bar list '" + open + "'.");
+        if (Env("RETURN_PAUSE") == "1") { Clock.SetSpeed(0); SpeedChanged?.Invoke(); }
+        string? press = Env("RETURN_PRESS");
+        if (press != null) GetTree().CreateTimer(1.0).Timeout += () => PressForCheck(press);
 
         string? screenshot = Env("RETURN_SCREENSHOT");
         if (screenshot != null) ScreenshotAndQuit(ResolvePath(screenshot));
@@ -177,6 +197,22 @@ public partial class SimHost : Node
         foreach (Character c in World.Characters)
             if (string.Equals(c.CastKey, castKey, StringComparison.Ordinal)) return c;
         return null;
+    }
+
+    /// <summary>Presses UI buttons through their real signals, for RETURN_PRESS checks.</summary>
+    private void PressForCheck(string list)
+    {
+        foreach (string item in list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string[] parts = item.Split(':');
+            bool ok = parts.Length == 2 && int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && parts[0] switch
+            {
+                "policy" => _bar.PressPolicy(n),
+                "priority" => _inspector.PressPriority(n),
+                _ => false,
+            };
+            if (!ok) GD.PushWarning("Return: RETURN_PRESS could not press '" + item + "'.");
+        }
     }
 
     private async void ScreenshotAndQuit(string path)

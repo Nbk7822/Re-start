@@ -116,6 +116,39 @@ public static class ViewText
         return lines;
     }
 
+    /// <summary>A ration policy as a choice in the Orders list ("The hungriest eat first").</summary>
+    public static string PolicyOption(RationPolicy p) => Ui.T("ui.orders.policy." + Names.Snake(p.ToString()));
+
+    /// <summary>What a ration policy means, for its tooltip.</summary>
+    public static string PolicyHint(RationPolicy p) => Ui.T("ui.orders.policy." + Names.Snake(p.ToString()) + "_hint");
+
+    /// <summary>The next priority when a priority button is clicked: 1, 2, 3, 4, never (0), then 1 again.</summary>
+    public static int NextPriority(int priority) => priority switch { 1 => 2, 2 => 3, 3 => 4, 4 => 0, _ => 1 };
+
+    /// <summary>"1".."4", or the "never" mark for 0.</summary>
+    public static string PriorityLabel(int priority) => priority <= 0 ? Ui.T("ui.priority.off") : Ui.N(priority);
+
+    /// <summary>A priority button's caption; marked while the order waits for time to move.</summary>
+    public static string PriorityButton(WorkPriorityState s) =>
+        s.Pending ? Ui.F("ui.priority.pending", ("p", PriorityLabel(s.Priority))) : PriorityLabel(s.Priority);
+
+    /// <summary>Each member with the work they do first (priority 1), for the Work list.</summary>
+    public static IReadOnlyList<PersonLine> WorkLines(World w)
+    {
+        var lines = new List<PersonLine>();
+        foreach (Character c in w.Members())
+        {
+            var first = new List<string>();
+            foreach (WorkPriorityState p in StateApi.WorkPriorities(w, c.Id))
+                if (p.Priority == 1) first.Add(p.Work);
+            string name = EventText.Name(w, c.Id);
+            lines.Add(new PersonLine(c.Id, first.Count == 0
+                ? Ui.F("ui.work.entry_none", ("name", name))
+                : Ui.F("ui.work.entry", ("name", name), ("works", JoinList(first)))));
+        }
+        return lines;
+    }
+
     /// <summary>Items joined with the localised list separator.</summary>
     public static string JoinList(IReadOnlyList<string> items)
     {
