@@ -689,6 +689,73 @@ public class PeoplesTests
         Assert.Contains(w.Log.All, e => e.Key == "event.needs.courtesy_critical" && ancestors.Contains(e.Id));
     }
 
+    // ---- Reads, snapshots and determinism with all four peoples in camp ----
+
+    /// <summary>Day 22 of seed 3: every people has arrived; bargains, bonds and nature needs are live state.</summary>
+    private static Simulation AllPeoples(ulong seed = 3, long days = 22)
+    {
+        Simulation s = Simulation.Create(TestContent.Db, seed);
+        s.Enqueue(new SetRationPolicy(0, RationPolicy.PromisesFirst));
+        s.Advance(days * s.World.Content.World.TicksPerDay);
+        return s;
+    }
+
+    [Fact]
+    public void StateApiShowsEachPeoplesNeedsAndBonds()
+    {
+        Simulation s = AllPeoples();
+        World w = s.World;
+        foreach (string key in new[] { "ketil", "dryope", "qamar", "fionn" })
+            Assert.NotEqual(CharStatus.OffMap, Cast(w, key).Status);
+
+        NatureNeedState forest = StateApi.NatureNeeds(w, Cast(w, "dryope").Id).Single();
+        Tree tree = Forest.TreeById(w, NatureNeeds.Get(Cast(w, "dryope"), Forest.NeedId)!.BondId)!;
+        Assert.Equal(tree.Felled ? "Their tree was cut down" : $"Bound to the tree at ({tree.Pos.X}, {tree.Pos.Y})", forest.Bond);
+        Assert.Contains(forest.Standing, new[] { "met", "low", "critical" });
+
+        NatureNeedState purpose = StateApi.NatureNeeds(w, Cast(w, "ketil").Id).Single();
+        Assert.StartsWith("Bound to: ", purpose.Bond);
+
+        Character qamar = Cast(w, "qamar");
+        NatureNeedState bargain = StateApi.NatureNeeds(w, qamar.Id).Single();
+        Assert.StartsWith("Offers to ", bargain.Bond);
+        IReadOnlyList<ContractState> contracts = StateApi.Contracts(w, qamar.Id);
+        Assert.Equal(w.Contracts.Count(k => k.BoundId == qamar.Id), contracts.Count);
+        if (Bargains.Binding(w, qamar.Id) is { } k)
+        {
+            Assert.Contains("bound by a bargain with", bargain.Bond);
+            Assert.Contains(contracts, c => c.Id == k.Id && c.Status == "open");
+        }
+
+        Assert.Equal("Courtesy", StateApi.NatureNeeds(w, Cast(w, "fionn").Id).Single().Label);
+        Assert.Empty(StateApi.NatureNeeds(w, Cast(w, "mira").Id));
+        Assert.DoesNotContain("⟦", StateApi.Json(StateApi.NatureNeeds(w, qamar.Id)) + StateApi.Json(contracts));
+    }
+
+    [Fact]
+    public void ThePeoplesNaturesSurviveASnapshot()
+    {
+        Simulation straight = AllPeoples(5, 21);
+        byte[] snap = straight.Snapshot();
+        Simulation restored = Simulation.Restore(TestContent.Db, snap);
+        Assert.Equal(straight.StateHash(), restored.StateHash());
+        Character a = Cast(straight.World, "dryope"), b = Cast(restored.World, "dryope");
+        Assert.Equal(a.NatureNeeds.Single().BondId, b.NatureNeeds.Single().BondId);
+        Assert.Equal(straight.World.Contracts.Count, restored.World.Contracts.Count);
+
+        long more = 6L * straight.World.Content.World.TicksPerDay;
+        straight.Advance(more);
+        restored.Advance(more);
+        Assert.Equal(straight.StateHash(), restored.StateHash());
+        Assert.NotEmpty(straight.World.Contracts);
+    }
+
+    [Fact]
+    public void SameSeedSameWorldWithThePeoples()
+    {
+        Assert.Equal(AllPeoples(9, 30).StateHash(), AllPeoples(9, 30).StateHash());
+    }
+
     [Fact]
     public void TheLivingAreUneasyAroundTheNewlyDeadAndWarmWithTime()
     {

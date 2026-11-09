@@ -1,4 +1,17 @@
 {
+  "need_stage.met": "met",
+  "need_stage.low": "low",
+  "need_stage.critical": "critical",
+  "bond.tree": "Bound to the tree at ({x}, {y})",
+  "bond.tree_felled": "Their tree was cut down",
+  "bond.work": "Bound to: {work}",
+  "bond.bargain_terms": "Offers to {service}, for {price} each dawn",
+  "bond.bargain_open": "{terms}; bound by a bargain with {patron} until {when}",
+  "contract_status.open": "open",
+  "contract_status.kept": "kept",
+  "contract_status.broken": "broken",
+  "contract_status.void": "lapsed",
+
   "species.undead.name": "Undead",
 
   "need.purpose": "Purpose",
@@ -86,6 +99,7 @@
   "event.social.word_wound": "The broken word stung {a} like cold iron.",
   "event.social.hard_truth": "{a} told {b} plainly, before everyone, what {b} had done.",
   "event.social.plain_truth": "{a} told {b} plainly what they thought of them.",
+  "event.social.plain_truth_you_b": "{a} told {b} plainly what they thought of you.",
   "event.social.swore_welcome": "{a} swore to repay {b} for the welcome.",
   "event.social.owes_care_sworn": "{a} swore to repay {b} for tending their wounds.",
   "event.social.owes_blood_sworn": "{a} swore to repay {b} for the blood.",
