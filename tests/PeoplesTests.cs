@@ -296,6 +296,202 @@ public class PeoplesTests
         Assert.Contains(w.Log.All, e => e.Key == "event.needs.forest_critical" && ancestors.Contains(e.Id));
     }
 
+    // ---- Djinn: bargains ----
+
+    /// <summary>A camp with the djinn and the named others; the djinn's service and price set (they are Truths, so tests pin them).</summary>
+    private static (Simulation S, Character Qamar, NatureNeed Need) WithDjinn(ulong seed, string service, string price, params string[] others)
+    {
+        Simulation s = Camp(seed, others.Append("qamar").ToArray());
+        Character qamar = Cast(s.World, "qamar");
+        qamar.ArrivedTick = 0;
+        NatureNeed need = NatureNeeds.Get(qamar, Bargains.NeedId)!;
+        need.BondWork = service;
+        need.BondItem = price;
+        return (s, qamar, need);
+    }
+
+    private static Contract Struck(World w, Character qamar)
+    {
+        for (int t = 0; t < 6_000 && Bargains.Binding(w, qamar.Id) == null; t++)
+        {
+            TravelSystem.Step(w);
+            WorkSystem.Step(w);
+            w.Tick++;
+        }
+        return Bargains.Binding(w, qamar.Id) ?? throw new InvalidOperationException("no bargain was struck");
+    }
+
+    [Fact]
+    public void ARestlessDjinnOffersABargainToWhomeverItThinksBestOf()
+    {
+        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "you", "mira", "bram");
+        World w = s.World;
+        Character bram = Cast(w, "bram");
+        Relations.ChangeOpinion(w, qamar, bram.Id, 30, 0);
+        need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow - 1;
+        w.Tick = Hours(w, 10);
+        Job? job = JobPicker.Choose(w, qamar);
+        Assert.Equal(JobKind.OfferBargain, job?.Kind);
+        Assert.Equal(bram.Id, job!.TargetId);
+
+        Contract k = Struck(w, qamar);
+        Assert.Equal(bram.Id, k.PatronId);
+        Assert.Equal("keep_watch", k.ServiceWork);
+        Assert.Equal("timber", k.PriceItem);
+        SimEvent struck = w.Log.Get(k.FormedEvent)!;
+        Assert.Contains(struck.Effects, f => f.Kind == EffectKind.ContractFormed && f.A == qamar.Id && f.B == bram.Id && f.RefId == k.Id);
+        SimEvent offer = w.Log.Get(struck.Causes[0])!;
+        Assert.Equal("Qamar offered Bram a bargain: to keep the night watch, for timber for the fire each dawn until the season turns.", EventText.Describe(w, offer));
+        Assert.Equal("Bram struck a bargain with Qamar.", EventText.Describe(w, struck));
+
+        // Bound, the djinn's need fills, it leans to its service, and the camp keeps timber in store for the price.
+        int before = need.Value;
+        NeedsSystem.Hourly(w);
+        Assert.True(need.Value > before);
+        Assert.Contains(qamar.Thoughts, t => t.DefId == "bound_by_bargain");
+        Assert.Equal(w.Content.NeedById(Bargains.NeedId).Param("serviceBias"), NatureNeeds.WorkBias(w, qamar, "keep_watch"));
+        Stock.Take(w, "timber", 99);
+        Assert.Equal(2 * k.PriceAmount + w.Map.Roof.Count(r => !r.Sound) * 3, Places.TimberNeeded(w));
+        Assert.Equal(k.FormedEvent, Bargains.DemandCause(w, "timber"));
+    }
+
+    [Fact]
+    public void TheProudWillNotStrikeABargainTheCampCannotPay()
+    {
+        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "hollis");
+        World w = s.World;
+        Character hollis = Cast(w, "hollis");
+        Relations.ChangeOpinion(w, hollis, qamar.Id, 50, 0);
+        Stock.Take(w, "timber", 99);
+        Assert.Equal("event.social.bargain_refused_unsafe", Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
+        Stock.Add(w, "timber", 2, w.Map.Stockpile.Center);
+        Assert.Null(Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
+        Relations.ChangeOpinion(w, hollis, qamar.Id, -50, 0);
+        Assert.Equal("event.social.bargain_refused", Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
+
+        // Turned down, the djinn waits a while before it asks anyone again.
+        need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow - 1;
+        w.Tick = Hours(w, 10);
+        RunWork(w, 3_000, () => w.Log.All.Any(e => e.Key == "event.social.bargain_refused"));
+        SimEvent no = w.Log.All.Single(e => e.Key == "event.social.bargain_refused");
+        Assert.Equal("Hollis turned down Qamar's bargain.", EventText.Describe(w, no));
+        Assert.Equal(no.Id, need.LastEvent);
+        Assert.Contains(qamar.Thoughts, t => t.DefId == "bargain_refused" && t.AboutId == hollis.Id);
+        qamar.Job = null;
+        Assert.NotEqual(JobKind.OfferBargain, JobPicker.Choose(w, qamar)?.Kind);
+        Assert.Empty(w.Contracts);
+    }
+
+    /// <summary>The djinn's chain: restless -> offers -> struck -> no berries at dawn in winter -> broken -> a grudge against the patron.</summary>
+    [Fact]
+    public void ABargainTheCampCannotPayIsBrokenAndRemembered()
+    {
+        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "forage", "berries", "you", "mira");
+        World w = s.World;
+        Character you = Cast(w, "you");
+        need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow + 1;
+        w.Tick = (long)w.Content.World.TicksPerSeason * 3 - Hours(w, 4); // the eve of winter
+        Stock.Add(w, "berries", 4, w.Map.Stockpile.Center);
+        s.Advance(Hours(w, 8));
+        Contract k = Bargains.Binding(w, qamar.Id) ?? w.Contracts.Single();
+        Character patron = w.Get(k.PatronId);
+        Assert.NotEqual(0, w.WinterEvent);
+
+        // Winter: the stores run dry, and at dawn there is nothing to pay.
+        Stock.Take(w, "berries", 99);
+        foreach (Bush b in w.Map.Bushes) b.Berries = 0;
+        s.Advance(w.Content.World.TicksPerDay);
+        Assert.Equal(ContractStatus.Broken, k.Status);
+        SimEvent broken = w.Log.Get(k.ClosedEvent)!;
+        Assert.Equal("event.social.bargain_broken", broken.Key);
+        Assert.Contains(broken.Effects, f => f.Kind == EffectKind.ContractBroken && f.A == qamar.Id && f.B == patron.Id);
+        Assert.Contains(w.WinterEvent, broken.Causes);
+        string with = patron.Id == you.Id ? "you" : EventText.Name(w, patron.Id);
+        Assert.Equal($"The camp had no berries to give Qamar at dawn, and the bargain with {with} is broken.", EventText.Describe(w, broken));
+        Assert.Contains(qamar.Thoughts, t => t.DefId == "bargain_betrayed" && t.AboutId == patron.Id);
+
+        Grudge g = w.Grudges.Single(x => x.HolderId == qamar.Id && x.TargetId == patron.Id);
+        Story story = StoryEndingAt(w, g.FormedEvent);
+        Assert.Equal(k.FormedEvent, story.Chain[^3]);
+        Assert.Equal(broken.Id, story.Chain[^2]);
+        Assert.Contains(w.Log.All, e => e.Key == "event.social.bargain_offered" && story.Chain.Contains(e.Id));
+        Assert.Contains(SystemTag.Social, story.Systems);
+        Assert.True(story.Systems.Count >= 2);
+    }
+
+    [Fact]
+    public void ABargainPaidToTheEndIsKept()
+    {
+        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "you");
+        World w = s.World;
+        Character you = Cast(w, "you");
+        need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow - 1;
+        w.Tick = Hours(w, 10);
+        Contract k = Struck(w, qamar);
+        Stock.Add(w, "timber", 30, w.Map.Stockpile.Center);
+        int timber = Stock.Count(w, "timber");
+        long paidBefore = w.Log.All.Count(e => e.Key == "event.social.bargain_paid");
+        s.Advance(k.EndsTick - w.Tick + Hours(w, 1));
+        Assert.Equal(ContractStatus.Kept, k.Status);
+        int dawns = w.Log.All.Count(e => e.Key == "event.social.bargain_paid") - (int)paidBefore;
+        Assert.True(dawns >= 1);
+        SimEvent kept = w.Log.Get(k.ClosedEvent)!;
+        Assert.Contains(kept.Effects, f => f.Kind == EffectKind.ContractKept);
+        Assert.Equal("Qamar served out the bargain with you, and both kept their word.", EventText.Describe(w, kept));
+        Assert.Contains(you.Thoughts, t => t.DefId == "bargain_honoured" && t.AboutId == qamar.Id);
+        Assert.Equal(kept.Id, need.LastEvent);
+    }
+
+    /// <summary>Two peoples' stories in one chain: the djinn's price is timber, so a tree must fall, and it is the dryad's.</summary>
+    [Fact]
+    public void TheDjinnsFireCostTheDryadHerTree()
+    {
+        (World w, Character oren, Character dryope, Tree tree) = ByTheBoundTree(1);
+        Character qamar = Cast(w, "qamar");
+        qamar.Status = CharStatus.Member;
+        qamar.Pos = w.Map.Hearth with { Y = w.Map.Hearth.Y + 3 };
+        foreach (RoofSection r in w.Map.Roof) r.Sound = true;
+        SimEvent struck = w.Log.Emit(w, SystemTag.Social, "event.social.bargain_struck", new[] { qamar.Id, oren.Id }, Array.Empty<long>());
+        w.Contracts.Add(new Contract
+        {
+            Id = w.NewId(), BoundId = qamar.Id, PatronId = oren.Id, ServiceWork = "keep_watch", PriceItem = "timber", PriceAmount = 1,
+            FormedEvent = struck.Id, NextDueTick = w.Tick + Hours(w, 20), EndsTick = w.Tick + Hours(w, 200), Status = ContractStatus.Open,
+        });
+        Assert.True(Places.TimberNeeded(w) > 0);
+        RunWork(w, 3_000, () => tree.Felled);
+        SimEvent felled = w.Log.All.Single(e => e.Key == "event.work.felled_bound_tree");
+        Assert.Contains(struck.Id, felled.Causes);
+        Grudge g = w.Grudges.Single(x => x.HolderId == dryope.Id);
+        Assert.Equal(new[] { struck.Id, felled.Id }, StoryEndingAt(w, g.FormedEvent).Chain.Take(2));
+    }
+
+    [Fact]
+    public void AWrongedDjinnLeftUnboundLetsTheFireLooseOnceAndThenLeaves()
+    {
+        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "you", "mira");
+        World w = s.World;
+        Character you = Cast(w, "you"), mira = Cast(w, "mira");
+        SimEvent wrong = w.Log.Emit(w, SystemTag.Social, "event.test.wrong", new[] { you.Id }, Array.Empty<long>());
+        Relations.FormGrudge(w, qamar, you, 50, wrong.Id);
+        Relations.ChangeOpinion(w, mira, qamar.Id, -60, 0);
+        Relations.ChangeOpinion(w, you, qamar.Id, -60, 0);
+        foreach (RoofSection r in w.Map.Roof) r.Sound = true; // nobody else takes timber from the stockpile meanwhile
+        Stock.Add(w, "timber", 5, w.Map.Stockpile.Center);
+        int timber = Stock.Count(w, "timber");
+        need.Value = 100;
+        w.Tick = Hours(w, 10);
+        s.Advance(Hours(w, 2));
+        SimEvent fire = w.Log.All.Single(e => e.Key == "event.social.djinn_trouble");
+        Assert.Equal(timber - w.Content.NeedById(Bargains.NeedId).Param("troubleTimber"), Stock.Count(w, "timber"));
+        Assert.Contains(w.Log.All.Single(e => e.Key == "event.social.grudge_formed" && e.Actors[0] == qamar.Id).Id, fire.Causes);
+        Assert.Contains(mira.Thoughts, t => t.DefId == "fire_loosed" && t.AboutId == qamar.Id);
+        s.Advance(Hours(w, 40));
+        Assert.Single(w.Log.All, e => e.Key == "event.social.djinn_trouble");
+        Assert.Equal(CharStatus.Left, qamar.Status);
+        SimEvent left = w.Log.All.Single(e => e.Key == "event.social.left_camp" && e.Actors[0] == qamar.Id);
+        Assert.Contains(fire.Id, NeedsMoodTests.Ancestors(w, left.Id));
+    }
+
     [Fact]
     public void TheLivingAreUneasyAroundTheNewlyDeadAndWarmWithTime()
     {

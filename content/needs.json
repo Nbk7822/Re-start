@@ -35,5 +35,25 @@
       "bondSkipNearest": 3, "bondCandidates": 8, "respectOpinion": 15,
       "woundMin": 250, "woundMax": 450, "ownTreeLoss": 400, "grudgeIntensity": 60, "griefGrudgeIntensity": 25
     }
+  },
+  {
+    "id": "contract",
+    "nameKey": "need.contract",
+    "start": 600,
+    "decayPerHour": 15,
+    "lowBelow": 400,
+    "criticalBelow": 150,
+    "satisfiedAt": 700,
+    "lowThought": "restless",
+    "criticalThought": "unbound_fire",
+    "lowEventKey": "event.needs.restless",
+    "criticalEventKey": "event.needs.unbound",
+    "leavesAfterCriticalHours": 30,
+    "bondWorks": ["keep_watch", "forage"],
+    "bondItems": ["timber", "berries"],
+    "params": {
+      "boundRestorePerHour": 60, "priceAmount": 1, "reserveDays": 2, "serviceBias": 3, "offerCooldownHours": 3,
+      "minTermDays": 3, "betrayalLoss": 400, "grudgeIntensity": 50, "troubleTimber": 3
+    }
   }
 ]

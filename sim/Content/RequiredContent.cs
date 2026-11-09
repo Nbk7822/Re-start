@@ -25,6 +25,7 @@ public static class RequiredContent
         "starving", "thief_driven_off", "thirsting", "was_refused", "windfall", "wounded",
         // The four peoples (ADR-0022).
         "at_purpose", "uneasy_near_dead", "among_trees", "tree_felled", "own_tree_felled",
+        "bound_by_bargain", "bargain_refused", "bargain_honoured", "bargain_betrayed", "fire_loosed",
     };
 
     /// <summary>Every incident M0 has behaviour for, with the params that behaviour reads.</summary>
@@ -46,6 +47,11 @@ public static class RequiredContent
         {
             "treeRange", "restorePerTree", "ownTreeWeight", "maxRestorePerHour", "tendMaxTicks", "bondSkipNearest", "bondCandidates",
             "respectOpinion", "woundMin", "woundMax", "ownTreeLoss", "grudgeIntensity", "griefGrudgeIntensity",
+        }),
+        ("contract", new[]
+        {
+            "boundRestorePerHour", "priceAmount", "reserveDays", "serviceBias", "offerCooldownHours", "minTermDays", "betrayalLoss",
+            "grudgeIntensity", "troubleTimber",
         }),
     };
 }

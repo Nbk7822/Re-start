@@ -29,6 +29,8 @@ public enum JobKind
     // The four peoples (ADR-0022).
     /// <summary>A dryad standing by their tree (or another living one) to draw on the forest.</summary>
     TendTree,
+    /// <summary>A djinn going to someone to offer the camp a bargain.</summary>
+    OfferBargain,
 }
 
 /// <summary>What a character is doing right now. Stage and Progress are job-specific counters.</summary>

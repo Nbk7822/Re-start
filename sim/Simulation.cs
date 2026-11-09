@@ -56,6 +56,7 @@ public sealed class Simulation
         if (w.Tick % def.TicksPerHour == 0)
         {
             NeedsSystem.Hourly(w);
+            Bargains.Hourly(w); // a bargain's price is paid at dawn, before food is shared out (ADR-0022)
             Rations.Assign(w);
             MoodSystem.Hourly(w);
             SocialSystem.Hourly(w);

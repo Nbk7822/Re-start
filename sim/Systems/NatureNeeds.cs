@@ -126,13 +126,14 @@ public static class NatureNeeds
 
     /// <summary>How much a person's nature leans them toward a kind of work (added to their traits' work bias).</summary>
     public static int WorkBias(World w, Character c, string workId) =>
-        c.NatureNeeds.Count == 0 ? 0 : Purpose.WorkBias(w, c, workId);
+        c.NatureNeeds.Count == 0 ? 0 : Purpose.WorkBias(w, c, workId) + Bargains.ServiceBias(w, c, workId);
 
     /// <summary>Binds a new need to what it is bound to (a tree, a work, a price), from Truths keyed by cast key.</summary>
     private static void Bind(World w, Character c, NatureNeed n, NeedDef def)
     {
         if (n.Id == Purpose.NeedId) Purpose.Bind(w, c, n, def);
         else if (n.Id == Forest.NeedId) Forest.Bind(w, c, n, def);
+        else if (n.Id == Bargains.NeedId) Bargains.Bind(w, c, n, def);
     }
 
     /// <summary>How much a need's own source restores this hour (beyond its decay).</summary>
@@ -140,6 +141,7 @@ public static class NatureNeeds
     {
         Purpose.NeedId => Purpose.Restore(w, c, n, def),
         Forest.NeedId => Forest.Restore(w, c, n, def),
+        Bargains.NeedId => Bargains.Restore(w, c, n, def),
         _ => 0,
     };
 
@@ -155,6 +157,7 @@ public static class NatureNeeds
     {
         Purpose.NeedId => Purpose.Answer(w, c, n, sunBlocked),
         Forest.NeedId => Forest.Answer(w, c, n, sunBlocked),
+        Bargains.NeedId => Bargains.Answer(w, c, n, sunBlocked),
         _ => null,
     };
 }

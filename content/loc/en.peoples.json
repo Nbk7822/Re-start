@@ -34,5 +34,36 @@
   "event.needs.died_with_tree": "{a} died with their tree.",
   "event.social.mourned_tree": "{a} grieved for the tree {b} cut down.",
 
-  "cast.dryope.name": "Dryope"
+  "cast.dryope.name": "Dryope",
+
+  "species.djinn.name": "Djinn",
+  "need.contract": "Bargain",
+  "job.offer_bargain": "Offering a bargain",
+  "bargain.service.keep_watch": "keep the night watch",
+  "bargain.service.forage": "gather berries for the camp",
+  "bargain.price.timber": "timber for the fire",
+  "bargain.price.berries": "a share of the berries",
+
+  "thought.bound_by_bargain": "Bound by a fair bargain",
+  "thought.restless": "Restless without a bargain",
+  "thought.unbound_fire": "Burning with nothing to bind me",
+  "thought.bargain_refused": "My bargain was refused",
+  "thought.bargain_honoured": "A bargain kept to the end",
+  "thought.bargain_betrayed": "A bargain broken",
+  "thought.fire_loosed": "The djinn's fire burned our timber",
+
+  "event.incident.djinn_arrives": "{a} came in on the evening wind, a being of smokeless fire, looking for a bargain.",
+  "event.needs.restless": "{a} is restless without a bargain.",
+  "event.needs.unbound": "{a} burns with nothing to bind them.",
+  "event.social.bargain_offered": "{a} offered {b} a bargain: to {service}, for {price} each dawn until the season turns.",
+  "event.social.bargain_refused": "{b} turned down {a}'s bargain.",
+  "event.social.bargain_refused_unsafe": "{b} would not strike an unsafe bargain with {a}: the camp could not pay it.",
+  "event.social.bargain_struck": "{b} struck a bargain with {a}.",
+  "event.social.bargain_paid": "The camp gave {a} its due: {n} {item}.",
+  "event.social.bargain_broken": "The camp had no {item} to give {a} at dawn, and the bargain with {b} is broken.",
+  "event.social.bargain_kept": "{a} served out the bargain with {b}, and both kept their word.",
+  "event.social.djinn_trouble": "{a}, wronged and restless, let the fire loose: {n} {item} burned in the stockpile.",
+  "event.social.djinn_trouble_zero": "{a}, wronged and restless, let the fire loose, but there was nothing in the stockpile to burn.",
+
+  "cast.qamar.name": "Qamar"
 }

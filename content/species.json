@@ -56,5 +56,19 @@
     "needs": ["forest"],
     "refusesWork": ["gather_timber"],
     "arrivalKey": "event.incident.dryad_arrives"
+  },
+  {
+    "id": "djinn",
+    "nameKey": "species.djinn.name",
+    "foodSource": "none",
+    "foodDecayPerHour": 0,
+    "restDecayPerHour": 25,
+    "socialDecayPerHour": 12,
+    "sleepRestorePerHour": 130,
+    "daylightBurnPerHour": 0,
+    "ticksPerTile": 6,
+    "canDonateBlood": false,
+    "needs": ["contract"],
+    "arrivalKey": "event.incident.djinn_arrives"
   }
 ]

@@ -24,6 +24,7 @@
       "restThresholdAdd": { "type": "integer", "minimum": -1000, "maximum": 1000 },
       "riskyWorkHealthBelow": { "type": "integer", "minimum": 0, "maximum": 1000 },
       "priorityRespectPct": { "type": "integer", "minimum": 0, "maximum": 100 },
+      "refusesUnsafeBargain": { "description": "Will not strike a bargain the camp could not pay (ADR-0022)", "type": "boolean" },
       "workBias": {
         "type": "array",
         "items": {

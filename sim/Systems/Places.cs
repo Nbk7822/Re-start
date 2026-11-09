@@ -200,7 +200,7 @@ public static class Places
         int carried = 0;
         foreach (Character c in w.Characters)
             if (c.IsActive && c.Carrying is { DefId: "timber" } carry) carried += carry.Count;
-        return unsound * perSection - Stock.Count(w, "timber") - carried;
+        return unsound * perSection + Bargains.Demand(w, "timber") - Stock.Count(w, "timber") - carried;
     }
 
     public static SpeciesDef Species(World w, Character c) => w.Content.SpeciesById(c.SpeciesId);

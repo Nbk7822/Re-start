@@ -47,11 +47,11 @@ public static class Forest
         return Math.Min(def.Param("maxRestorePerHour"), weight * def.Param("restorePerTree"));
     }
 
-    /// <summary>Faint from too long away, they go and stand by their own tree (or, if it is gone, the nearest living one).</summary>
+    /// <summary>Faint from too long away, they go and stand by their own tree (or, if it is gone, in the thickest grove left).</summary>
     public static Job? Answer(World w, Character c, NatureNeed n, bool sunBlocked)
     {
         if (sunBlocked) return null;
-        Tree? tree = TreeById(w, n.BondId) is { Felled: false } own ? own : Nearest(w, c.Pos);
+        Tree? tree = TreeById(w, n.BondId) is { Felled: false } own ? own : Grove(w, c.Pos, w.Content.NeedById(NeedId).Param("treeRange"));
         if (tree == null) return null;
         Point spot = Places.Adjacent(w, tree.Pos, c.Pos);
         return spot == Point.None ? null : new Job { Kind = JobKind.TendTree, TargetId = tree.Id, Target = spot, CauseEvent = n.LastEvent };
@@ -133,15 +133,19 @@ public static class Forest
         return null;
     }
 
-    private static Tree? Nearest(World w, Point from)
+    /// <summary>The standing tree with the most living trees within reach of it (a grove), the nearest of those if several tie.</summary>
+    private static Tree? Grove(World w, Point from, int range)
     {
         Tree? best = null;
-        int bestDist = int.MaxValue;
+        int bestCount = -1, bestDist = int.MaxValue;
         foreach (Tree t in w.Map.Trees)
         {
-            if (t.Felled) continue;
+            if (t.Felled || Places.Adjacent(w, t.Pos, from) == Point.None) continue;
+            int count = 0;
+            foreach (Tree o in w.Map.Trees)
+                if (!o.Felled && o.Pos.ChebyshevTo(t.Pos) <= range) count++;
             int d = t.Pos.ChebyshevTo(from);
-            if (d < bestDist && Places.Adjacent(w, t.Pos, from) != Point.None) { best = t; bestDist = d; }
+            if (count > bestCount || (count == bestCount && d < bestDist)) { best = t; bestCount = count; bestDist = d; }
         }
         return best;
     }

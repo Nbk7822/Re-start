@@ -29,6 +29,7 @@ public static class JobRunner
         JobKind.Flee => IncidentJobs.Flee(w, c, j),
         JobKind.Rescue => IncidentJobs.Rescue(w, c, j),
         JobKind.TendTree => Forest.Tend(w, c, j),
+        JobKind.OfferBargain => Bargains.Offer(w, c, j),
         _ => true,
     };
 

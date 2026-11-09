@@ -20,6 +20,10 @@ public enum TruthId : ushort
     BoundTree = 30,
     /// <summary>The work an undead came back to do (keyed by cast key).</summary>
     PurposeWork = 31,
+    /// <summary>The service a djinn offers in its bargains (keyed by cast key).</summary>
+    BargainService = 32,
+    /// <summary>The price a djinn asks for that service (keyed by cast key).</summary>
+    BargainPrice = 33,
 }
 
 /// <summary>Tags for Dice draws, used for diffing divergent runs. Append only.</summary>

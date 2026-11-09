@@ -39,5 +39,13 @@
   { "id": "forest_thin", "textKey": "thought.forest_thin", "mood": -6, "durationHours": 1, "emote": "sweat" },
   { "id": "forest_withering", "textKey": "thought.forest_withering", "mood": -14, "durationHours": 1, "emote": "gloom" },
   { "id": "tree_felled", "textKey": "thought.tree_felled", "mood": -5, "opinion": -8, "durationHours": 72, "emote": "anger", "stackLimit": 3 },
-  { "id": "own_tree_felled", "textKey": "thought.own_tree_felled", "mood": -30, "opinion": -50, "durationHours": 480, "emote": "gloom" }
+  { "id": "own_tree_felled", "textKey": "thought.own_tree_felled", "mood": -30, "opinion": -50, "durationHours": 480, "emote": "gloom" },
+
+  { "id": "bound_by_bargain", "textKey": "thought.bound_by_bargain", "mood": 5, "durationHours": 2, "emote": "sparkle" },
+  { "id": "restless", "textKey": "thought.restless", "mood": -6, "durationHours": 1, "emote": "sweat" },
+  { "id": "unbound_fire", "textKey": "thought.unbound_fire", "mood": -14, "durationHours": 1, "emote": "anger" },
+  { "id": "bargain_refused", "textKey": "thought.bargain_refused", "mood": -4, "opinion": -6, "durationHours": 24, "emote": "anger" },
+  { "id": "bargain_honoured", "textKey": "thought.bargain_honoured", "mood": 8, "opinion": 15, "durationHours": 96, "emote": "sparkle" },
+  { "id": "bargain_betrayed", "textKey": "thought.bargain_betrayed", "mood": -20, "opinion": -35, "durationHours": 168, "emote": "anger" },
+  { "id": "fire_loosed", "textKey": "thought.fire_loosed", "mood": -4, "opinion": -10, "durationHours": 48, "emote": "anger" }
 ]

@@ -254,11 +254,18 @@ public static class JobPicker
             {
                 if (sunBlocked || Places.TimberNeeded(w) <= 0) return null;
                 Tree? tree = Places.StandingTree(w, c.Pos, c);
-                return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos), CauseEvent = RoofPromiseEvent(w, 0) };
+                if (tree == null) return null;
+                // The timber is wanted for a promised roof, else for a bargain's price (ADR-0022).
+                long why = RoofPromiseEvent(w, 0);
+                if (why == 0) why = Bargains.DemandCause(w, "timber");
+                return new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos), CauseEvent = why };
             }
             case "forage":
-                if (sunBlocked || (Stock.Count(w, "berries") >= 2 * Places.Eaters(w, "berries") && !Purpose.Seeks(w, c, workId))) return null;
+            {
+                int enough = 2 * Places.Eaters(w, "berries") + Bargains.Demand(w, "berries");
+                if (sunBlocked || (Stock.Count(w, "berries") >= enough && !Purpose.Seeks(w, c, workId))) return null;
                 return ForageJob(w, c);
+            }
             case "haul":
             {
                 if (sunBlocked) return null;

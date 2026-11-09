@@ -34,8 +34,8 @@ public class ContentTests
     {
         ContentDb db = ContentDb.Load(ContentDir);
         // The M0 ten, plus one of each people beyond human and vampire (ADR-0022).
-        Assert.Equal(12, db.Cast.Count);
-        Assert.Equal(new[] { "dryad", "human", "undead", "vampire" }, db.Cast.Select(c => c.Species).Distinct().OrderBy(s => s, StringComparer.Ordinal));
+        Assert.Equal(13, db.Cast.Count);
+        Assert.Equal(new[] { "djinn", "dryad", "human", "undead", "vampire" }, db.Cast.Select(c => c.Species).Distinct().OrderBy(s => s, StringComparer.Ordinal));
         Assert.Equal(8, db.Traits.Count);
         Assert.Equal(6, db.Incidents.Count);
         Assert.Single(db.Cast, c => c.Otherworlder);

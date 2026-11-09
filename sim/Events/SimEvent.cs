@@ -30,6 +30,10 @@ public enum EffectKind
     // The four peoples (ADR-0022).
     /// <summary>What bound someone's nature is gone for good: a dryad's tree felled. A is bound, B whoever severed it, RefId the tree.</summary>
     BondSevered,
+    /// <summary>A bargain struck, kept to its end, or broken. A is the bound party (the djinn), B the patron, RefId the contract.</summary>
+    ContractFormed,
+    ContractKept,
+    ContractBroken,
 }
 
 /// <summary>A persistent effect. A is the primary character (holder, debtor, the dead), B the other, RefId the grudge or debt id.</summary>

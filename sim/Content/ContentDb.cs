@@ -134,7 +134,6 @@ public sealed class ContentDb
         }
         foreach (ThoughtDef th in Thoughts) RequireLoc("thoughts.json", th.Id, th.TextKey);
         foreach (IncidentDef inc in Incidents) RequireLoc("incidents.json", inc.Id, inc.TextKey);
-        ValidateNeeds();
 
         foreach (string id in RequiredContent.Items)
             if (!_items.ContainsKey(id)) Fail("items.json", $"the simulation needs an item '{id}'");
@@ -156,6 +155,7 @@ public sealed class ContentDb
             foreach ((string id, string[] _) in RequiredContent.Incidents) if (id == inc.Id) known = true;
             if (!known) Fail("incidents.json", $"'{inc.Id}' has no behaviour in this version of the simulation");
         }
+        ValidateNeeds();
 
         int otherworlders = 0;
         foreach (CastDef c in Cast)

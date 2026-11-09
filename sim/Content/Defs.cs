@@ -101,6 +101,9 @@ public sealed class TraitDef
     public int RiskyWorkHealthBelow { get; init; }
     public int PriorityRespectPct { get; init; } = 100;
     public List<WorkBias> WorkBias { get; init; } = new();
+
+    /// <summary>Will not strike a bargain the camp could not pay (Proud; ADR-0022).</summary>
+    public bool RefusesUnsafeBargain { get; init; }
 }
 
 public sealed class ItemDef
