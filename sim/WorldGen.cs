@@ -1,10 +1,14 @@
 using Return.Sim.Content;
 using Return.Sim.Core;
+using Return.Sim.Systems;
 
 namespace Return.Sim;
 
-/// <summary>What a cast member fundamentally is, derived lazily from Truths (ADR-0004).</summary>
-public sealed record CharacterNature(string SecondaryTrait);
+/// <summary>
+/// What a cast member fundamentally is, derived lazily from Truths (ADR-0004). WantType is the want
+/// they are drawn to by nature (fixed decision 12, ADR-0021), "" if nothing has weight for them.
+/// </summary>
+public sealed record CharacterNature(string SecondaryTrait, string WantType);
 
 /// <summary>
 /// Builds a new world. Map, camp layout and every character's nature come from the stateless
@@ -27,6 +31,7 @@ public static class WorldGen
         PlaceStartItems(w);
         PositionStarters(w);
         ScheduleArrivals(w);
+        FormStartersWants(w);
         return w;
     }
 
@@ -38,7 +43,9 @@ public static class WorldGen
             if (t.Id != cast.SignatureTrait) pool.Add(t.Id);
         var truths = new TruthRng { WorldSeed = seed };
         int pick = truths.Range(TruthId.SecondaryTrait, Fnv1a.Hash64(castKey), 0, 0, pool.Count);
-        return new CharacterNature(pool[pick]);
+        WantDef? want = Growth.NaturalWant(content, truths, Fnv1a.Hash64(castKey), new[] { cast.SignatureTrait, pool[pick] },
+            cast.Species, cast.Role, cast.Otherworlder, someoneElse: true);
+        return new CharacterNature(pool[pick], want?.Id ?? "");
     }
 
     /// <summary>Test helper for the snapshot benchmark: clones cast entries until the world holds <paramref name="total"/> characters.</summary>
@@ -54,6 +61,7 @@ public static class WorldGen
             c.Status = CharStatus.Member;
             c.Pos = FindOpenNear(w.Map, w.Map.Hearth, i);
             w.Characters.Add(c);
+            Growth.FormWant(w, c);
             i++;
         }
     }
@@ -82,9 +90,20 @@ public static class WorldGen
             Named = true,
             Traits = new List<string> { cd.SignatureTrait, secondaryTrait },
         };
+        c.Growth.TraitOrigins = Growth.GeneratedOrigins(c.Traits);
         foreach (RolePriority p in w.Content.RoleById(cd.Role).Priorities)
             c.Priorities.Add(new WorkPriority { WorkId = p.Work, Priority = p.Priority });
         return c;
+    }
+
+    /// <summary>
+    /// The camp starters enter the world with it, so their wants form now (fixed decision 12). Their
+    /// beats are logged on the first tick (Growth.Hourly), so mod hooks and the Chronicle see them.
+    /// </summary>
+    private static void FormStartersWants(World w)
+    {
+        foreach (Character c in w.Characters)
+            if (c.Status == CharStatus.Member) Growth.FormWant(w, c);
     }
 
     private static Map BuildMap(World w)
