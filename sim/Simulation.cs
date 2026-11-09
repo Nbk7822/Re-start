@@ -60,6 +60,7 @@ public sealed class Simulation
             MoodSystem.Hourly(w);
             SocialSystem.Hourly(w);
             IncidentSystem.Hourly(w);
+            Growth.Hourly(w);
         }
         DeliverToHooks();
         w.Tick++;

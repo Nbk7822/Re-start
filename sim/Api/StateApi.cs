@@ -16,7 +16,23 @@ public sealed record CharacterState(
     int Id, string Name, string Species, string Status, int X, int Y, string Job,
     IReadOnlyList<NeedState> Needs, int Mood, int Health, IReadOnlyList<string> Traits,
     IReadOnlyList<OpinionState> Opinions, IReadOnlyList<GrudgeState> Grudges, IReadOnlyList<DebtState> Debts,
-    IReadOnlyList<string> RecentThoughts);
+    IReadOnlyList<string> RecentThoughts, GrowthState Growth);
+
+/// <summary>Where a trait came from: born with it (generated) or changed by an event (mutated); Text says which in plain words.</summary>
+public sealed record TraitOriginState(string TraitId, string Trait, TraitOriginKind Origin, long CauseEvent, long Tick, string Text);
+
+/// <summary>
+/// What a person wants: its wants.json type, the want in plain words (in the second person for the
+/// player), what it is about (a person's id and name, or a place or item id and name), and whether it is still held.
+/// </summary>
+public sealed record WantState(string TypeId, string Text, WantTargetKind TargetKind, int TargetId, string TargetRef, string Target,
+    WantStatus Status, string StatusLabel, long FormedTick, long FormedEvent);
+
+/// <summary>How far a person's arc toward their want has come, and since when it has not moved.</summary>
+public sealed record ArcState(ArcStage Stage, string StageLabel, long StalledSinceTick, long LastEvent);
+
+/// <summary>A person's growth (fixed decision 12): each trait with its origin, their want and their arc. Want and Arc are null until they enter the world.</summary>
+public sealed record GrowthState(IReadOnlyList<TraitOriginState> Traits, WantState? Want, ArcState? Arc);
 public sealed record FactionState(string Id, string Name, IReadOnlyList<int> Members, int Berries, int Timber, int RoofSound, int RoofTotal, string RationPolicy);
 public sealed record LocationState(int X, int Y, string Terrain, IReadOnlyList<string> Contents, IReadOnlyList<int> Characters);
 public sealed record IncidentState(long EventId, long Tick, string When, string Key, string Text, IReadOnlyList<long> Consequences);
@@ -118,7 +134,59 @@ public static class StateApi
 
         string job = loc.Get("job." + Names.Snake((c.Job?.Kind ?? JobKind.Idle).ToString()));
         return new CharacterState(c.Id, loc.Get(c.NameKey), loc.Get(species.NameKey), loc.Get("status." + Names.Snake(c.Status.ToString())),
-            c.Pos.X, c.Pos.Y, job, needs, c.Mood, c.Health, traits, opinions, grudges, debts, thoughts);
+            c.Pos.X, c.Pos.Y, job, needs, c.Mood, c.Health, traits, opinions, grudges, debts, thoughts, Growth(w, id));
+    }
+
+    /// <summary>
+    /// A person's growth (fixed decision 12, ADR-0021): each trait with where it came from ("born with
+    /// it", or "since day 12: " and the event that changed it), what they want in plain words, and how
+    /// far their arc has come.
+    /// </summary>
+    public static GrowthState Growth(World w, int id)
+    {
+        Character c = w.Get(id);
+        LocTable loc = w.Content.Loc;
+        List<TraitOrigin> origins = c.Growth.TraitOrigins;
+        var traits = new List<TraitOriginState>(c.Traits.Count);
+        for (int i = 0; i < c.Traits.Count; i++)
+        {
+            string traitId = c.Traits[i];
+            TraitOrigin? o = i < origins.Count && origins[i].TraitId == traitId ? origins[i] : origins.Find(x => x.TraitId == traitId);
+            TraitOriginKind kind = o?.Kind ?? TraitOriginKind.Generated;
+            string text = loc.Get("trait_origin.generated");
+            if (o != null && kind == TraitOriginKind.Mutated)
+            {
+                string day = (Core.Calendar.Day(o.Tick, w.Content.World) + 1).ToString(Inv);
+                string cause = DescribeEvent(w, o.CauseEvent);
+                text = cause.Length == 0
+                    ? loc.Format("trait_origin.mutated_bare", new[] { new KeyValuePair<string, string>("day", day) })
+                    : loc.Format("trait_origin.mutated", new[] { new KeyValuePair<string, string>("day", day), new KeyValuePair<string, string>("cause", cause) });
+            }
+            traits.Add(new TraitOriginState(traitId, loc.Get(w.Content.TraitById(traitId).NameKey), kind, o?.CauseEvent ?? 0, o?.Tick ?? 0, text));
+        }
+
+        Want? want = c.Growth.Want;
+        WantState? wantState = null;
+        if (want != null)
+        {
+            WantDef def = w.Content.WantById(want.TypeId);
+            string key = c.Id == w.PlayerId && loc.Has(def.TextKey + "_you") ? def.TextKey + "_you" : def.TextKey;
+            (string target, string inText) = want.TargetKind switch
+            {
+                WantTargetKind.Person => (EventText.Name(w, want.TargetId), EventText.ResolveMid(w, "c:" + want.TargetId.ToString(Inv))),
+                WantTargetKind.Place => (loc.Get("place." + want.TargetRef), loc.Get("place." + want.TargetRef)),
+                WantTargetKind.Item => (loc.Get(w.Content.ItemById(want.TargetRef).NameKey), loc.Get(w.Content.ItemById(want.TargetRef).NameKey)),
+                _ => ("", ""),
+            };
+            wantState = new WantState(want.TypeId, loc.Format(key, new[] { new KeyValuePair<string, string>("target", inText) }),
+                want.TargetKind, want.TargetId, want.TargetRef, target, want.Status, loc.Get("want_status." + Names.Snake(want.Status.ToString())),
+                want.FormedTick, want.FormedEvent);
+        }
+
+        Arc? arc = c.Growth.Arc;
+        ArcState? arcState = arc == null ? null
+            : new ArcState(arc.Stage, loc.Get("arc_stage." + Names.Snake(arc.Stage.ToString())), arc.StalledSinceTick, arc.LastEvent);
+        return new GrowthState(traits, wantState, arcState);
     }
 
     public static FactionState Faction(World w, string id = "camp")

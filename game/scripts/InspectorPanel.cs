@@ -9,7 +9,8 @@ namespace Return.Game;
 
 /// <summary>
 /// The person inspector, opened by clicking someone on the map: name, species, status, current
-/// job, needs and mood as small bars with numbers, traits, work priorities (click to change: an
+/// job, needs and mood as small bars with numbers, traits (each with where it came from), what they
+/// want, work priorities (click to change: an
 /// order through SimHost.Order), opinions, grudges, debts and recent thoughts, all from StateApi. It floats near the right edge, refreshes a few times a
 /// second, and closes with its × button, Esc, or a click on empty map.
 /// </summary>
@@ -29,6 +30,7 @@ public partial class InspectorPanel : PanelContainer
     private Label _subtitle = null!;
     private Label _job = null!;
     private Label _traits = null!;
+    private Label _wants = null!;
     private GridContainer _bars = null!;
     private ScrollContainer _scroll = null!;
     private VBoxContainer _content = null!;
@@ -116,6 +118,10 @@ public partial class InspectorPanel : PanelContainer
         _traits = WrappingLabel();
         _content.AddChild(_traits);
 
+        AddTitle(Ui.T("ui.inspector.wants"));
+        _wants = WrappingLabel();
+        _content.AddChild(_wants);
+
         _workSection = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _workSection.AddThemeConstantOverride("separation", 2);
         _workSection.AddChild(new Control { CustomMinimumSize = new Vector2(0, 4), MouseFilter = MouseFilterEnum.Ignore });
@@ -170,7 +176,8 @@ public partial class InspectorPanel : PanelContainer
         SetBar(s.Needs.Count, Ui.T("ui.inspector.mood"), s.Mood, 100);
         for (int i = 0; i < _barRows.Count; i++) _barRows[i].SetVisible(i <= s.Needs.Count);
 
-        _traits.Text = ViewText.JoinList(s.Traits);
+        _traits.Text = ViewText.TraitsText(s.Growth);
+        _wants.Text = ViewText.WantLine(s.Growth);
         RefreshWork();
 
         var lines = new List<string>();

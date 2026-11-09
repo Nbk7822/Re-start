@@ -64,6 +64,9 @@ public sealed class Character
     public long LastRestEvent { get; set; }
     public long LastHealthEvent { get; set; }
 
+    /// <summary>Trait origins, want and arc (fixed decision 12, ADR-0021).</summary>
+    public CharacterGrowth Growth { get; set; } = new();
+
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;
 }
