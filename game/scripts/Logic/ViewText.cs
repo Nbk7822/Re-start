@@ -145,6 +145,23 @@ public static class ViewText
         return lines;
     }
 
+    /// <summary>A person's traits, one per line, each with where it came from ("Practical — born with it"); "None" without traits.</summary>
+    public static string TraitsText(GrowthState g)
+    {
+        if (g.Traits.Count == 0) return Ui.T("ui.inspector.none");
+        var lines = new List<string>(g.Traits.Count);
+        foreach (TraitOriginState t in g.Traits) lines.Add(Ui.F("ui.inspector.trait", ("trait", t.Trait), ("origin", t.Text)));
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>What a person wants, in plain words, and how far their arc has come once it has moved; "None" before they want anything.</summary>
+    public static string WantLine(GrowthState g)
+    {
+        if (g.Want == null) return Ui.T("ui.inspector.none");
+        if (g.Arc == null || g.Arc.Stage == ArcStage.Want) return g.Want.Text;
+        return Ui.F("ui.inspector.want_stage", ("want", g.Want.Text), ("stage", g.Arc.StageLabel));
+    }
+
     /// <summary>Items joined with the localised list separator.</summary>
     public static string JoinList(IReadOnlyList<string> items)
     {
