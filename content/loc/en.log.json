@@ -6,7 +6,17 @@
   "log.list_sep": ", ",
 
   "log.cast.heading": "The people",
-  "log.cast.line": "{name} ({species}): {traits}. {status}.",
+  "log.cast.line": "{name} ({species}, {belongs}): {traits}. {status}.",
+  "log.cast.belongs": "of {culture}, {faith}",
+  "log.cast.belongs_no_faith": "of {culture}",
+  "log.cast.outsider": "from another world",
+
+  "log.peoples.heading": "Peoples and faiths",
+  "log.peoples.culture": "Among {culture}: {customs}. Most follow {faith}.",
+  "log.peoples.stances": "They {stances}.",
+  "log.peoples.faith": "Followers of {faith} honour {gods}.",
+  "log.peoples.god": "{god}, {epithet} ({temperament})",
+  "log.peoples.god_sep": ", and ",
 
   "log.camp.heading": "{camp} at the end",
   "log.camp.members": "Living there: {names}",

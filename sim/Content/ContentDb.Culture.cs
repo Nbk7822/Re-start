@@ -46,6 +46,10 @@ public sealed partial class ContentDb
             if (needs == null) { Fail("customs.json", $"'{c.Id}' has kind '{c.Kind}', which has no behaviour in this version of the simulation"); continue; }
             foreach (string param in needs)
                 if (!c.Params.ContainsKey(param)) Fail("customs.json", $"'{c.Id}' needs the param '{param}'");
+            if (c.Kind == "festival" && (c.Arg("season") < 0 || c.Arg("season") >= World.SeasonsPerYear))
+                Fail("customs.json", $"'{c.Id}' falls in season {c.Arg("season")}, but the year has seasons 0 to {World.SeasonsPerYear - 1}");
+            if (c.Kind == "festival" && c.Arg("hours") < 1) Fail("customs.json", $"'{c.Id}' must last at least an hour");
+            if (c.Kind == "sacred_tree" && c.Arg("nearestTrees") < 1) Fail("customs.json", $"'{c.Id}' must choose among at least one tree");
             RequireLoc("customs.json", c.Id, c.NameKey, c.RuleKey);
             foreach (string moment in RequiredContent.CustomMoments(c))
                 RequireLoc("customs.json", c.Id, c.EventKey(moment));

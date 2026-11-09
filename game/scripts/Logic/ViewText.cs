@@ -104,6 +104,26 @@ public static class ViewText
         return Ui.F(key, ("other", d.Other), ("kind", d.Kind), ("status", d.Status), ("when", when));
     }
 
+    /// <summary>
+    /// The tooltip on the inspector's belonging line: "Their ways" (customs, ethics and stances),
+    /// "Their gods", and "Ways learned here", each section only when it has lines. No numbers.
+    /// </summary>
+    public static string BelongingTooltip(BelongingState b)
+    {
+        var lines = new List<string>();
+        void Section(string titleKey, IReadOnlyList<string> items)
+        {
+            if (items.Count == 0) return;
+            if (lines.Count > 0) lines.Add("");
+            lines.Add(Ui.T(titleKey));
+            lines.AddRange(items);
+        }
+        Section("ui.inspector.ways", b.Ways);
+        Section("ui.inspector.gods", b.Gods);
+        Section("ui.inspector.learned", b.Learned);
+        return string.Join("\n", lines);
+    }
+
     /// <summary>Tooltip lines for a tile: terrain and coordinates, then contents, then who stands there.</summary>
     public static IReadOnlyList<string> TileLines(World w, LocationState s)
     {

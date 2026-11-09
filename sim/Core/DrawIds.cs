@@ -14,6 +14,18 @@ public enum TruthId : ushort
     CampPlacement = 6,
     SecondaryTrait = 7,
     PairChemistry = 8,
+
+    // Culture and faith (ADR-0023; values 40-49 are this track's). The index argument names the fact.
+    /// <summary>Per culture template: 0 name, 1 main faith, 2 + k the k-th custom drawn from its pool.</summary>
+    CultureNature = 40,
+    /// <summary>Per faith template: 0 name, 1 + k the k-th custom drawn from its pool.</summary>
+    FaithNature = 41,
+    /// <summary>Per god slot: 0 domain, 1 name, 2 epithet, 3 wrath, 4 grace.</summary>
+    GodNature = 42,
+    /// <summary>Per person: 0 culture, 1 whether they follow another faith, 2 which, 3 devotion.</summary>
+    PersonBelonging = 43,
+    SacredTree = 44,
+    FestivalDate = 45,
 }
 
 /// <summary>Tags for Dice draws, used for diffing divergent runs. Append only.</summary>

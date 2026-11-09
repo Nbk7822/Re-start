@@ -63,6 +63,7 @@ public static class StoryLog
         LocTable loc = w.Content.Loc;
         WriteHeader(w, loc, writer);
         WriteCast(w, loc, writer);
+        WritePeoples(w, loc, writer);
         WriteCamp(w, loc, writer);
         WriteEvents(w, loc, analysis.Notable, writer);
         WriteStories(w, loc, analysis.Stories, writer);
@@ -147,8 +148,37 @@ public static class StoryLog
         {
             if (!c.Named) continue;
             CharacterState s = StateApi.Character(w, c.Id);
+            BelongingState b = s.Belonging;
+            string belongs = b.Culture.Length == 0 ? loc.Get("log.cast.outsider")
+                : b.Faith.Length == 0 ? Format(loc, "log.cast.belongs_no_faith", ("culture", b.Culture))
+                : Format(loc, "log.cast.belongs", ("culture", b.Culture), ("faith", b.Faith));
             Line(o, Indent + Format(loc, "log.cast.line",
-                ("name", s.Name), ("species", s.Species), ("traits", List(loc, s.Traits)), ("status", s.Status)));
+                ("name", s.Name), ("species", s.Species), ("belongs", belongs), ("traits", List(loc, s.Traits)), ("status", s.Status)));
+        }
+        Line(o);
+    }
+
+    /// <summary>
+    /// The peoples and faiths the cast belongs to, in plain words: each culture's customs (festivals
+    /// dated), its main faith and its stances; each faith's gods with their temperaments.
+    /// </summary>
+    private static void WritePeoples(World w, LocTable loc, TextWriter o)
+    {
+        Heading(o, loc.Get("log.peoples.heading"), '-');
+        foreach (CultureState c in StateApi.Cultures(w))
+        {
+            if (c.Members.Count == 0) continue;
+            string line = Format(loc, "log.peoples.culture", ("culture", c.Name), ("customs", List(loc, c.Ways)), ("faith", c.Faith));
+            if (c.Stances.Count > 0) line += " " + Format(loc, "log.peoples.stances", ("stances", List(loc, c.Stances)));
+            Line(o, Indent + line);
+        }
+        foreach (FaithState f in StateApi.Faiths(w))
+        {
+            if (f.Followers.Count == 0) continue;
+            var gods = new List<string>(f.Gods.Count);
+            foreach (GodState g in f.Gods)
+                gods.Add(Format(loc, "log.peoples.god", ("god", g.Name), ("epithet", g.Epithet), ("temperament", g.Temperament)));
+            Line(o, Indent + Format(loc, "log.peoples.faith", ("faith", f.Name), ("gods", string.Join(loc.Get("log.peoples.god_sep"), gods))));
         }
         Line(o);
     }

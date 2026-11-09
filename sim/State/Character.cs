@@ -64,6 +64,16 @@ public sealed class Character
     public long LastRestEvent { get; set; }
     public long LastHealthEvent { get; set; }
 
+    // Culture and faith (ADR-0023). Culture, faith and devotion are Truths keyed by cast key; the
+    // otherworlder has none ("", "", 0). Devotion is 0..100 and only ever shown as a word.
+    public string CultureId { get; set; } = "";
+    public string FaithId { get; set; } = "";
+    public int Devotion { get; set; }
+    /// <summary>Customs of other cultures this person learned by breaching them; ordinal order.</summary>
+    public List<string> LearnedCustoms { get; set; } = new();
+    /// <summary>Ids of everyone this person has spoken with; ascending.</summary>
+    public List<int> Met { get; set; } = new();
+
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;
 }

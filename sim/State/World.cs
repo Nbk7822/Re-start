@@ -13,7 +13,7 @@ namespace Return.Sim;
 public sealed class World
 {
     /// <summary>Bump when the snapshot shape changes incompatibly.</summary>
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
     public long Tick { get; set; }
     public ulong Seed { get; set; }
     public int NextId { get; set; } = 1;
@@ -37,6 +37,9 @@ public sealed class World
 
     /// <summary>The person from Earth the player is. Other otherworlders (rivals, later) are not the player.</summary>
     public int PlayerId { get; set; }
+
+    /// <summary>This world's peoples, faiths and gods, and the running state of their customs (ADR-0023).</summary>
+    public CultureBook Culture { get; set; } = new();
 
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;

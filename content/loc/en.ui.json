@@ -64,6 +64,9 @@
   "ui.inspector.debt_owe_due": "Owes {other} {kind} by {when} ({status})",
   "ui.inspector.debt_owed": "{other} owes {kind} ({status})",
   "ui.inspector.debt_owed_due": "{other} owes {kind} by {when} ({status})",
+  "ui.inspector.ways": "Their ways",
+  "ui.inspector.gods": "Their gods",
+  "ui.inspector.learned": "Ways learned here",
   "ui.list_separator": ", ",
 
   "ui.tooltip.terrain": "{terrain} ({x}, {y})",
