@@ -59,6 +59,7 @@ public sealed class Simulation
             Rations.Assign(w);
             MoodSystem.Hourly(w);
             SocialSystem.Hourly(w);
+            Systems.Culture.CultureSystem.Hourly(w);
             IncidentSystem.Hourly(w);
         }
         DeliverToHooks();

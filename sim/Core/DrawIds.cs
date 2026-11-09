@@ -54,6 +54,11 @@ public enum DiceId : ushort
     CombatHit = 21,
     CombatDamage = 22,
     ArrivalOrder = 23,
+
+    // Culture and faith (ADR-0023; values 140-159 are this track's). All draw from DiceSystem.Culture.
+    FauxPas = 140,
+    GuestOffer = 141,
+    OmenRead = 142,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>
@@ -67,4 +72,10 @@ public enum DiceSystem : byte
     Travel = 5,
     Incident = 6,
     Combat = 7,
+    /// <summary>
+    /// Placeholder: 8 is pre-assigned to another branch's system, and streams must stay contiguous.
+    /// Replace it with that system when the branches merge (ADR-0023); it is seeded but never drawn from.
+    /// </summary>
+    Reserved8 = 8,
+    Culture = 9,
 }

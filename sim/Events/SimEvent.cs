@@ -13,6 +13,8 @@ public enum SystemTag
     Incident,
     Combat,
     World,
+    /// <summary>Customs, faith and omens: a culture event sits between its cause and its consequence (ADR-0023).</summary>
+    Culture,
 }
 
 /// <summary>Persistent state changes. An event that carries one can end a story (ADR-0006).</summary>

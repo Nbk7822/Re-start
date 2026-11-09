@@ -48,6 +48,7 @@
   "log.system.incident": "Incident",
   "log.system.combat": "Combat",
   "log.system.world": "World",
+  "log.system.culture": "Culture",
 
   "log.run.wrote": "Wrote the story log for seed {seed} to {path}.",
 
@@ -56,6 +57,8 @@
   "log.soak.by_system_set": "Stories by system set:",
   "log.soak.endings": "Most common story endings:",
   "log.soak.tally": "{key}: {count}",
+  "log.soak.culture": "Stories with culture or faith in them: {stories} ({share}% of all), in {worlds} of {total} worlds.",
+  "log.soak.culture_links": "How culture entered them:",
   "log.soak.crashed": "This world crashed at tick {tick}: {error}",
   "log.soak.crashed_list": "Worlds that crashed: {seeds}",
   "log.soak.written": "Story logs and summary.json are in {dir}"

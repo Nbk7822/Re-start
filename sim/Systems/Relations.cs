@@ -124,6 +124,7 @@ public static class Relations
         Character? creditor = w.Find(d.CreditorId);
         if (d.IsPromise && creditor != null && creditor.Status == CharStatus.Member)
             MoodSystem.AddThought(w, creditor, "promise_kept", d.DebtorId, e.Id);
+        Culture.Omens.RecordDeed(w, d.IsPromise ? DeedKind.OathKept : DeedKind.DebtRepaid, e.Id, d.DebtorId);
         return e;
     }
 
@@ -140,6 +141,7 @@ public static class Relations
             MoodSystem.AddThought(w, creditor, "promise_broken", debtor.Id, e.Id);
             FormGrudge(w, creditor, debtor, 40, e.Id);
         }
+        Culture.Omens.RecordDeed(w, DeedKind.OathBroken, e.Id, d.DebtorId);
         return e;
     }
 

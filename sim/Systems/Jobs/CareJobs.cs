@@ -78,6 +78,7 @@ public static class CareJobs
         MoodSystem.AddThought(w, creditor, "ate", 0, e.Id);
         NeedsSystem.AfterFed(creditor);
         Relations.Repay(w, debt, e.Id);
+        Culture.Omens.RecordDeed(w, DeedKind.MealShared, e.Id, c.Id);
         return true;
     }
 }

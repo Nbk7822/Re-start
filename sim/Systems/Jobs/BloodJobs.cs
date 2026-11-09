@@ -119,6 +119,7 @@ public static class BloodJobs
         MoodSystem.AddThought(w, donor, "gave_blood", 0, e.Id);
         MoodSystem.AddThought(w, vampire, "received_blood", donor.Id, e.Id);
         CareJobs.SettleOrOwe(w, helper: donor, helped: vampire, DebtKind.Blood, e.Id);
+        Culture.Omens.RecordDeed(w, DeedKind.BloodGiven, e.Id, donor.Id);
         return e;
     }
 
@@ -134,6 +135,7 @@ public static class BloodJobs
             EventArg.Char("a", vampire.Id), EventArg.Char("b", donor.Id));
         MoodSystem.AddThought(w, vampire, "was_refused", donor.Id, no.Id, Traits.ScalePct(w, vampire, t => t.InsultOpinionScalePct));
         MoodSystem.AddThought(w, donor, "refused_someone", vampire.Id, no.Id);
+        if (key == "event.social.blood_refused") Culture.Omens.RecordDeed(w, DeedKind.BloodRefused, no.Id, donor.Id);
         vampire.LastFoodEvent = no.Id;
         if (Relations.Opinion(w, vampire.Id, donor.Id) <= SocialSystem.GrudgeAtOpinion)
             Relations.FormGrudge(w, vampire, donor, 25, no.Id);
