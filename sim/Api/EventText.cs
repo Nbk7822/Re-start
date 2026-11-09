@@ -22,7 +22,12 @@ public static class EventText
         LocTable loc = w.Content.Loc;
         string key = SecondPersonKey(w, e) ?? e.Key;
         foreach (EventArg a in e.Args)
-            if (a.Name == "n" && a.Value == "n:1" && loc.Has(key + "_one")) { key += "_one"; break; }
+        {
+            if (a.Name != "n") continue;
+            if (a.Value == "n:1" && loc.Has(key + "_one")) key += "_one";
+            else if (a.Value == "n:0" && loc.Has(key + "_zero")) key += "_zero";
+            break;
+        }
         string template = loc.Get(key);
         var args = new List<KeyValuePair<string, string>>(e.Args.Count);
         bool single = false;

@@ -21,7 +21,7 @@ public sealed record FactionState(string Id, string Name, IReadOnlyList<int> Mem
 public sealed record LocationState(int X, int Y, string Terrain, IReadOnlyList<string> Contents, IReadOnlyList<int> Characters);
 public sealed record IncidentState(long EventId, long Tick, string When, string Key, string Text, IReadOnlyList<long> Consequences);
 
-/// <summary>A person's priority for one kind of work: 1 is done first, then 2, 3, 4; 0 means never. Pending: an order not yet applied (time is paused).</summary>
+/// <summary>A person's priority for one kind of work: 1 is done first, then 2, 3, 4; 0 means never. Pending: a queued order will change it.</summary>
 public sealed record WorkPriorityState(string WorkId, string Work, int Priority, bool Pending);
 
 /// <summary>The camp's ration policy: what applies now, what will apply once pending orders land, and that policy in words.</summary>
@@ -55,11 +55,10 @@ public static class StateApi
         var list = new List<WorkPriorityState>();
         foreach (string workId in Systems.JobPicker.PrioritizedWork)
         {
-            int priority = Systems.JobPicker.PriorityOf(c, workId);
-            bool pending = false;
+            int applied = Systems.JobPicker.PriorityOf(c, workId), priority = applied;
             foreach (Command cmd in w.PendingCommands)
-                if (cmd is SetWorkPriority p && p.CharacterId == id && p.WorkId == workId) { priority = p.Priority; pending = true; }
-            list.Add(new WorkPriorityState(workId, w.Content.Loc.Get(w.Content.WorkById(workId).NameKey), priority, pending));
+                if (cmd is SetWorkPriority p && p.CharacterId == id && p.WorkId == workId) priority = p.Priority;
+            list.Add(new WorkPriorityState(workId, w.Content.Loc.Get(w.Content.WorkById(workId).NameKey), priority, priority != applied));
         }
         return list;
     }

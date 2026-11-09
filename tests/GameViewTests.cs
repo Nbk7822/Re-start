@@ -233,16 +233,59 @@ public class GameViewTests
     }
 
     [Fact]
-    public void PriorityButtonsCycleOneToFourThenNever()
+    public void PriorityPickerOffersOneToFourThenNever()
     {
-        var seen = new List<int>();
-        int p = 1;
-        for (int i = 0; i < 6; i++) { seen.Add(p); p = ViewText.NextPriority(p); }
-        Assert.Equal(new[] { 1, 2, 3, 4, 0, 1 }, seen);
-        Assert.Equal("–", ViewText.PriorityLabel(0));
-        Assert.Equal("2", ViewText.PriorityLabel(2));
-        Assert.Equal("2…", ViewText.PriorityButton(new WorkPriorityState("forage", "Forage", 2, true)));
-        Assert.Equal("2", ViewText.PriorityButton(new WorkPriorityState("forage", "Forage", 2, false)));
+        Assert.Equal(new[] { 1, 2, 3, 4, 0 }, ViewText.PriorityValues);
+        Assert.Equal(new[] { "1", "2", "3", "4", "–" }, ViewText.PriorityValues.Select(ViewText.PriorityLabel));
+    }
+
+    [Fact]
+    public void ChangingYourMindWhilePausedLeavesNoTrace()
+    {
+        var sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        int mira = w.Characters.First(c => c.CastKey == "mira").Id;
+        var drafts = new OrderDrafts();
+        drafts.Add(new SetRationPolicy(w.Tick, RationPolicy.PromisesFirst));
+        drafts.Add(new SetRationPolicy(w.Tick, RationPolicy.Hungriest));
+        drafts.Add(new SetWorkPriority(w.Tick, mira, "forage", 3));
+        drafts.Add(new SetWorkPriority(w.Tick, mira, "forage", 1));
+        Assert.Equal(RationPolicy.Hungriest, drafts.Policy);
+        Assert.Equal(1, drafts.Priority(mira, "forage"));
+        drafts.Flush(sim);
+        Assert.Equal(0, drafts.Count);
+        Assert.Empty(w.PendingCommands);
+    }
+
+    [Fact]
+    public void DraftsGoOutOncePerChangeWhenTimeMoves()
+    {
+        var sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        int mira = w.Characters.First(c => c.CastKey == "mira").Id;
+        var drafts = new OrderDrafts();
+        drafts.Add(new SetWorkPriority(w.Tick, mira, "forage", 2));
+        drafts.Add(new SetWorkPriority(w.Tick, mira, "forage", 0));
+        drafts.Add(new SetRationPolicy(w.Tick, RationPolicy.SelfFirst));
+        drafts.Flush(sim);
+        sim.Step();
+        Assert.Equal(new[] { "event.world.work_priority", "event.world.ration_policy" },
+            w.Log.All.Where(e => e.Key is "event.world.work_priority" or "event.world.ration_policy").Select(e => e.Key));
+        Assert.Equal("Mira will no longer do Forage.", Return.Sim.Api.EventText.Describe(w, w.Log.All.First(e => e.Key == "event.world.work_priority")));
+        Assert.Equal(RationPolicy.SelfFirst, w.Policy);
+    }
+
+    [Fact]
+    public void DraftsForSomeoneWhoLeftAreDropped()
+    {
+        var sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        Character mira = w.Characters.First(c => c.CastKey == "mira");
+        var drafts = new OrderDrafts();
+        drafts.Add(new SetWorkPriority(w.Tick, mira.Id, "forage", 4));
+        mira.Status = CharStatus.Left;
+        drafts.Flush(sim);
+        Assert.Empty(w.PendingCommands);
     }
 
     [Fact]

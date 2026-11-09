@@ -38,7 +38,7 @@ public partial class InspectorPanel : PanelContainer
     private VBoxContainer _thoughts = null!;
     private VBoxContainer _workSection = null!;
     private GridContainer _workGrid = null!;
-    private readonly List<(Label Name, Button Value)> _workRows = new();
+    private readonly List<(Label Name, HBoxContainer Picker, List<(int Value, Button Button)> Buttons)> _workRows = new();
     private IReadOnlyList<WorkPriorityState> _workState = Array.Empty<WorkPriorityState>();
     private readonly List<BarRow> _barRows = new();
     private readonly StyleBoxFlat[] _fills = new StyleBoxFlat[3];
@@ -190,7 +190,7 @@ public partial class InspectorPanel : PanelContainer
         SetLines(_thoughts, lines);
     }
 
-    /// <summary>One row per kind of work: its name and a button showing the priority (1 first … 4, – never).</summary>
+    /// <summary>One row per kind of work: its name and a picker 1 2 3 4 – (1 is done first; – means never).</summary>
     private void RefreshWork()
     {
         World w = _host!.World;
@@ -200,43 +200,63 @@ public partial class InspectorPanel : PanelContainer
         _workState = StateApi.WorkPriorities(w, c!.Id);
         while (_workRows.Count < _workState.Count)
         {
-            int index = _workRows.Count;
+            int row = _workRows.Count;
             Label name = Ui.MakeLabel("", Ui.SmallFontSize);
             name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            Button value = Ui.MakeButton("", Ui.T("ui.inspector.priority_hint"));
-            value.CustomMinimumSize = new Vector2(48, 0);
-            value.Pressed += () => CyclePriority(index);
+            var picker = new HBoxContainer();
+            picker.AddThemeConstantOverride("separation", 2);
+            var group = new ButtonGroup();
+            var buttons = new List<(int Value, Button Button)>();
+            foreach (int value in ViewText.PriorityValues)
+            {
+                int v = value;
+                Button b = Ui.MakeButton(ViewText.PriorityLabel(v), Ui.T("ui.inspector.priority_hint"));
+                b.ToggleMode = true;
+                b.ButtonGroup = group;
+                b.CustomMinimumSize = new Vector2(24, 0);
+                b.Pressed += () => ChoosePriority(row, v);
+                picker.AddChild(b);
+                buttons.Add((v, b));
+            }
             _workGrid.AddChild(name);
-            _workGrid.AddChild(value);
-            _workRows.Add((name, value));
+            _workGrid.AddChild(picker);
+            _workRows.Add((name, picker, buttons));
         }
         for (int i = 0; i < _workRows.Count; i++)
         {
             bool visible = i < _workState.Count;
             _workRows[i].Name.Visible = visible;
-            _workRows[i].Value.Visible = visible;
+            _workRows[i].Picker.Visible = visible;
             if (!visible) continue;
-            _workRows[i].Name.Text = _workState[i].Work;
-            _workRows[i].Value.Text = ViewText.PriorityButton(_workState[i]);
-            _workRows[i].Value.Modulate = _workState[i].Priority <= 0 ? Ui.Dim : Colors.White;
+            WorkPriorityState s = _workState[i];
+            int? draft = _host.Drafts.Priority(c.Id, s.WorkId);
+            int shown = draft ?? s.Priority;
+            bool pending = s.Pending || (draft != null && draft != JobPickerPriority(c, s.WorkId));
+            _workRows[i].Name.Text = pending ? Ui.F("ui.inspector.work_pending", ("work", s.Work)) : s.Work;
+            foreach ((int value, Button button) in _workRows[i].Buttons) button.SetPressedNoSignal(value == shown);
         }
     }
 
-    /// <summary>Presses the nth work priority button through its signal (RETURN_PRESS checks).</summary>
-    public bool PressPriority(int index)
+    private static int JobPickerPriority(Character c, string workId) => Return.Sim.Systems.JobPicker.PriorityOf(c, workId);
+
+    /// <summary>Picks a priority through the button's own signal (RETURN_PRESS checks): row and value (0 = never).</summary>
+    public bool PressPriority(int row, int value)
     {
         if (_host == null || _host.SelectedId == 0) return false;
         Refresh();
-        if (index < 0 || index >= _workRows.Count || !_workSection.Visible) return false;
-        _workRows[index].Value.EmitSignal(BaseButton.SignalName.Pressed);
-        return true;
+        if (row < 0 || row >= _workRows.Count || !_workSection.Visible) return false;
+        foreach ((int v, Button button) in _workRows[row].Buttons)
+            if (v == value) { button.EmitSignal(BaseButton.SignalName.Pressed); return true; }
+        return false;
     }
 
-    private void CyclePriority(int index)
+    private void ChoosePriority(int row, int value)
     {
-        if (_host == null || _host.SelectedId == 0 || index >= _workState.Count) return;
-        WorkPriorityState s = _workState[index];
-        _host.Order(new SetWorkPriority(_host.World.Tick, _host.SelectedId, s.WorkId, ViewText.NextPriority(s.Priority)));
+        if (_host == null || _host.SelectedId == 0 || row >= _workState.Count) return;
+        if (_host.World.Find(_host.SelectedId) is not { Status: CharStatus.Member }) { Refresh(); return; }
+        WorkPriorityState s = _workState[row];
+        int shown = _host.Drafts.Priority(_host.SelectedId, s.WorkId) ?? s.Priority;
+        if (value != shown) _host.Order(new SetWorkPriority(_host.World.Tick, _host.SelectedId, s.WorkId, value));
         Refresh();
     }
 

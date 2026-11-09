@@ -249,6 +249,8 @@
   "event.world.ration_policy": "You decided that when food runs short, {policy}.",
   "event.world.work_priority": "{a}'s priority for {work} is now {n}.",
   "event.world.work_priority_you_a": "Your priority for {work} is now {n}.",
+  "event.world.work_priority_zero": "{a} will no longer do {work}.",
+  "event.world.work_priority_you_a_zero": "{a} will no longer do {work}.",
 
   "cast.you.name": "You",
   "cast.you.name_mid": "you",

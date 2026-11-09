@@ -177,6 +177,9 @@ public class StateApiTests
         forage = StateApi.WorkPriorities(w, mira).Single(p => p.WorkId == "forage");
         Assert.Equal(0, forage.Priority);
         Assert.False(forage.Pending);
+
+        s.Enqueue(new SetWorkPriority(w.Tick, mira, "forage", 0));
+        Assert.False(StateApi.WorkPriorities(w, mira).Single(p => p.WorkId == "forage").Pending);
     }
 
     [Fact]
@@ -243,6 +246,8 @@ public class StateApiTests
         {
             int at = key.LastIndexOf("_you_", StringComparison.Ordinal);
             string baseKey = key[..at], role = key[(at + 5)..];
+            foreach (string count in new[] { "_one", "_zero" })
+                if (role.EndsWith(count, StringComparison.Ordinal)) role = role[..^count.Length];
             Assert.True(loc.Has(baseKey), $"{key} has no base key {baseKey}");
             var baseArgs = placeholder.Matches(loc.Get(baseKey)).Select(m => m.Groups[1].Value).ToHashSet();
             Assert.Contains(role, baseArgs);

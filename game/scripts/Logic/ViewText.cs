@@ -122,15 +122,11 @@ public static class ViewText
     /// <summary>What a ration policy means, for its tooltip.</summary>
     public static string PolicyHint(RationPolicy p) => Ui.T("ui.orders.policy." + Names.Snake(p.ToString()) + "_hint");
 
-    /// <summary>The next priority when a priority button is clicked: 1, 2, 3, 4, never (0), then 1 again.</summary>
-    public static int NextPriority(int priority) => priority switch { 1 => 2, 2 => 3, 3 => 4, 4 => 0, _ => 1 };
+    /// <summary>The choices in a work priority picker, in order: 1 (done first) to 4, then never (0).</summary>
+    public static readonly IReadOnlyList<int> PriorityValues = new[] { 1, 2, 3, 4, 0 };
 
     /// <summary>"1".."4", or the "never" mark for 0.</summary>
     public static string PriorityLabel(int priority) => priority <= 0 ? Ui.T("ui.priority.off") : Ui.N(priority);
-
-    /// <summary>A priority button's caption; marked while the order waits for time to move.</summary>
-    public static string PriorityButton(WorkPriorityState s) =>
-        s.Pending ? Ui.F("ui.priority.pending", ("p", PriorityLabel(s.Priority))) : PriorityLabel(s.Priority);
 
     /// <summary>Each member with the work they do first (priority 1), for the Work list.</summary>
     public static IReadOnlyList<PersonLine> WorkLines(World w)

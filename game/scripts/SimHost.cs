@@ -21,9 +21,10 @@ namespace Return.Game;
 ///   RETURN_SELECT=key    open the inspector for that cast key (e.g. "you")
 ///   RETURN_OPEN=name     open a bar list at start: orders, work, people or chronicle
 ///   RETURN_PAUSE=1       start paused
-///   RETURN_PRESS=list    after 1 s, press buttons as a player would: "policy:N" (the Nth ration
-///                        policy in Orders) and "priority:N" (the Nth work priority in the open
-///                        inspector), comma-separated
+///   RETURN_PRESS=list    after 1 s, press buttons as a player would, comma-separated:
+///                        "policy:N" presses ration policy N in Orders (0-based: 0 = the hungriest
+///                        eat first); "priority:R:V" picks value V (1–4, or 0 for never) in work
+///                        row R of the open inspector (0-based: 0 = the first kind of work)
 ///   RETURN_SCREENSHOT=p  save the window to PNG file p about 3 s after start, then quit
 /// </summary>
 public partial class SimHost : Node
@@ -54,11 +55,19 @@ public partial class SimHost : Node
     /// <summary>Height of the bottom menu bar in screen pixels (the map is visible above it).</summary>
     public float BarHeight => Mathf.Max(_bar.Size.Y, BottomBar.Height);
 
+    /// <summary>Choices made while paused, sent when time moves (see <see cref="OrderDrafts"/>).</summary>
+    public OrderDrafts Drafts { get; } = new();
+
     /// <summary>
-    /// The only way the view changes the world: a tick-stamped command for the next tick, so it is
-    /// recorded, replayable and part of the determinism test like any other input.
+    /// The only way the view changes the world. While time runs, a choice is a tick-stamped command
+    /// for the next tick, recorded and replayable like any other input. While paused it is a draft
+    /// that a later choice for the same thing replaces; drafts go out when time moves.
     /// </summary>
-    public void Order(Command command) => Sim.Enqueue(command);
+    public void Order(Command command)
+    {
+        if (Clock.Paused) Drafts.Add(command);
+        else Sim.Enqueue(command with { Tick = World.Tick });
+    }
 
     public event Action? SpeedChanged;
 
@@ -119,6 +128,7 @@ public partial class SimHost : Node
     public override void _Process(double delta)
     {
         if (!_running) return;
+        if (Drafts.Count > 0 && !Clock.Paused) Drafts.Flush(Sim);
         int ticks = Clock.Advance(delta);
         for (int i = 0; i < ticks; i++) Sim.Step();
     }
@@ -205,10 +215,14 @@ public partial class SimHost : Node
         foreach (string item in list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             string[] parts = item.Split(':');
-            bool ok = parts.Length == 2 && int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && parts[0] switch
+            int[] n = new int[parts.Length - 1];
+            bool numbers = parts.Length >= 2;
+            for (int i = 1; i < parts.Length && numbers; i++)
+                numbers = int.TryParse(parts[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out n[i - 1]);
+            bool ok = numbers && (parts[0], n.Length) switch
             {
-                "policy" => _bar.PressPolicy(n),
-                "priority" => _inspector.PressPriority(n),
+                ("policy", 1) => _bar.PressPolicy(n[0]),
+                ("priority", 2) => _inspector.PressPriority(n[0], n[1]),
                 _ => false,
             };
             if (!ok) GD.PushWarning("Return: RETURN_PRESS could not press '" + item + "'.");

@@ -28,7 +28,6 @@
   "ui.work.entry_none": "{name} — nothing marked first",
 
   "ui.priority.off": "–",
-  "ui.priority.pending": "{p}…",
 
   "ui.clock": "{when} · {season}",
   "ui.speed.pause": "Pause",
@@ -55,7 +54,8 @@
   "ui.inspector.debts": "Debts",
   "ui.inspector.thoughts": "Recent thoughts",
   "ui.inspector.work": "Work priorities",
-  "ui.inspector.priority_hint": "Click to change: 1 is done first, then 2, 3 and 4; – means never. A … means it takes effect when time moves.",
+  "ui.inspector.priority_hint": "1 is done first, then 2, 3 and 4; – means never.",
+  "ui.inspector.work_pending": "{work} (when time moves)",
   "ui.inspector.none": "None",
   "ui.inspector.opinion": "{name}: {value}",
   "ui.inspector.grudge": "Against {target} (intensity {n})",

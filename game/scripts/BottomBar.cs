@@ -229,9 +229,11 @@ public partial class BottomBar : PanelContainer
             _ordersPending = Ui.MakeLabel(Ui.T("ui.orders.pending"), Ui.SmallFontSize, Ui.Accent);
             _orders.Rows.AddChild(_ordersPending);
         }
-        PolicyState s = StateApi.Policy(_host!.World);
-        foreach ((RationPolicy policy, Button button) in _policyButtons) button.SetPressedNoSignal(policy == s.Effective);
-        _ordersPending!.Visible = s.Pending;
+        World w = _host!.World;
+        PolicyState s = StateApi.Policy(w);
+        RationPolicy shown = _host.Drafts.Policy ?? s.Effective;
+        foreach ((RationPolicy policy, Button button) in _policyButtons) button.SetPressedNoSignal(policy == shown);
+        _ordersPending!.Visible = s.Pending || shown != w.Policy;
     }
 
     /// <summary>Presses the nth ration policy button through its signal (RETURN_PRESS checks).</summary>
@@ -248,8 +250,9 @@ public partial class BottomBar : PanelContainer
     private void ChoosePolicy(RationPolicy policy)
     {
         if (_host == null) return;
-        if (StateApi.Policy(_host.World).Effective != policy) _host.Order(new SetRationPolicy(_host.World.Tick, policy));
-        _refresh = 0;
+        RationPolicy shown = _host.Drafts.Policy ?? StateApi.Policy(_host.World).Effective;
+        if (shown != policy) _host.Order(new SetRationPolicy(_host.World.Tick, policy));
+        RefreshOrders();
     }
 
     /// <summary>Each member and what they do first; clicking one opens their inspector, where priorities are set.</summary>
