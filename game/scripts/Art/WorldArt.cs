@@ -246,23 +246,36 @@ public sealed class WorldArt
         b.Texture(tex, x, y, size, size * (0.85f + 0.3f * ArtHash.Unit(h)), ArtHash.Unit(ArtHash.Mix(h)) * MathF.Tau, tint);
     }
 
+    /// <summary>
+    /// A rock tile: on a bed of grey scree, one boulder of its own size, shape, tilt and colour, and
+    /// often a smaller stone beside it, so an outcrop reads as a jumble rather than a grid of eggs.
+    /// </summary>
     private static void Boulder(Brush b, int x, int y)
     {
-        float cx = (x + 0.5f) * T, cy = (y + 0.55f) * T;
-        float r = T * (0.46f + 0.1f * ArtHash.Unit(x, y, 13));
-        float hgt = T * 0.3f;
+        float cx = (x + 0.5f) * T, cy = (y + 0.5f) * T;
+        b.Clear().Ellipse(cx, cy + 2f, T * 0.78f, T * 0.64f, 14).Fill(Palette.StoneLo.Darkened(0.35f).WithAlpha(0.38f));
+        Stone(b, cx + ArtHash.Signed(x, y, 15) * T * 0.14f, cy + ArtHash.Signed(x, y, 16) * T * 0.12f, T * (0.3f + 0.24f * ArtHash.Unit(x, y, 13)), x * 31 + y);
+        if (ArtHash.Unit(x, y, 17) < 0.55f)
+            Stone(b, cx + ArtHash.Signed(x, y, 18) * T * 0.36f, cy + T * (0.22f + 0.1f * ArtHash.Unit(x, y, 19)), T * (0.12f + 0.08f * ArtHash.Unit(x, y, 21)), x * 31 + y + 7);
+    }
+
+    private static void Stone(Brush b, float cx, float cy, float r, int salt)
+    {
+        float hgt = r * 0.65f;
+        float tilt = ArtHash.Signed(salt, 22) * 0.4f;
+        Color tone = Palette.Stone.Lerp(Palette.Hex(0x6a6354), ArtHash.Unit(salt, 23)).Darkened(ArtHash.Unit(salt, 24) * 0.15f);
         // Front face, then the lit top.
         b.Clear();
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 9; i++)
         {
-            float a = i * MathF.Tau / 8f;
-            float k = 0.82f + 0.25f * ArtHash.Unit(x, y, 20 + i);
-            b.Add(cx + MathF.Cos(a) * r * k, cy + MathF.Sin(a) * r * 0.78f * k);
+            float a = i * MathF.Tau / 9f + tilt;
+            float k = 0.78f + 0.3f * ArtHash.Unit(salt, 30 + i);
+            b.Add(cx + MathF.Cos(a) * r * k, cy + MathF.Sin(a) * r * 0.76f * k);
         }
-        b.Offset(0f, 2f).Fill(Palette.StoneLo.Darkened(0.2f));
-        b.Offset(0f, -2f - hgt * 0.5f).Shade(Palette.StoneHi, Palette.StoneLo, Brush.LightDir).Stroke(Palette.Ink, 0.9f);
-        b.Line(cx - r * 0.4f, cy - hgt * 0.4f, cx + r * 0.1f, cy - hgt * 0.1f + r * 0.2f, Palette.StoneLo.Darkened(0.3f), 0.8f);
-        if (ArtHash.Unit(x, y, 14) < 0.6f) b.Clear().Ellipse(cx - r * 0.25f, cy - hgt * 0.8f, r * 0.3f, r * 0.16f, 10).Fill(Palette.Moss.WithAlpha(0.75f));
+        b.Offset(0f, 1.5f).Fill(tone.Darkened(0.45f));
+        b.Offset(0f, -1.5f - hgt * 0.5f).Shade(tone.Lightened(0.18f), tone.Darkened(0.3f), Brush.LightDir).Stroke(Palette.Ink, 0.9f);
+        b.Line(cx - r * 0.45f, cy - hgt * 0.45f, cx + r * 0.05f, cy - hgt * 0.15f + r * 0.2f, tone.Darkened(0.45f), 0.7f);
+        if (ArtHash.Unit(salt, 25) < 0.5f) b.Clear().Ellipse(cx - r * 0.25f, cy - hgt * 0.9f, r * 0.32f, r * 0.16f, 10).Fill(Palette.Moss.WithAlpha(0.7f));
     }
 
     private static void Bedroll(Brush b, SimPoint p)
@@ -729,7 +742,7 @@ public sealed class WorldArt
     public void DrawSmoke(Brush b, Vector2 at, float time, float strength, float wind, int salt, bool dark = false)
     {
         if (strength <= 0.01f) return;
-        Color tint = dark ? new Color(0.2f, 0.18f, 0.17f) : new Color(0.74f, 0.72f, 0.68f);
+        Color tint = dark ? new Color(0.33f, 0.31f, 0.29f) : new Color(0.74f, 0.72f, 0.68f);
         int puffs = dark ? 7 : 6;
         for (int i = 0; i < puffs; i++)
         {
