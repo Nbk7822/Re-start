@@ -82,10 +82,15 @@ public partial class SimHost : Node
         Ui.Init(Content.Loc);
         Sim = Simulation.Create(Content, ReadSeed());
         Clock = new TickClock(Content.World.TicksPerSecond, Content.World.SpeedMultipliers);
-        long warmUp = ReadTicks();
-        if (warmUp > 0) Sim.Advance(warmUp);
-
         _map = GetNode<MapView>("MapView");
+        // The warm-up steps one tick at a time so the map sees where people were hurt (Sim.Advance is the same loop).
+        long warmUp = ReadTicks();
+        for (long t = 0; t < warmUp; t++)
+        {
+            Sim.Step();
+            _map.Witness(World);
+        }
+
         _camera = GetNode<CameraRig>("Camera");
         _bar = GetNode<BottomBar>("Ui/BottomBar");
         _inspector = GetNode<InspectorPanel>("Ui/Inspector");

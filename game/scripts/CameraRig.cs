@@ -8,6 +8,9 @@ namespace Return.Game;
 /// The map camera. WASD or the arrow keys pan; the mouse wheel zooms toward the cursor, clamped
 /// between "whole map visible" and 3×. It starts centred on the camp's hearth and keeps the view
 /// over the map, so the map fills the window above the bottom bar.
+///
+/// Check hooks (for screenshots, like SimHost's): RETURN_FOCUS=x,y starts centred on that tile;
+/// RETURN_ZOOM=z starts at that zoom (clamped as usual).
 /// </summary>
 public partial class CameraRig : Camera2D
 {
@@ -28,6 +31,15 @@ public partial class CameraRig : Camera2D
         _mapSize = new Vector2(m.Width, m.Height) * MapView.TileSize;
         _focus = MapView.TileCenter(m.Hearth);
         _zoom = Mathf.Max(PreferredZoom, CoverZoom());
+        string? focus = System.Environment.GetEnvironmentVariable("RETURN_FOCUS");
+        string[] xy = (focus ?? "").Split(',');
+        if (xy.Length == 2 && int.TryParse(xy[0], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int fx)
+            && int.TryParse(xy[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int fy))
+            _focus = MapView.TileCenter(new SimPoint(fx, fy));
+        else if (!string.IsNullOrWhiteSpace(focus)) GD.PushWarning("Return: RETURN_FOCUS='" + focus + "' is not x,y; ignored.");
+        string? zoom = System.Environment.GetEnvironmentVariable("RETURN_ZOOM");
+        if (float.TryParse(zoom, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float z) && z > 0f) _zoom = z;
+        else if (!string.IsNullOrWhiteSpace(zoom)) GD.PushWarning("Return: RETURN_ZOOM='" + zoom + "' is not a number; ignored.");
         Apply();
     }
 
