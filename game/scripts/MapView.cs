@@ -68,6 +68,7 @@ public partial class MapView : Node2D
     private readonly List<TextMark> _marks = new();
     private readonly List<Rect2> _placed = new();
     private readonly List<(int Id, Rect2 Box)> _bodies = new();
+    private readonly List<(int Id, Rect2 Box)> _bodiesMap = new();
     private string _sleepMark = "";
     private readonly Dictionary<string, Color> _castColors = new(StringComparer.Ordinal);
     private readonly float[] _roofAlpha = new float[16];
@@ -475,6 +476,7 @@ public partial class MapView : Node2D
         _toScreen = GetGlobalTransformWithCanvas();
         _brush.Begin(layer, PixelsPerUnit(layer));
         _hits.Clear();
+        _bodiesMap.Clear();
 
         // Wet ground darkens, less so at night (as the rain's grey does), so rain never sinks the dark further.
         if (raining) _brush.Rect(0f, 0f, m.Width * TileSize, m.Height * TileSize, new Color(0.03f, 0.05f, 0.08f, 0.24f * (1f - Daylight.RainAtNight * _light.Night)));
@@ -644,6 +646,9 @@ public partial class MapView : Node2D
             : lying ? new Rect2(feet.X - TileSize * 0.7f, feet.Y - TileSize * 0.5f, TileSize * 1.4f, TileSize * 0.65f)
             : new Rect2(feet.X - TileSize * 0.42f, feet.Y - s.HeadAbove, TileSize * 0.84f, s.HeadAbove + TileSize * 0.13f);
         _hits.Add((c.Id, box));
+        // What names keep off: the body as drawn, head to feet for someone upright (the hit box is
+        // more generous, for clicking), the whole shape for someone lying down.
+        _bodiesMap.Add((c.Id, lying || state.Carried ? box : new Rect2(feet.X - TileSize * 0.3f, feet.Y - s.HeadAbove, TileSize * 0.6f, s.HeadAbove)));
     }
 
     private FigureState StateOf(World w, Character c, Shown s)
@@ -855,7 +860,7 @@ public partial class MapView : Node2D
 
         // Obstacles first: every figure (a name keeps off everyone but its owner) and every stack count.
         _bodies.Clear();
-        foreach ((int id, Rect2 box) in _hits) _bodies.Add((id, ScreenRect(box)));
+        foreach ((int id, Rect2 box) in _bodiesMap) _bodies.Add((id, ScreenRect(box)));
         foreach (ItemStack stack in w.Items)
         {
             if (stack.Count <= 0) continue;
@@ -886,7 +891,7 @@ public partial class MapView : Node2D
         {
             Vector2 size = _font.GetStringSize(label.Name, HorizontalAlignment.Left, -1, NameFontSize);
             Vector2 at = (_toScreen * label.Feet).Round();
-            float h = size.Y - 2f, near = size.X / 2f + 4f, far = size.X / 2f + tile * 0.42f + 4f;
+            float h = size.Y - 2f, near = size.X / 2f + 4f, far = size.X / 2f + tile * 0.3f + 4f;
             Rect2 best = default;
             float least = float.MaxValue;
             for (int k = 0; k < 6; k++)
