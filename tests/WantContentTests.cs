@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
+using Json.Schema;
 using Return.Sim.Content;
 
 namespace Return.Tests;
@@ -95,6 +97,26 @@ public class WantContentTests
         var ex = Assert.Throws<ContentException>(() => ContentDb.Load(dir));
         Assert.Contains("wants.json", ex.Message);
         Assert.Contains(named, ex.Message);
+    }
+
+    private const string Keys = "\"id\": \"x\", \"textKey\": \"want.x.text\", \"beatKey\": \"event.growth.want_x\", ";
+
+    /// <summary>The schema's target rules hold: a pick only for a person want, a place only for a place want, an item only for an item want.</summary>
+    [Theory]
+    [InlineData(true, "\"target\": \"person\", \"pick\": \"best_chemistry\", \"weights\": { \"traits\": { \"anxious\": 3 } }")]
+    [InlineData(true, "\"target\": \"place\", \"place\": \"hearth\", \"weights\": { \"base\": 1, \"otherworlder\": -5 }")]
+    [InlineData(false, "\"target\": \"none\", \"pick\": \"best_chemistry\", \"weights\": {}")]
+    [InlineData(false, "\"target\": \"person\", \"weights\": {}")]
+    [InlineData(false, "\"target\": \"place\", \"weights\": {}")]
+    [InlineData(false, "\"target\": \"item\", \"item\": \"berries\", \"place\": \"shelter\", \"weights\": {}")]
+    [InlineData(false, "\"target\": \"somewhere\", \"weights\": {}")]
+    [InlineData(false, "\"target\": \"none\", \"weights\": { \"base\": -1 }")]
+    [InlineData(false, "\"target\": \"none\", \"weights\": { \"luck\": 5 }")]
+    public void TheSchemaHoldsTheTargetRules(bool valid, string rest)
+    {
+        JsonSchema schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(ContentDir, "schemas", "wants.schema.json")));
+        using JsonDocument doc = JsonDocument.Parse("[{ " + Keys + rest + " }]");
+        Assert.Equal(valid, schema.Evaluate(doc.RootElement).IsValid);
     }
 
     [Fact]
