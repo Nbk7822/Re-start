@@ -145,6 +145,21 @@ public static class Relations
         return e;
     }
 
+    /// <summary>
+    /// Records that a and b have spoken. True the first time (each now lists the other, in ascending
+    /// order), false if they had met before. Opinions cannot stand in for this: a chat warm enough to
+    /// count can still move opinion by 0, which leaves no opinion entry (ADR-0023).
+    /// </summary>
+    public static bool Meet(World w, Character a, Character b)
+    {
+        int at = a.Met.BinarySearch(b.Id);
+        if (at >= 0) return false;
+        a.Met.Insert(~at, b.Id);
+        int bt = b.Met.BinarySearch(a.Id);
+        if (bt < 0) b.Met.Insert(~bt, a.Id);
+        return true;
+    }
+
     /// <summary>The oldest open debt the debtor owes the creditor (optionally of one kind), or null.</summary>
     public static Debt? OpenDebt(World w, int debtorId, int creditorId, DebtKind? kind = null)
     {

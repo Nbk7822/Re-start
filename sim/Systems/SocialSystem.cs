@@ -37,13 +37,15 @@ public static class SocialSystem
             if (!dice.Chance(DiceId.SocialInitiate, initiate)) continue;
             Character? partner = Nearest(w, c);
             if (partner == null) continue;
+            if (Culture.Greetings.FirstMeeting(w, c, partner)) continue; // a breached greeting ends the talk (ADR-0023)
 
             Grudge? grudge = Relations.ActiveGrudge(w, c.Id, partner.Id);
             int chemistry = Relations.Chemistry(w, c, partner);
             int dislike = Math.Max(0, -Relations.Opinion(w, c.Id, partner.Id));
             int insult = BaseInsultPermille + Traits.Sum(w, c, t => t.InsultPermilleAdd) + dislike * DislikeInsultPermillePerPoint
                 + Math.Max(0, -chemistry) * ClashInsultPermille
-                + (c.Mood < LowMoodBelow ? LowMoodInsultPermille : 0) + (grudge != null ? GrudgeInsultPermille : 0);
+                + (c.Mood < LowMoodBelow ? LowMoodInsultPermille : 0) + (grudge != null ? GrudgeInsultPermille : 0)
+                + Culture.Ways.StanceInsult(w, c, partner);
             if (dice.Chance(DiceId.SocialInsult, Math.Clamp(insult, 0, 1000)))
             {
                 Insult(w, c, partner);
@@ -59,9 +61,9 @@ public static class SocialSystem
             }
             else
             {
-                int warmth = 100 + 50 * chemistry;
-                MoodSystem.AddThought(w, c, "chatted", partner.Id, 0, warmth);
-                MoodSystem.AddThought(w, partner, "chatted", c.Id, 0, warmth);
+                // Warmth is directional: kinship, strangeness and how each one's people see the other's (ADR-0023).
+                MoodSystem.AddThought(w, c, "chatted", partner.Id, 0, Culture.Greetings.Warmth(w, c, partner, chemistry));
+                MoodSystem.AddThought(w, partner, "chatted", c.Id, 0, Culture.Greetings.Warmth(w, partner, c, chemistry));
                 c.Social = Math.Min(1000, c.Social + 150);
                 partner.Social = Math.Min(1000, partner.Social + 150);
             }

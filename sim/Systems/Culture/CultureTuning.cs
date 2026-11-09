@@ -11,8 +11,13 @@ public static class CultureTuning
     public const int LapsedBelow = 30;
     public const int DevoutFrom = 70;
 
-    /// <summary>Chat warmth between two people of the same culture (G1), across cultures while either is new (G3), and between festival-goers (S1).</summary>
-    public const int KinWarmth = 25;
+    /// <summary>
+    /// Chat warmth between two people of the same culture (G1), across cultures while either is new
+    /// (G3), and between festival-goers (S1). A chat moves opinion by 1 × warmth / 100 in integers, so
+    /// the design's +25 for kin changed no opinion at any chemistry; +50 lifts kin who grate a little
+    /// (chemistry −1) to 1 and kin who click (+1) to 2 (lead's call, ADR-0023).
+    /// </summary>
+    public const int KinWarmth = 50;
     public const int StrangerWarmth = -25;
     public const int FestivalWarmth = 50;
 
