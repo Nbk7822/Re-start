@@ -51,9 +51,10 @@ public partial class TileTooltip : PanelContainer
     public override void _Process(double delta)
     {
         if (_host == null || _map == null) return;
+        Vector2 mouse = GetViewport().GetMousePosition();
         Vector2I tile = _map.TileUnderMouse();
-        bool overUi = GetViewport().GuiGetHoveredControl() != null;
-        bool inWindow = _mouseInWindow && GetViewportRect().HasPoint(GetViewport().GetMousePosition());
+        bool overUi = GetViewport().GuiGetHoveredControl() != null || OverPanel(mouse);
+        bool inWindow = _mouseInWindow && GetViewportRect().HasPoint(mouse);
         if (!inWindow || overUi || !_map.InBounds(tile))
         {
             _tile = new Vector2I(-1, -1);
@@ -77,6 +78,20 @@ public partial class TileTooltip : PanelContainer
             Visible = true;
         }
         PlaceNearMouse();
+    }
+
+    /// <summary>
+    /// True when the point is over the bar or an open panel. Checked by rectangle because Godot
+    /// only tracks the hovered control after the mouse moves, and the cursor may start over the bar.
+    /// </summary>
+    private bool OverPanel(Vector2 point)
+    {
+        Node layer = GetParent();
+        for (int i = 0; i < layer.GetChildCount(); i++)
+            if (layer.GetChild(i) is Control { Visible: true } c && c != this &&
+                c.MouseFilter != MouseFilterEnum.Ignore && c.GetGlobalRect().HasPoint(point))
+                return true;
+        return false;
     }
 
     private void Fill()
