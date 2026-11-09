@@ -42,8 +42,10 @@ public static class IncidentSystem
         c.Status = CharStatus.Member;
         c.ArrivedTick = w.Tick;
         c.Pos = EdgeTile(w, DiceId.ArrivalEdge);
-        c.Food = Places.Species(w, c).EatsNothing ? 1000 : dice.Range(DiceId.ArrivalFood, 280, 560);
-        SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.wanderer_arrives", new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
+        SpeciesDef sp = Places.Species(w, c);
+        c.Food = sp.EatsNothing ? 1000 : dice.Range(DiceId.ArrivalFood, 280, 560);
+        string key = sp.ArrivalKey.Length > 0 ? sp.ArrivalKey : "event.incident.wanderer_arrives";
+        SimEvent e = w.Log.Emit(w, SystemTag.Incident, key, new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
         c.LastFoodEvent = e.Id;
         Point near = Places.Adjacent(w, w.Map.Hearth, c.Pos);
         c.Job = new Job { Kind = JobKind.Arrive, Target = near, StartedTick = w.Tick, CauseEvent = e.Id };

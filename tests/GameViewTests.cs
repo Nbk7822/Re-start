@@ -5,6 +5,7 @@ using Return.Game.Logic;
 using Return.Sim;
 using Return.Sim.Api;
 using Return.Sim.Content;
+using Return.Sim.Events;
 
 namespace Return.Tests;
 
@@ -510,10 +511,12 @@ public class GameViewTests
     [Fact]
     public void GoreFollowsTheThiefFightWithoutTouchingTheSim()
     {
-        // Seed 34: a night thief reaches the camp before dawn on day 27 and Mira fights them near (16, 15).
+        // Seed 34: the first night-thief fight in which a defender is struck, found from the sim itself
+        // so the test follows the history when the cast changes (it was day 27, near (16, 15), before ADR-0022).
+        (long start, float fx, float fy) = FirstBloodyFight(34);
         Simulation watched = Simulation.Create(Content, 34), plain = Simulation.Create(Content, 34);
-        watched.Advance(188_700);
-        plain.Advance(188_700);
+        watched.Advance(start);
+        plain.Advance(start);
         var gore = new GoreLog();
         for (int t = 0; t < 500; t++)
         {
@@ -525,18 +528,41 @@ public class GameViewTests
 
         var blood = gore.Decals.Where(d => d.Kind is DecalKind.Splatter or DecalKind.Drops).ToList();
         Assert.NotEmpty(blood);
-        Assert.Contains(blood, d => MathF.Abs(d.X - 16.5f) <= 2.5f && MathF.Abs(d.Y - 15.5f) <= 2.5f);
+        Assert.Contains(blood, d => MathF.Abs(d.X - fx) <= 2.5f && MathF.Abs(d.Y - fy) <= 2.5f);
 
         // The same history always leaves the same marks.
         var again = new GoreLog();
         Simulation replay = Simulation.Create(Content, 34);
-        replay.Advance(188_700);
+        replay.Advance(start);
         for (int t = 0; t < 500; t++)
         {
             replay.Step();
             again.Observe(replay.World);
         }
         Assert.Equal(gore.Decals.Select(Describe), again.Decals.Select(Describe));
+    }
+
+    /// <summary>A tick 200 before the first thief fight in which a defender loses health, and where that defender stood (tile centre).</summary>
+    private static (long Start, float X, float Y) FirstBloodyFight(ulong seed)
+    {
+        Simulation sim = Simulation.Create(Content, seed);
+        World w = sim.World;
+        var health = new Dictionary<int, int>();
+        while (w.Tick < w.Content.World.TicksPerYear)
+        {
+            sim.Step();
+            foreach (Character c in w.Characters)
+            {
+                bool fighting = c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight };
+                if (fighting && health.TryGetValue(c.Id, out int before) && before - c.Health >= 40)
+                {
+                    SimEvent fight = w.Log.All.Last(e => e.Key == "event.combat.fight");
+                    return (Math.Max(0, fight.Tick - 200), c.Pos.X + 0.5f, c.Pos.Y + 0.5f);
+                }
+                health[c.Id] = c.Health;
+            }
+        }
+        throw new InvalidOperationException($"seed {seed} has no fight in which a defender is struck");
     }
 
     [Fact]

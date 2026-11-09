@@ -15,7 +15,11 @@
       "role": { "$ref": "#/$defs/id" },
       "otherworlder": { "type": "boolean" },
       "startsInCamp": { "type": "boolean" },
-      "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+      "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+      "arrivalDays": {
+        "description": "[first, last] day of the first year (Day 1 first) within which they arrive, the day drawn from Dice; omit to be shuffled in with the other wanderers (ADR-0022)",
+        "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 }
+      }
     }
   },
   "$defs": {

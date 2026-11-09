@@ -33,8 +33,9 @@ public class ContentTests
     public void M0ContentShape()
     {
         ContentDb db = ContentDb.Load(ContentDir);
-        Assert.Equal(10, db.Cast.Count);
-        Assert.Equal(new[] { "human", "vampire" }, db.Cast.Select(c => c.Species).Distinct().OrderBy(s => s, StringComparer.Ordinal));
+        // The M0 ten, plus one of each people beyond human and vampire (ADR-0022).
+        Assert.Equal(11, db.Cast.Count);
+        Assert.Equal(new[] { "human", "undead", "vampire" }, db.Cast.Select(c => c.Species).Distinct().OrderBy(s => s, StringComparer.Ordinal));
         Assert.Equal(8, db.Traits.Count);
         Assert.Equal(6, db.Incidents.Count);
         Assert.Single(db.Cast, c => c.Otherworlder);
@@ -47,11 +48,13 @@ public class ContentTests
         var defs = new List<object> { db.World };
         defs.AddRange(db.Species); defs.AddRange(db.Traits); defs.AddRange(db.Items); defs.AddRange(db.Work);
         defs.AddRange(db.Roles); defs.AddRange(db.Thoughts); defs.AddRange(db.Incidents); defs.AddRange(db.Cast);
+        defs.AddRange(db.Needs);
         foreach (object def in defs)
             foreach (PropertyInfo p in def.GetType().GetProperties())
                 if (p.PropertyType == typeof(string) && p.Name.EndsWith("Key", StringComparison.Ordinal) && p.Name != "Key")
                 {
                     string key = (string)p.GetValue(def)!;
+                    if (key.Length == 0) continue; // an optional key left out (a species' arrival line, a need that never kills)
                     Assert.True(db.Loc.Has(key), $"{def.GetType().Name}.{p.Name} = '{key}' is missing from loc/en.json");
                 }
         foreach (string key in db.World.SeasonKeys) Assert.True(db.Loc.Has(key), key);

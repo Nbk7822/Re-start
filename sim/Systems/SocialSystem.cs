@@ -60,8 +60,11 @@ public static class SocialSystem
             else
             {
                 int warmth = 100 + 50 * chemistry;
-                MoodSystem.AddThought(w, c, "chatted", partner.Id, 0, warmth);
-                MoodSystem.AddThought(w, partner, "chatted", c.Id, 0, warmth);
+                int fromC = Unease.WarmthPct(w, c, partner), fromP = Unease.WarmthPct(w, partner, c);
+                MoodSystem.AddThought(w, c, "chatted", partner.Id, 0, warmth * fromC / 100);
+                MoodSystem.AddThought(w, partner, "chatted", c.Id, 0, warmth * fromP / 100);
+                Unease.Feel(w, c, partner, fromC);
+                Unease.Feel(w, partner, c, fromP);
                 c.Social = Math.Min(1000, c.Social + 150);
                 partner.Social = Math.Min(1000, partner.Social + 150);
             }

@@ -223,7 +223,7 @@ public static class JobPicker
             if (priority <= 0) continue;
             WorkDef def = w.Content.WorkById(workId);
             if (def.Risky && fragile) continue;
-            int score = priority * 100 - Traits.WorkBias(w, c, workId) * 60;
+            int score = priority * 100 - (Traits.WorkBias(w, c, workId) + NatureNeeds.WorkBias(w, c, workId)) * 60;
             score = 250 + (score - 250) * respect / 100;
             if (score >= bestScore) continue;
             Job? job = Candidate(w, c, workId, def, sunBlocked);
@@ -233,6 +233,10 @@ public static class JobPicker
         }
         return best;
     }
+
+    /// <summary>A job of this kind of work for c right now, if there is one (ignoring priorities).</summary>
+    public static Job? WorkCandidate(World w, Character c, string workId, bool sunBlocked) =>
+        Candidate(w, c, workId, w.Content.WorkById(workId), sunBlocked);
 
     private static Job? Candidate(World w, Character c, string workId, WorkDef def, bool sunBlocked)
     {
@@ -252,7 +256,7 @@ public static class JobPicker
                 return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos) };
             }
             case "forage":
-                if (sunBlocked || Stock.Count(w, "berries") >= 2 * Places.Eaters(w, "berries")) return null;
+                if (sunBlocked || (Stock.Count(w, "berries") >= 2 * Places.Eaters(w, "berries") && !Purpose.Seeks(w, c, workId))) return null;
                 return ForageJob(w, c);
             case "haul":
             {
@@ -264,7 +268,7 @@ public static class JobPicker
             }
             case "keep_watch":
             {
-                if (Places.Daylight(w) || sunBlocked || Places.SomeoneOnWatch(w, c.Id)) return null;
+                if (Places.Daylight(w) || sunBlocked || (Places.SomeoneOnWatch(w, c.Id) && !Purpose.Seeks(w, c, workId))) return null;
                 if (c.Health < Traits.Max(w, c, t => t.FleeHealthBelow)) return null;
                 Point post = w.Map.Passable(w.Map.WatchPost) ? w.Map.WatchPost : Places.Adjacent(w, w.Map.WatchPost, c.Pos);
                 return post == Point.None ? null : new Job { Kind = JobKind.KeepWatch, Target = post };

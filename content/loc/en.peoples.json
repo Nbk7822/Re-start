@@ -1,0 +1,17 @@
+{
+  "species.undead.name": "Undead",
+
+  "need.purpose": "Purpose",
+
+  "thought.at_purpose": "Doing what I came back for",
+  "thought.purpose_slipping": "My purpose is slipping away",
+  "thought.fading": "Fading",
+  "thought.uneasy_near_dead": "Uneasy around the dead",
+
+  "event.incident.undead_arrives": "{a} walked in out of the barrows, cold and sleepless, looking for work to do.",
+  "event.needs.purpose_low": "{a} is losing the purpose that keeps them here.",
+  "event.needs.purpose_critical": "{a} is fading, with nothing left to hold them.",
+  "event.needs.died_purpose": "{a} lay down, their purpose gone, and was at rest at last.",
+
+  "cast.ketil.name": "Ketil"
+}

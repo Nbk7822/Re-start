@@ -28,5 +28,10 @@
   { "id": "thief_driven_off", "textKey": "thought.thief_driven_off", "mood": 6, "durationHours": 24, "emote": "sparkle" },
   { "id": "robbed", "textKey": "thought.robbed", "mood": -6, "durationHours": 24, "emote": "anger" },
   { "id": "windfall", "textKey": "thought.windfall", "mood": 3, "durationHours": 12, "emote": "sparkle" },
-  { "id": "joined_camp", "textKey": "thought.joined_camp", "mood": 5, "opinion": 8, "durationHours": 48, "emote": "sparkle" }
+  { "id": "joined_camp", "textKey": "thought.joined_camp", "mood": 5, "opinion": 8, "durationHours": 48, "emote": "sparkle" },
+
+  { "id": "at_purpose", "textKey": "thought.at_purpose", "mood": 4, "durationHours": 2, "emote": "music" },
+  { "id": "purpose_slipping", "textKey": "thought.purpose_slipping", "mood": -8, "durationHours": 1, "emote": "sweat" },
+  { "id": "fading", "textKey": "thought.fading", "mood": -16, "durationHours": 1, "emote": "gloom" },
+  { "id": "uneasy_near_dead", "textKey": "thought.uneasy_near_dead", "mood": -3, "opinion": -2, "durationHours": 12, "emote": "question", "stackLimit": 2 }
 ]

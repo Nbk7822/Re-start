@@ -52,7 +52,8 @@ public sealed record SetWorkPriority(long Tick, int CharacterId, string WorkId, 
             if (p.WorkId == WorkId) { existing = p; break; }
         if (existing == null) c.Priorities.Add(new WorkPriority { WorkId = WorkId, Priority = Priority });
         else existing.Priority = Priority;
-        w.Log.Emit(w, SystemTag.World, "event.world.work_priority", new[] { c.Id }, Array.Empty<long>(), null,
+        SimEvent e = w.Log.Emit(w, SystemTag.World, "event.world.work_priority", new[] { c.Id }, Array.Empty<long>(), null,
             EventArg.Char("a", c.Id), EventArg.Key("work", w.Content.WorkById(WorkId).NameKey), EventArg.Num("n", Priority));
+        Systems.Purpose.OnPriority(w, c, WorkId, Priority, e.Id);
     }
 }

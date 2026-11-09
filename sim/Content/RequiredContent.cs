@@ -23,6 +23,8 @@ public static class RequiredContent
         "insulted", "joined_camp", "lonely", "meal_stolen", "promise_broken", "promise_kept", "received_blood",
         "refused_someone", "rescued", "robbed", "roof_sound", "saw_death", "slept_in_shelter", "slept_outside", "soaked",
         "starving", "thief_driven_off", "thirsting", "was_refused", "windfall", "wounded",
+        // The four peoples (ADR-0022).
+        "at_purpose", "uneasy_near_dead",
     };
 
     /// <summary>Every incident M0 has behaviour for, with the params that behaviour reads.</summary>
@@ -39,5 +41,6 @@ public static class RequiredContent
     /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>
     public static readonly IReadOnlyList<(string Id, string[] Params)> Needs = new (string, string[])[]
     {
+        ("purpose", new[] { "restorePerHour", "boundWorkBias" }),
     };
 }

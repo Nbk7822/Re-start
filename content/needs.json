@@ -1,2 +1,19 @@
 [
+  {
+    "id": "purpose",
+    "nameKey": "need.purpose",
+    "start": 700,
+    "decayPerHour": 8,
+    "lowBelow": 350,
+    "criticalBelow": 150,
+    "satisfiedAt": 600,
+    "lowThought": "purpose_slipping",
+    "criticalThought": "fading",
+    "lowEventKey": "event.needs.purpose_low",
+    "criticalEventKey": "event.needs.purpose_critical",
+    "criticalHealthPerHour": 20,
+    "deathKey": "event.needs.died_purpose",
+    "bondWorks": ["keep_watch", "forage"],
+    "params": { "restorePerHour": 70, "boundWorkBias": 3 }
+  }
 ]

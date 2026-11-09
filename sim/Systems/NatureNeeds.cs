@@ -41,8 +41,9 @@ public static class NatureNeeds
             NeedDef def = w.Content.NeedById(n.Id);
             int restore = Restore(w, c, n, def);
             n.Value = Math.Clamp(n.Value - def.DecayPerHour + restore, 0, 1000);
-            // Met by its own source again: what explained the shortfall is spent (as AfterFed clears LastFoodEvent).
-            if (restore > 0 && n.Value >= def.SatisfiedAt) n.LastEvent = 0;
+            // Met by its own source, and that source is open to them again: what explained the shortfall
+            // is spent (as AfterFed clears LastFoodEvent). A work finished after it was forbidden does not count.
+            if (restore > 0 && n.Value >= def.SatisfiedAt && SourceOpen(c, n)) n.LastEvent = 0;
             Thresholds(w, c, n, def);
             if (def.CriticalHealthPerHour > 0 && n.Value < def.CriticalBelow)
             {
@@ -123,14 +124,34 @@ public static class NatureNeeds
     private static SimEvent Emit(World w, Character c, string key, long cause) =>
         w.Log.Emit(w, SystemTag.Needs, key, new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
 
+    /// <summary>How much a person's nature leans them toward a kind of work (added to their traits' work bias).</summary>
+    public static int WorkBias(World w, Character c, string workId) =>
+        c.NatureNeeds.Count == 0 ? 0 : Purpose.WorkBias(w, c, workId);
+
     /// <summary>Binds a new need to what it is bound to (a tree, a work, a price), from Truths keyed by cast key.</summary>
     private static void Bind(World w, Character c, NatureNeed n, NeedDef def)
     {
+        if (n.Id == Purpose.NeedId) Purpose.Bind(w, c, n, def);
     }
 
     /// <summary>How much a need's own source restores this hour (beyond its decay).</summary>
-    private static int Restore(World w, Character c, NatureNeed n, NeedDef def) => 0;
+    private static int Restore(World w, Character c, NatureNeed n, NeedDef def) => n.Id switch
+    {
+        Purpose.NeedId => Purpose.Restore(w, c, n, def),
+        _ => 0,
+    };
+
+    /// <summary>Is the need's source open to them (not, say, a work they have been told never to do)?</summary>
+    private static bool SourceOpen(Character c, NatureNeed n) => n.Id switch
+    {
+        Purpose.NeedId => JobPicker.PriorityOf(c, n.BondWork) > 0,
+        _ => true,
+    };
 
     /// <summary>The job that answers a low need, by the need's behaviour.</summary>
-    private static Job? Answer(World w, Character c, NatureNeed n, NeedDef def, bool sunBlocked) => null;
+    private static Job? Answer(World w, Character c, NatureNeed n, NeedDef def, bool sunBlocked) => n.Id switch
+    {
+        Purpose.NeedId => Purpose.Answer(w, c, n, sunBlocked),
+        _ => null,
+    };
 }

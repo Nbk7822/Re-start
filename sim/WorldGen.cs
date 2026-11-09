@@ -244,8 +244,13 @@ public static class WorldGen
         WorldDef def = w.Content.World;
         DiceStream dice = w.Rng.Dice[DiceSystem.World];
         var waiting = new List<Character>();
+        var ownSeason = new List<Character>();
         foreach (Character c in w.Characters)
-            if (c.Status == CharStatus.OffMap) waiting.Add(c);
+        {
+            if (c.Status != CharStatus.OffMap) continue;
+            if (w.Content.CastByKey(c.CastKey).ArrivalDays.Length == 2) ownSeason.Add(c);
+            else waiting.Add(c);
+        }
         for (int k = waiting.Count - 1; k > 0; k--)
         {
             int j = dice.Range(DiceId.ArrivalOrder, 0, k + 1);
@@ -263,6 +268,19 @@ public static class WorldGen
             int hour = burns
                 ? (def.DuskHour + 1 + dice.Range(DiceId.ArrivalHour, 0, 6)) % def.HoursPerDay
                 : dice.Range(DiceId.ArrivalHour, 8, 18);
+            w.Arrivals.Add(new Arrival { CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour });
+        }
+
+        // Those who come in their own season (cast.json arrivalDays, ADR-0022) draw after the shuffled
+        // wanderers, so adding one never moves anyone else's arrival.
+        foreach (Character c in ownSeason)
+        {
+            int[] window = w.Content.CastByKey(c.CastKey).ArrivalDays;
+            int day = window[0] - 1 + dice.Range(DiceId.PeopleArrivalDay, 0, window[1] - window[0] + 1);
+            bool burns = w.Content.SpeciesById(c.SpeciesId).DaylightBurnPerHour > 0;
+            int hour = burns
+                ? (def.DuskHour + 1 + dice.Range(DiceId.PeopleArrivalHour, 0, 6)) % def.HoursPerDay
+                : dice.Range(DiceId.PeopleArrivalHour, 8, 18);
             w.Arrivals.Add(new Arrival { CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour });
         }
     }

@@ -14,6 +14,10 @@ public enum TruthId : ushort
     CampPlacement = 6,
     SecondaryTrait = 7,
     PairChemistry = 8,
+
+    // 30–39: the four peoples beyond human and vampire (ADR-0022).
+    /// <summary>The work an undead came back to do (keyed by cast key).</summary>
+    PurposeWork = 31,
 }
 
 /// <summary>Tags for Dice draws, used for diffing divergent runs. Append only.</summary>
@@ -42,6 +46,11 @@ public enum DiceId : ushort
     CombatHit = 21,
     CombatDamage = 22,
     ArrivalOrder = 23,
+
+    // 120–139: the four peoples beyond human and vampire (ADR-0022).
+    /// <summary>The day, within their window, someone who comes in their own season arrives (cast.json arrivalDays).</summary>
+    PeopleArrivalDay = 120,
+    PeopleArrivalHour = 121,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>

@@ -8,5 +8,6 @@
   { "key": "sera", "nameKey": "cast.sera.name", "species": "human", "signatureTrait": "independent", "role": "builder", "color": "#b1b972" },
   { "key": "vale", "nameKey": "cast.vale.name", "species": "vampire", "signatureTrait": "anxious", "role": "watcher", "color": "#9d9fca" },
   { "key": "wren", "nameKey": "cast.wren.name", "species": "human", "signatureTrait": "anxious", "role": "forager", "color": "#c7a0a0" },
-  { "key": "hollis", "nameKey": "cast.hollis.name", "species": "human", "signatureTrait": "proud", "role": "builder", "color": "#a0b4c7" }
+  { "key": "hollis", "nameKey": "cast.hollis.name", "species": "human", "signatureTrait": "proud", "role": "builder", "color": "#a0b4c7" },
+  { "key": "ketil", "nameKey": "cast.ketil.name", "species": "undead", "signatureTrait": "oathbound", "role": "watcher", "arrivalDays": [11, 17], "color": "#8b968a" }
 ]

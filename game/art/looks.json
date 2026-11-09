@@ -12,6 +12,7 @@
     "sera":   { "cloth": "#9da96f", "hair": "#705446", "skin": "#a98261", "build": "average", "hairStyle": "tied" },
     "vale":   { "cloth": "#73728f", "hair": "#353341", "skin": "#c8c4c6", "build": "slight",  "hairStyle": "short" },
     "wren":   {                     "hair": "#5d4129", "skin": "#d2b090", "build": "slight",  "hairStyle": "short" },
-    "hollis": {                     "hair": "#423427", "skin": "#8d6649", "build": "tall",    "hairStyle": "cropped", "beard": true }
+    "hollis": {                     "hair": "#423427", "skin": "#8d6649", "build": "tall",    "hairStyle": "cropped", "beard": true },
+    "ketil":  {                     "hair": "#5b574d", "skin": "#a4a698", "build": "tall",    "hairStyle": "long", "beard": true }
   }
 }

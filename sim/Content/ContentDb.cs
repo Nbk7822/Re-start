@@ -114,6 +114,7 @@ public sealed class ContentDb
                 Fail("species.json", $"'{s.Id}' eats '{s.FoodSource}', but M0 only grows, rations, steals and spoils berries (ADR-0018)");
             foreach (string need in s.Needs)
                 if (!_needs.ContainsKey(need)) Fail("species.json", $"'{s.Id}' has unknown need '{need}'");
+            if (s.ArrivalKey.Length > 0) RequireLoc("species.json", s.Id, s.ArrivalKey);
         }
         foreach (TraitDef t in Traits)
         {
@@ -162,6 +163,13 @@ public sealed class ContentDb
             if (!_traits.ContainsKey(c.SignatureTrait)) Fail("cast.json", $"'{c.Key}' references unknown trait '{c.SignatureTrait}'");
             if (!_roles.ContainsKey(c.Role)) Fail("cast.json", $"'{c.Key}' references unknown role '{c.Role}'");
             if (c.Otherworlder) otherworlders++;
+            if (c.ArrivalDays.Length > 0)
+            {
+                int days = w.DaysPerSeason * w.SeasonsPerYear;
+                if (c.StartsInCamp) Fail("cast.json", $"'{c.Key}' starts in the camp, so it cannot also have arrivalDays");
+                else if (c.ArrivalDays.Length != 2 || c.ArrivalDays[0] < 1 || c.ArrivalDays[0] > c.ArrivalDays[1] || c.ArrivalDays[1] > days)
+                    Fail("cast.json", $"'{c.Key}' needs arrivalDays [first, last] with 1 <= first <= last <= {days}");
+            }
         }
         if (otherworlders != 1) Fail("cast.json", $"needs exactly one otherworlder, found {otherworlders}");
     }

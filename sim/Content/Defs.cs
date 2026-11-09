@@ -56,6 +56,12 @@ public sealed class SpeciesDef
     /// <summary>Needs from needs.json that this species' nature adds to food, rest and company (ADR-0022).</summary>
     public List<string> Needs { get; init; } = new();
 
+    /// <summary>For this many days after they arrive, the living take less warmth from talking with them and feel uneasy (the undead).</summary>
+    public int UnsettlesForDays { get; init; }
+
+    /// <summary>How their arrival reads (a loc key with {a}); empty = the wanderer's "hungry and alone".</summary>
+    public string ArrivalKey { get; init; } = "";
+
     public bool DrinksBlood => FoodSource == "blood";
 
     /// <summary>foodSource "none": they eat nothing from the stores and never go hungry (ADR-0022).</summary>
@@ -201,4 +207,10 @@ public sealed class CastDef
     public bool Otherworlder { get; init; }
     public bool StartsInCamp { get; init; }
     public string Color { get; init; } = "#888888";
+
+    /// <summary>
+    /// [first, last] day (as the log numbers them, Day 1 first) of the first year within which they
+    /// arrive, on a day drawn from Dice; empty = shuffled in with the other wanderers (ADR-0022).
+    /// </summary>
+    public int[] ArrivalDays { get; init; } = Array.Empty<int>();
 }

@@ -25,5 +25,21 @@
     "bloodPerFeed": 700,
     "donorHealthCost": 130,
     "donorRestCost": 170
+  },
+  {
+    "id": "undead",
+    "nameKey": "species.undead.name",
+    "foodSource": "none",
+    "foodDecayPerHour": 0,
+    "restDecayPerHour": 0,
+    "socialDecayPerHour": 10,
+    "sleepRestorePerHour": 0,
+    "daylightBurnPerHour": 0,
+    "ticksPerTile": 6,
+    "canDonateBlood": false,
+    "tires": false,
+    "needs": ["purpose"],
+    "unsettlesForDays": 12,
+    "arrivalKey": "event.incident.undead_arrives"
   }
 ]
