@@ -71,7 +71,7 @@ The archived browser demo (`archive/return-demo/`) is the design seed. Its cast,
 | Desperate | May take a reserved meal when critically hungry. |
 | Anxious | Avoids risky work when wounded or exhausted. |
 
-Each character has a signature trait plus one secondary trait drawn from Practical, Generous, Anxious or Independent (Truths stream, never a duplicate). Effects live in `content/traits.json` as modifiers on needs, mood, social odds, work preference and combat choices.
+Each character has a signature trait plus one secondary trait drawn from the other seven (Truths keyed by cast key, never a duplicate). The demo drew from a fixed pool of four (Practical, Generous, Anxious, Independent); restoring that needs a schema field, see ADR-0012. Effects live in `content/traits.json` as modifiers on needs, mood, social odds, work preference and combat choices.
 
 ### 4.6 Relationships
 

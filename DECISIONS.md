@@ -72,3 +72,10 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
 - **Context:** The founder was unhappy with how the demo played (turn-based shifts, an intention button, a dashboard), not with what it was about.
 - **Decision:** M0 keeps the demo's eight cast members, its eight traits and their behaviours, hunger/fatigue/health, vampires' blood need and daylight limit, consent for blood donation, directed trust (now opinion), concrete debts, promises with due dates, the ration policy and its incident set. It replaces shifts with a fixed tick, abstract locations with a tile map and pathfinding, and the intention button with autonomous work driven by needs, traits and priorities. Two new humans bring the cast to ten. The six incidents become: wanderer arrives, rain, food spoils, work accident, night thief, windfall.
 - **Consequences:** The demo's behaviour (e.g. Nia taking a reserved meal, a broken meal promise driving someone away, consensual feeding creating a debt) is a regression target: the soak should be able to produce those stories.
+
+## ADR-0012 — Small M0 implementation calls
+- **Status:** accepted for M0 (2026-11-08); item 2 flagged for founder review.
+- **Decision:**
+  1. Work priorities are keyed by content work id (`"forage"`), not by the `JobKind` enum, so they stay data-driven. `SetWorkPriority` takes a work id.
+  2. A character's secondary trait is drawn from every trait except their signature, instead of the demo's fixed pool of four. Keeping the pool would need a new field in `traits.schema.json` (for example `"secondaryPool": true`), and schema changes need founder approval. If soaks show the wider pool hurts (say, too many Desperate secondaries), propose that field.
+  3. `content/roles.json` (role → default work priorities) was added in Task 3 alongside the other schemas.
