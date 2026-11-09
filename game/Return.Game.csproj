@@ -1,0 +1,20 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+
+  <!-- Return.Game: the Godot view and input layer. It reads Return.Sim state and calls
+       Simulation.Step / Enqueue; it never changes World directly (CLAUDE.md tech constraints). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>Return.Game</RootNamespace>
+    <AssemblyName>Return.Game</AssemblyName>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../sim/Return.Sim.csproj" />
+  </ItemGroup>
+
+</Project>

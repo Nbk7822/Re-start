@@ -28,4 +28,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- The Godot-free half of the view (loc helper, tick clock, view text). Compiled here so it is
+       unit-tested and cannot pick up a Godot dependency; the Godot project compiles the same files. -->
+  <ItemGroup>
+    <Compile Include="../game/scripts/Ui.cs" Link="GameView/Ui.cs" />
+    <Compile Include="../game/scripts/Logic/*.cs" Link="GameView/%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
