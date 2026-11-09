@@ -142,8 +142,9 @@ public static class NeedsSystem
     }
 
     /// <summary>
-    /// Each season opens with an event. Winter stops the bushes bearing, so it becomes the cause of the
-    /// hunger that follows for everyone who eats berries and has no more recent cause.
+    /// Each season opens with an event. Winter's frost strips the bushes (they only trickle until
+    /// spring), so it becomes the cause of the hunger that follows for everyone who eats berries and
+    /// has no more recent cause.
     /// </summary>
     private static void SeasonTurns(World w)
     {
@@ -154,6 +155,7 @@ public static class NeedsSystem
             Array.Empty<int>(), Array.Empty<long>(), null, EventArg.Key("season", def.SeasonKeys[season]));
         w.WinterEvent = lean ? e.Id : 0;
         if (!lean) return;
+        foreach (Bush b in w.Map.Bushes) b.Berries = 0;
         foreach (Character m in w.Members())
             if (m.LastFoodEvent == 0 && w.Content.SpeciesById(m.SpeciesId).FoodSource == "berries") m.LastFoodEvent = e.Id;
     }

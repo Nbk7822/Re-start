@@ -84,6 +84,7 @@ public static class JobRunner
         if (c.Carrying is not { } carry) return;
         Stock.Add(w, carry.DefId, carry.Count, c.Pos);
         c.Carrying = null;
+        Rations.AfterDeposit(w, carry.DefId, c.Pos);
     }
 
     public static void RollAccident(World w, Character c, WorkDef def, long cause)

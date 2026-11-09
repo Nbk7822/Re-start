@@ -8,6 +8,8 @@ public static class Places
 {
     public const int BushMax = 6;
     public const int BushRegrowPerDay = 2;
+    /// <summary>In winter a bush puts out one berry every this many days: a trickle, not a harvest.</summary>
+    public const int WinterRegrowEveryDays = 2;
 
     public static bool Daylight(World w) => Calendar.IsDaylight(w.Tick, w.Content.World);
 

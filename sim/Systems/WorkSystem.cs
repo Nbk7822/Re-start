@@ -60,6 +60,7 @@ public static class WorkSystem
         {
             Stock.Add(w, carry.DefId, carry.Count, c.Pos);
             c.Carrying = null;
+            Rations.AfterDeposit(w, carry.DefId, c.Pos);
         }
         c.Job = null;
         c.Path.Clear();
@@ -79,12 +80,15 @@ public static class WorkSystem
 
     private static void RegrowBushes(World w)
     {
-        if (!Places.GrowingSeason(w)) return;
+        int grow = Places.BushRegrowPerDay;
+        if (!Places.GrowingSeason(w))
+            grow = Calendar.Day(w.Tick, w.Content.World) % Places.WinterRegrowEveryDays == 0 ? 1 : 0;
+        if (grow == 0) return;
         foreach (Bush b in w.Map.Bushes)
-            b.Berries = Math.Min(Places.BushMax, b.Berries + Places.BushRegrowPerDay);
+            b.Berries = Math.Min(Places.BushMax, b.Berries + grow);
     }
 
-    /// <summary>Bushes regrow in every season but the last; exposed for tests.</summary>
+    /// <summary>Bushes regrow fully in every season but the last, and only trickle in winter; exposed for tests.</summary>
     internal static void RegrowForTest(World w)
     {
         RegrowBushes(w);

@@ -92,3 +92,31 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
   - Sun: "sun danger" runs from one hour before dawn until dusk. A vampire outside is pulled off any job to seek cover; a vampire on watch stops at sun danger.
   - Blood: after a refusal a vampire waits 2 h before asking anyone else. Donors refuse while hungry, weak (health below max(600, their risky-work threshold + 100)), in a low mood (< 35), or when their opinion of the vampire is below their consent bias. Each reason has its own log line and cites its cause.
   - Incidents: night thief 12‰ per night hour × pressure / 50, from day 3; food spoils 120‰ at 06:00 × pressure / 50 when the stockpile holds ≥ 4 berries; majors at least 6 h apart and cost 30 pressure.
+  - Added 2026-11-09 (ADR-0014–0017): insults +4‰ per point of the speaker's dislike of the listener and +60‰ per point of bad chemistry; chats warm opinion by (100 + 50 × chemistry)%; newcomers (first 7 days after arriving) leave at an opinion of You 30 points higher (−15); wanderers arrive on days 1–6 (four) and 29–37 (three, shuffled with Dice); winter frost strips the bushes, then one berry per bush every 2 days.
+
+## ADR-0014 — Promises only when fulfilment is uncertain
+- **Status:** accepted for M0 (2026-11-09), lead's call; for founder review.
+- **Context:** Every wanderer was promised a meal on joining and ate within the hour, so 700 of the first soak's 1,428 "stories" were the same instant promise-kept chain. A debt opened and closed in an hour is not a story, and it hid that real stories ran at ~7 per world.
+- **Decision:** A newcomer is promised only what the camp cannot give right now: a meal when spare stock would not give every mouth one; for vampires, a sound roof against the sun when no roof section is mended. Otherwise they are simply welcomed (a Recruitment, not a story by itself). A promised meal is a first claim on food: if food is shared out and the creditor, hungry, is left out, the promise breaks at once (as in the demo, the ration policy decides whether you keep your word). A promised roof is kept when anyone mends a section in time, and repairs made while such a promise is open cite it. The newcomer's food cause becomes the promise, so the hunger that follows chains back to it.
+- **Consequences:** "Broken promise → departure" appears in 40% of soak worlds and "promise kept" is now a promise that was at risk. Promised rest is no longer kept by sleeping in the ruins.
+
+## ADR-0015 — Rationing that bites, and a winter squeeze instead of a cliff
+- **Status:** accepted for M0 (2026-11-09), lead's call; for founder review. Pacing change: the last three wanderers now arrive near winter.
+- **Context:** Reservations existed in 39 of 57,600 world-hours: food delivered between hourly checks went to whoever walked past first, so the ration policy (the player's main lever) almost never mattered, and meal theft (a demo regression story) happened in 1 of 100 worlds. Winter was a cliff: bushes kept their berries into winter, famine hit in the last three days, and "went without so others could eat" fired even when nobody ate.
+- **Decision:** Food reaching the stockpile is shared out at once by the policy. With empty stores nobody "goes without". The Desperate, left out while critically hungry, go straight for a set-aside meal (the theft itself still happens at the stockpile, if the meal is still there). Winter frost strips the bushes, which then trickle one berry every two days. Four wanderers arrive in the first week; the last three arrive on days 29–37 in an order shuffled with Dice (new draw tag `DiceId.ArrivalOrder`).
+- **Consequences:** Winter is a ten-day half-rations squeeze in which the policy decides who eats. Meal theft → grudge appears in 67% of soak worlds.
+
+## ADR-0016 — Pair chemistry is a Truth; dislike feeds insults
+- **Status:** implemented provisionally (2026-11-09); **needs founder approval** because it adds a Truth draw (`TruthId.PairChemistry`), which touches the determinism surface (additively: no existing draw changes).
+- **Context:** Insults landed on whoever was nearest and chats nudged every opinion up, so opinions converged on mild liking and grudges formed in 6 of 100 worlds.
+- **Decision:** Each pair has a chemistry from −2 to +2 (10/20/40/20/10%), a stateless Truth keyed by the pair's cast keys: symmetric, order-independent, rewind-proof, so a player who dies learns who clashes with whom. Bad chemistry adds 60‰ per point to insult odds; chemistry scales the warmth of a chat by (100 + 50 × chemistry)%. Insult odds also rise 4‰ per point of the speaker's dislike of the listener, so feuds feed themselves. Newcomers in their first week leave at an opinion 30 points higher.
+- **Consequences:** Grudges form in 88% of worlds. Of 227 grudges in a 100-world soak, 115 came from meal theft, 49 from broken promises, 7 from abandonment in a fight, 2 from refusals and 54 from insults.
+
+## ADR-0017 — Counting and telling stories honestly
+- **Status:** accepted for M0 (2026-11-09).
+- **Decision:**
+  1. One arc is one story: a story whose ending lies inside another story's chain (a broken promise inside "...broke the promise, held a grudge, left") is not counted again.
+  2. The headless runner has a stand-in player that sets one of the three ration policies on the first tick, chosen by seed, so a soak exercises every policy's stories. `run` and `soak` share it.
+  3. The story log folds a run of identical steps that differ only in one person ("… and the same with Bram, Nia, Mira, until Day 40, 04:00"), and uses singular item names for one.
+  4. The player speaks in second person: `World.PlayerId` names the player, and event text picks `<key>_you_<arg>` templates when the player fills that placeholder ("You were hurt", "Mira tended your wounds"). Rival otherworlders, later, are not the player.
+- **Consequences:** The honest count is 9.1 stories per world-year (10.3 if nested sub-stories counted), from 14 distinct system sets; every world has at least 4.

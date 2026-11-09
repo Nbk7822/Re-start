@@ -39,6 +39,26 @@ public class StoryAnalyzerTests
     }
 
     [Fact]
+    public void OneArcIsOneStory()
+    {
+        // arrival -> went without -> promise broken -> grudge -> left: three persistent changes, one story
+        var events = new[]
+        {
+            E(1, SystemTag.Incident, new[] { 1 }, Array.Empty<long>()),
+            E(2, SystemTag.Needs, new[] { 1 }, new long[] { 1 }),
+            E(3, SystemTag.Social, new[] { 2, 1 }, new long[] { 2 }, persistent: true),
+            E(4, SystemTag.Social, new[] { 1, 2 }, new long[] { 3 }, persistent: true),
+            E(5, SystemTag.Social, new[] { 1 }, new long[] { 4 }, persistent: true),
+            // a separate arc that branches from the same arrival is still its own story
+            E(6, SystemTag.Needs, new[] { 1 }, new long[] { 1 }),
+            E(7, SystemTag.Work, new[] { 3, 1 }, new long[] { 6 }, persistent: true),
+        };
+        IReadOnlyList<Story> stories = StoryAnalyzer.Find(events, Named);
+        Assert.Equal(new long[] { 5, 7 }, stories.Select(s => s.TerminalEventId));
+        Assert.Equal(new long[] { 1, 2, 3, 4, 5 }, stories[0].Chain);
+    }
+
+    [Fact]
     public void RejectsSingleSystemChain()
     {
         var events = new[]
@@ -162,6 +182,15 @@ public class StateApiTests
         Assert.Equal("You, hungry yourself, refused to give Ilex blood.", Say("event.social.blood_refused_hungry", EventArg.Char("a", ilex), EventArg.Char("b", you)));
         Assert.Equal("Ilex asked you for blood.", Say("event.social.blood_request", EventArg.Char("a", ilex), EventArg.Char("b", you)));
         Assert.Equal("Your priority for Forage is now 2.", Say("event.world.work_priority", EventArg.Char("a", you), EventArg.Key("work", "work.forage.name"), EventArg.Num("n", 2)));
+    }
+
+    [Fact]
+    public void EventTextUsesTheSingularForOne()
+    {
+        World w = WorldGen.Create(TestContent.Db, 2);
+        string Say(int n) => EventText.Describe(w, new SimEvent { Key = "event.incident.stolen", Args = { EventArg.Num("n", n), EventArg.Item("item", "berries") } });
+        Assert.Equal("A thief made off with 1 berry.", Say(1));
+        Assert.Equal("A thief made off with 3 berries.", Say(3));
     }
 
     /// <summary>Every second-person variant belongs to a real key and only names placeholders that key's events carry.</summary>

@@ -13,6 +13,7 @@ public enum TruthId : ushort
     BushPlacement = 5,
     CampPlacement = 6,
     SecondaryTrait = 7,
+    PairChemistry = 8,
 }
 
 /// <summary>Tags for Dice draws, used for diffing divergent runs. Append only.</summary>
@@ -40,6 +41,7 @@ public enum DiceId : ushort
     AccidentDamage = 20,
     CombatHit = 21,
     CombatDamage = 22,
+    ArrivalOrder = 23,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>

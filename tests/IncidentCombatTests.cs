@@ -105,6 +105,7 @@ public class IncidentCombatTests
         World w = WorkTests.Only(1, "you");
         Character you = Cast(w, "you"), wren = Cast(w, "wren");
         Assert.Equal(CharStatus.OffMap, wren.Status);
+        Stock.Take(w, "berries", 99);
 
         SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: wren.Id)!;
         Assert.Equal(SystemTag.Incident, arrived.System);
@@ -123,6 +124,59 @@ public class IncidentCombatTests
         Assert.Contains(arrived.Id, joined.Causes);
         Assert.Contains(joined.Effects, f => f.Kind == EffectKind.Recruitment && f.A == wren.Id);
         Assert.Contains(joined.Effects, f => f.Kind == EffectKind.DebtFormed && f.A == you.Id && f.B == wren.Id && f.RefId == promise.Id);
+    }
+
+    [Fact]
+    public void WandererIsWelcomedWithoutPromiseWhenFoodIsSpare()
+    {
+        World w = WorkTests.Only(1, "you");
+        Character you = Cast(w, "you"), wren = Cast(w, "wren");
+        Stock.Add(w, "berries", 5, w.Map.Stockpile.Center);
+        SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: wren.Id)!;
+        SimEvent joined = IncidentSystem.Join(w, wren, arrived.Id);
+        Assert.Equal("event.social.joined", joined.Key);
+        Assert.Equal("You welcomed Wren into the camp.", Return.Sim.Api.EventText.Describe(w, joined));
+        Assert.Contains(joined.Effects, f => f.Kind == EffectKind.Recruitment && f.A == wren.Id && f.B == you.Id);
+        Assert.DoesNotContain(joined.Effects, f => f.Kind == EffectKind.DebtFormed);
+        Assert.Empty(w.Debts);
+    }
+
+    [Fact]
+    public void RoofPromiseIsKeptWhenTheRoofIsMended()
+    {
+        World w = WorkTests.Only(1, "you", "oren");
+        w.Tick = Hours(w, 20);
+        Character you = Cast(w, "you"), oren = Cast(w, "oren"), vale = Cast(w, "vale");
+        Assert.DoesNotContain(w.Map.Roof, r => r.Sound);
+        SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: vale.Id)!;
+        SimEvent joined = IncidentSystem.Join(w, vale, arrived.Id);
+        Debt promise = Assert.Single(w.Debts);
+        Assert.Equal(DebtKind.PromiseRest, promise.Kind);
+        Assert.Equal(you.Id, promise.DebtorId);
+
+        Stock.Add(w, "timber", w.Content.WorkById("repair_roof").TimberCost, w.Map.Stockpile.Center);
+        oren.Priorities.RemoveAll(p => p.WorkId == "repair_roof");
+        oren.Priorities.Add(new WorkPriority { WorkId = "repair_roof", Priority = 1 });
+        Run(w, 6_000, () => promise.Status != DebtStatus.Open);
+
+        Assert.Equal(DebtStatus.Repaid, promise.Status);
+        SimEvent kept = w.Log.Get(promise.ClosedEvent)!;
+        Assert.Equal("event.social.promise_kept", kept.Key);
+        SimEvent mended = w.Log.All.First(e => e.Key == "event.work.roof_repaired");
+        Assert.Contains(mended.Id, kept.Causes);
+        Assert.Contains(joined.Id, mended.Causes);
+        Assert.Contains(arrived.Id, NeedsMoodTests.Ancestors(w, kept.Id));
+    }
+
+    [Fact]
+    public void VampireIsWelcomedWithoutPromiseUnderASoundRoof()
+    {
+        World w = WorkTests.Only(1, "you");
+        w.Map.Roof[0].Sound = true;
+        Character ilex = Cast(w, "ilex");
+        SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: ilex.Id)!;
+        Assert.Equal("event.social.joined", IncidentSystem.Join(w, ilex, arrived.Id).Key);
+        Assert.Empty(w.Debts);
     }
 
     [Fact]

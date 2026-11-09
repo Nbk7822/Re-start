@@ -223,6 +223,7 @@ public static class Soak
         try
         {
             sim = Simulation.Create(content, seed);
+            Autoplay.Begin(sim);
             sim.Advance(StoryLog.TicksFor(content.World, years));
             World w = sim.World;
             LogAnalysis analysis = StoryLog.Analyze(w);

@@ -53,7 +53,9 @@ public class WorldGenTests
             Assert.NotEqual(c.Traits[0], c.Traits[1]);
         }
         Assert.Equal(7, w.Arrivals.Count);
-        Assert.All(w.Arrivals, a => Assert.InRange(Calendar.Day(a.Tick, w.Content.World), 1, 12));
+        int[] days = w.Arrivals.Select(a => Calendar.Day(a.Tick, w.Content.World)).OrderBy(d => d).ToArray();
+        Assert.All(days.Take(4), d => Assert.InRange(d, 1, 7));
+        Assert.All(days.Skip(4), d => Assert.InRange(d, 29, 39));
     }
 
     [Fact]

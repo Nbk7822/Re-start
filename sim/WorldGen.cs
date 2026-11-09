@@ -17,6 +17,8 @@ public static class WorldGen
     private const int BushClusters = 3;
     private const int BushesPerCluster = 4;
     private const int StartBerriesOnBush = 4;
+    private const int LateArrivals = 3;
+    private const int LateArrivalDay = 29;
 
     public static World Create(ContentDb content, ulong seed)
     {
@@ -232,21 +234,34 @@ public static class WorldGen
         return centre;
     }
 
+    /// <summary>
+    /// Most wanderers turn up in the first week; the last few come as autumn turns to winter, when the
+    /// camp may not be able to feed them (ADR-0014). Who comes when is shuffled with Dice.
+    /// </summary>
     private static void ScheduleArrivals(World w)
     {
         WorldDef def = w.Content.World;
         DiceStream dice = w.Rng.Dice[DiceSystem.World];
-        int i = 0;
+        var waiting = new List<Character>();
         foreach (Character c in w.Characters)
+            if (c.Status == CharStatus.OffMap) waiting.Add(c);
+        for (int k = waiting.Count - 1; k > 0; k--)
         {
-            if (c.Status != CharStatus.OffMap) continue;
-            int day = 1 + i * 3 / 2 + dice.Range(DiceId.ArrivalDay, 0, 2);
+            int j = dice.Range(DiceId.ArrivalOrder, 0, k + 1);
+            (waiting[k], waiting[j]) = (waiting[j], waiting[k]);
+        }
+        int early = Math.Max(0, waiting.Count - LateArrivals);
+        for (int i = 0; i < waiting.Count; i++)
+        {
+            Character c = waiting[i];
+            int day = i < early
+                ? 1 + i * 3 / 2 + dice.Range(DiceId.ArrivalDay, 0, 2)
+                : LateArrivalDay + (i - early) * 3 + dice.Range(DiceId.ArrivalDay, 0, 3);
             bool burns = w.Content.SpeciesById(c.SpeciesId).DaylightBurnPerHour > 0;
             int hour = burns
                 ? (def.DuskHour + 1 + dice.Range(DiceId.ArrivalHour, 0, 6)) % def.HoursPerDay
                 : dice.Range(DiceId.ArrivalHour, 8, 18);
             w.Arrivals.Add(new Arrival { CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour });
-            i++;
         }
     }
 }

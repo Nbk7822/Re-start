@@ -28,10 +28,11 @@ public static class StoryLog
         Render(w, Analyze(w), writer);
     }
 
-    /// <summary>Creates the world for a seed and runs it for whole years. `run` and `soak` both use this.</summary>
+    /// <summary>Creates the world for a seed, lets the stand-in player set its ration policy, and runs it for whole years. `run` and `soak` both use this.</summary>
     internal static Simulation Simulate(ContentDb content, ulong seed, int years)
     {
         Simulation sim = Simulation.Create(content, seed);
+        Autoplay.Begin(sim);
         sim.Advance(TicksFor(content.World, years));
         return sim;
     }
@@ -67,6 +68,63 @@ public static class StoryLog
         WriteStories(w, loc, analysis.Stories, writer);
         Line(writer, Format(loc, "log.counts",
             ("events", Num(w.Log.All.Count)), ("notable", Num(analysis.Notable.Count)), ("stories", Num(analysis.Stories.Count))));
+    }
+
+    /// <summary>
+    /// The run of identical steps starting at <paramref name="start"/>: a unit of one or two events that
+    /// repeats with only one character changing (Ilex asks Nia, Nia refuses; Ilex asks Mira, Mira
+    /// refuses...). Returns the unit length, how many times it occurs (1 = no run worth folding) and
+    /// the placeholder that changes. A run is folded only from three occurrences on.
+    /// </summary>
+    internal static (int Unit, int Repeats, string Arg) Repetition(IReadOnlyList<SimEvent> chain, int start)
+    {
+        for (int unit = 1; unit <= 2; unit++)
+        {
+            if (start + 3 * unit > chain.Count) break;
+            string? arg = ChangingArg(chain, start, start + unit, unit);
+            if (arg == null || !AboutOnePerson(chain, start, unit, arg) || !AboutOnePerson(chain, start + unit, unit, arg)) continue;
+            int repeats = 2;
+            while (start + (repeats + 1) * unit <= chain.Count && ChangingArg(chain, start, start + repeats * unit, unit) == arg
+                   && AboutOnePerson(chain, start + repeats * unit, unit, arg)) repeats++;
+            if (repeats >= 3) return (unit, repeats, arg);
+        }
+        return (1, 1, "");
+    }
+
+    /// <summary>The one character placeholder whose value differs between two units (the same one in every event of the unit), or null.</summary>
+    private static string? ChangingArg(IReadOnlyList<SimEvent> chain, int a, int b, int unit)
+    {
+        string? changing = null;
+        for (int u = 0; u < unit; u++)
+        {
+            SimEvent x = chain[a + u], y = chain[b + u];
+            if (x.Key != y.Key || x.Args.Count != y.Args.Count) return null;
+            for (int i = 0; i < x.Args.Count; i++)
+            {
+                if (x.Args[i].Name != y.Args[i].Name) return null;
+                if (x.Args[i].Value == y.Args[i].Value) continue;
+                if (!x.Args[i].Value.StartsWith("c:", StringComparison.Ordinal)) return null;
+                if (changing != null && changing != x.Args[i].Name) return null;
+                changing = x.Args[i].Name;
+            }
+        }
+        return changing;
+    }
+
+    /// <summary>Every event in the unit names the same person in the changing placeholder ("Ilex asked Nia", "Nia refused").</summary>
+    private static bool AboutOnePerson(IReadOnlyList<SimEvent> chain, int start, int unit, string arg)
+    {
+        string first = ArgValue(chain[start], arg);
+        for (int u = 1; u < unit; u++)
+            if (ArgValue(chain[start + u], arg) != first) return false;
+        return true;
+    }
+
+    private static string ArgValue(SimEvent e, string name)
+    {
+        foreach (EventArg a in e.Args)
+            if (a.Name == name) return a.Value;
+        return "";
     }
 
     internal static string SystemKey(SystemTag system) => "log.system." + Names.Snake(system.ToString());
@@ -141,12 +199,28 @@ public static class StoryLog
             Story story = stories[n];
             if (n > 0) Line(o);
             Line(o, Indent + Format(loc, "log.story.heading", ("n", Num(n + 1))));
-            for (int k = 0; k < story.Chain.Count; k++)
+            var chain = new List<SimEvent>(story.Chain.Count);
+            foreach (long id in story.Chain)
+                chain.Add(w.Log.Get(id) ?? throw new InvalidOperationException($"Story {n + 1} cites event {id}, which is not in the log."));
+            int step = 0;
+            for (int k = 0; k < chain.Count;)
             {
-                SimEvent e = w.Log.Get(story.Chain[k])
-                    ?? throw new InvalidOperationException($"Story {n + 1} cites event {story.Chain[k]}, which is not in the log.");
-                Line(o, Indent + Indent + Format(loc, "log.story.step",
-                    ("n", Num(k + 1)), ("when", EventText.When(w, e.Tick)), ("text", EventText.Describe(w, e))));
+                (int unit, int repeats, string arg) = Repetition(chain, k);
+                for (int u = 0; u < unit; u++)
+                {
+                    SimEvent e = chain[k + u];
+                    Line(o, Indent + Indent + Format(loc, "log.story.step",
+                        ("n", Num(++step)), ("when", EventText.When(w, e.Tick)), ("text", EventText.Describe(w, e))));
+                }
+                if (repeats > 1)
+                {
+                    var others = new List<string>(repeats - 1);
+                    for (int r = 1; r < repeats; r++) others.Add(EventText.Resolve(w, ArgValue(chain[k + r * unit], arg)));
+                    SimEvent last = chain[k + repeats * unit - 1];
+                    Line(o, Indent + Indent + Indent + Format(loc, "log.story.repeat",
+                        ("names", List(loc, others)), ("when", EventText.When(w, last.Tick))));
+                }
+                k += unit * repeats;
             }
             var systems = new List<string>(story.Systems.Count);
             foreach (SystemTag t in story.Systems) systems.Add(loc.Get(SystemKey(t)));

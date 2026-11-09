@@ -49,6 +49,75 @@ public class RunnerTests
     }
 
     [Fact]
+    public void StoryLogFoldsARunOfTheSameStepsWithDifferentPeople()
+    {
+        var sim = Simulation.Create(TestContent.Db, 1);
+        World w = sim.World;
+        w.Log = new EventLog();
+        int Id(string key) => w.Characters.First(c => c.CastKey == key).Id;
+        int ilex = Id("ilex");
+        foreach (string key in new[] { "ilex", "bram", "nia", "mira", "oren" }) w.Get(Id(key)).Status = CharStatus.Member;
+
+        w.Tick = 7_200;
+        long last = w.Log.Emit(w, SystemTag.Needs, "event.needs.thirsting", new[] { ilex }, Array.Empty<long>(), null, EventArg.Char("a", ilex)).Id;
+        foreach (string donor in new[] { "you", "bram", "nia", "mira" })
+        {
+            w.Tick += 300;
+            long ask = w.Log.Emit(w, SystemTag.Social, "event.social.blood_request", new[] { ilex, Id(donor) }, new[] { last }, null,
+                EventArg.Char("a", ilex), EventArg.Char("b", Id(donor))).Id;
+            last = w.Log.Emit(w, SystemTag.Social, "event.social.blood_refused_hungry", new[] { ilex, Id(donor) }, new[] { ask }, null,
+                EventArg.Char("a", ilex), EventArg.Char("b", Id(donor))).Id;
+        }
+        w.Tick += 300;
+        w.Log.Emit(w, SystemTag.Social, "event.social.left_camp", new[] { ilex }, new[] { last },
+            new[] { new Effect { Kind = EffectKind.Departure, A = ilex } }, EventArg.Char("a", ilex));
+
+        var text = new StringWriter();
+        StoryLog.Write(sim, text);
+        Assert.Contains(
+            "  Story 1\n" +
+            "    1. Day 2, 00:00 — Ilex is thirsting for blood.\n" +
+            "    2. Day 2, 01:00 — Ilex asked you for blood.\n" +
+            "    3. Day 2, 01:00 — You, hungry yourself, refused to give Ilex blood.\n" +
+            "      … and the same with Bram, Nia, Mira, until Day 2, 04:00.\n" +
+            "    4. Day 2, 05:00 — Ilex left the camp.\n", text.ToString());
+    }
+
+    [Fact]
+    public void StoryLogFoldsOnlyStepsAboutOnePersonAtATime()
+    {
+        var sim = Simulation.Create(TestContent.Db, 1);
+        World w = sim.World;
+        w.Log = new EventLog();
+        int Id(string key) => w.Characters.First(c => c.CastKey == key).Id;
+        int ilex = Id("ilex");
+        w.Tick = 7_200;
+        long last = w.Log.Emit(w, SystemTag.Needs, "event.needs.thirsting", new[] { ilex }, Array.Empty<long>(), null, EventArg.Char("a", ilex)).Id;
+        // The chain opens with a refusal, so a two-step unit starting there would straddle two people.
+        last = w.Log.Emit(w, SystemTag.Social, "event.social.blood_refused", new[] { ilex, Id("wren") }, new[] { last }, null,
+            EventArg.Char("a", ilex), EventArg.Char("b", Id("wren"))).Id;
+        foreach (string donor in new[] { "bram", "mira", "oren" })
+        {
+            w.Tick += 300;
+            long ask = w.Log.Emit(w, SystemTag.Social, "event.social.blood_request", new[] { ilex, Id(donor) }, new[] { last }, null,
+                EventArg.Char("a", ilex), EventArg.Char("b", Id(donor))).Id;
+            last = w.Log.Emit(w, SystemTag.Social, "event.social.blood_refused", new[] { ilex, Id(donor) }, new[] { ask }, null,
+                EventArg.Char("a", ilex), EventArg.Char("b", Id(donor))).Id;
+        }
+        w.Log.Emit(w, SystemTag.Social, "event.social.left_camp", new[] { ilex }, new[] { last },
+            new[] { new Effect { Kind = EffectKind.Departure, A = ilex } }, EventArg.Char("a", ilex));
+
+        var text = new StringWriter();
+        StoryLog.Write(sim, text);
+        Assert.Contains(
+            "    2. Day 2, 00:00 — Wren refused to give Ilex blood.\n" +
+            "    3. Day 2, 01:00 — Ilex asked Bram for blood.\n" +
+            "    4. Day 2, 01:00 — Bram refused to give Ilex blood.\n" +
+            "      … and the same with Mira, Oren, until Day 2, 03:00.\n" +
+            "    5. Day 2, 03:00 — Ilex left the camp.\n", text.ToString());
+    }
+
+    [Fact]
     public void StoryLogListsNotableEventsAndStories()
     {
         // The sim is never stepped and starts from an empty history, so the log holds exactly the

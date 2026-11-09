@@ -23,9 +23,14 @@ public static class EventText
         string key = SecondPersonKey(w, e) ?? e.Key;
         string template = loc.Get(key);
         var args = new List<KeyValuePair<string, string>>(e.Args.Count);
+        bool single = false;
+        foreach (EventArg a in e.Args)
+            if (a.Name == "n" && a.Value == "n:1") single = true;
         foreach (EventArg a in e.Args)
         {
             string value = Resolve(w, a.Value);
+            if (single && a.Value.StartsWith("i:", StringComparison.Ordinal) && w.Content.TryItem(a.Value.Substring(2)) is { } item && loc.Has(item.NameKey + "_one"))
+                value = loc.Get(item.NameKey + "_one");
             if (a.Value.StartsWith("c:", StringComparison.Ordinal) && !template.StartsWith("{" + a.Name + "}", StringComparison.Ordinal)
                 && int.TryParse(a.Value.AsSpan(2), NumberStyles.Integer, Inv, out int id) && w.Find(id) is { } c && loc.Has(c.NameKey + "_mid"))
                 value = loc.Get(c.NameKey + "_mid");

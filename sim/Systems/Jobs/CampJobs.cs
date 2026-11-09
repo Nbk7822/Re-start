@@ -114,9 +114,11 @@ public static class CampJobs
                 section.Sound = true;
                 c.Carrying = null;
                 int sound = w.Map.Roof.FindAll(r => r.Sound).Count;
-                SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.roof_repaired", new[] { c.Id }, Array.Empty<long>(),
+                SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.roof_repaired", new[] { c.Id }, new[] { j.CauseEvent },
                     EventArg.Char("a", c.Id), EventArg.Num("n", sound), EventArg.Num("total", w.Map.Roof.Count));
                 foreach (Character m in w.Members()) MoodSystem.AddThought(w, m, "roof_sound", 0, e.Id);
+                foreach (Debt d in w.Debts)
+                    if (d.Status == DebtStatus.Open && d.Kind == DebtKind.PromiseRest) Relations.Repay(w, d, e.Id);
                 JobRunner.RollAccident(w, c, def, e.Id);
                 return true;
             }

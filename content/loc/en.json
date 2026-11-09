@@ -25,6 +25,7 @@
   "trait.anxious.desc": "Avoids risky work when wounded or exhausted.",
 
   "item.berries.name": "berries",
+  "item.berries.name_one": "berry",
   "item.timber.name": "timber",
 
   "work.forage.name": "Forage",
@@ -132,7 +133,7 @@
   "debt.meal": "a meal",
   "debt.rescue": "a rescue",
   "debt.promise_meal": "a promised meal",
-  "debt.promise_rest": "promised safe rest",
+  "debt.promise_rest": "a promised sound roof",
   "debt_status.open": "open",
   "debt_status.repaid": "repaid",
   "debt_status.broken": "broken",
@@ -193,8 +194,9 @@
   "event.combat.thief_killed": "The thief was killed.",
 
   "event.social.joined_promised_meal": "{a} agreed to stay after {b} promised them a meal within two days.",
-  "event.social.joined_promised_rest": "{a} agreed to stay after {b} promised them safe rest within two days.",
+  "event.social.joined_promised_rest": "{a} agreed to stay after {b} promised them a sound roof against the sun within two days.",
   "event.social.joined_alone": "{a} settled in the empty camp.",
+  "event.social.joined": "{b} welcomed {a} into the camp.",
   "event.work.rescued": "{a} carried {b} to safety.",
 
   "event.work.foraged": "{a} picked {n} {item}.",
@@ -204,7 +206,6 @@
   "event.work.cared_for_you_b": "{a} tended your wounds.",
   "event.work.gave_blood": "{a} gave blood to {b}.",
   "event.work.shared_meal": "{a} brought {b} a meal.",
-  "event.work.rested_safely": "{a} slept safely under cover.",
 
   "event.social.blood_request": "{a} asked {b} for blood.",
   "event.social.blood_refused": "{b} refused to give {a} blood.",
@@ -223,7 +224,7 @@
   "event.social.grudge_ended": "{a} let go of their grudge against {b}.",
   "event.social.grudge_ended_you_a": "{a} let go of your grudge against {b}.",
   "event.social.promised_meal": "{a} promised {b} a meal within two days.",
-  "event.social.promised_rest": "{a} promised {b} safe rest within two days.",
+  "event.social.promised_rest": "{a} promised {b} a sound roof against the sun within two days.",
   "event.social.owes_care": "{a} owes {b} for tending their wounds.",
   "event.social.owes_care_you_a": "{a} owe {b} for tending your wounds.",
   "event.social.owes_blood": "{a} owes {b} for the blood.",
@@ -241,7 +242,7 @@
   "event.social.left_camp": "{a} left the camp.",
 
   "event.world.season_begins": "{season} began.",
-  "event.world.winter_begins": "Winter came, and the berry bushes stopped bearing.",
+  "event.world.winter_begins": "Winter came, and frost took the berries from the bushes.",
   "event.world.ration_policy": "You decided that when food runs short, {policy}.",
   "event.world.work_priority": "{a}'s priority for {work} is now {n}.",
   "event.world.work_priority_you_a": "Your priority for {work} is now {n}.",

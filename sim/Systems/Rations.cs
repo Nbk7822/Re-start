@@ -24,7 +24,7 @@ public static class Rations
         }
         if (food == null || eaters.Count == 0) return;
         int stock = Stock.Count(w, food);
-        if (stock >= eaters.Count) return;
+        if (stock >= eaters.Count || stock == 0) return; // with nothing to share out, nobody goes without "so others could eat"
 
         eaters.Sort((a, b) => Compare(w, a, b));
         for (int i = 0; i < eaters.Count; i++)
@@ -35,12 +35,55 @@ public static class Rations
                 w.Reservations.Add(new Reservation { CharacterId = c.Id, Count = 1 });
                 continue;
             }
-            if (c.SkippedRation) continue;
-            SimEvent e = w.Log.Emit(w, SystemTag.Needs, "event.needs.went_without", new[] { c.Id },
-                new[] { w.PolicyEvent, c.LastFoodEvent }, null, EventArg.Char("a", c.Id));
-            c.SkippedRation = true;
-            c.LastFoodEvent = e.Id;
+            if (!c.SkippedRation)
+            {
+                SimEvent e = w.Log.Emit(w, SystemTag.Needs, "event.needs.went_without", new[] { c.Id },
+                    new[] { w.PolicyEvent, c.LastFoodEvent }, null, EventArg.Char("a", c.Id));
+                c.SkippedRation = true;
+                c.LastFoodEvent = e.Id;
+            }
+            BreakMealPromisesTo(w, c);
+            TakeSomeoneElsesShare(w, c, food);
         }
+    }
+
+    /// <summary>A promised meal is a first claim on food: sharing food out and leaving its creditor out while they are hungry breaks it (as in the demo).</summary>
+    private static void BreakMealPromisesTo(World w, Character c)
+    {
+        if (c.HungerStage < 1) return;
+        foreach (Debt d in w.Debts)
+            if (d.Status == DebtStatus.Open && d.Kind == DebtKind.PromiseMeal && d.CreditorId == c.Id)
+                Relations.Break(w, d, c.LastFoodEvent);
+    }
+
+    /// <summary>
+    /// The Desperate, left out while critically hungry, go straight for a meal set aside for someone
+    /// else (the theft itself happens at the stockpile, in the Eat job, if the meal is still there).
+    /// </summary>
+    private static void TakeSomeoneElsesShare(World w, Character c, string food)
+    {
+        if (c.Asleep || c.Carrying != null || c.Food >= Traits.Max(w, c, t => t.StealFoodBelow)) return;
+        if (c.Job is { Kind: JobKind.Eat or JobKind.Fight or JobKind.Flee or JobKind.Rescue or JobKind.Arrive }) return;
+        Core.Point tile = Places.FoodTile(w, food);
+        if (tile == Core.Point.None) return;
+        foreach (Reservation r in w.Reservations)
+        {
+            if (r.CharacterId == c.Id || r.Count <= 0) continue;
+            WorkSystem.Drop(w, c);
+            c.Job = new Job { Kind = JobKind.Eat, Target = tile, TargetId = r.CharacterId, StartedTick = w.Tick, CauseEvent = c.LastFoodEvent };
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Food reaching the stockpile is shared out at once, so the policy decides who eats it rather than
+    /// whoever walks past first before the next hourly check.
+    /// </summary>
+    public static void AfterDeposit(World w, string defId, Core.Point at)
+    {
+        if (!w.Map.Stockpile.Contains(at)) return;
+        foreach (Character c in w.Members())
+            if (w.Content.SpeciesById(c.SpeciesId).FoodSource == defId) { Assign(w); return; }
     }
 
     public static int Reserved(World w)

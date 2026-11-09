@@ -1,3 +1,4 @@
+using Return.Sim.Core;
 using Return.Sim.Events;
 
 namespace Return.Sim.Systems;
@@ -9,6 +10,21 @@ namespace Return.Sim.Systems;
 /// </summary>
 public static class Relations
 {
+    /// <summary>
+    /// How well two people get on by nature, from -2 (they grate on each other) to +2 (they click).
+    /// A Truth keyed by the pair's cast keys, so it is symmetric, order-independent and survives rewinds.
+    /// Weights: -2 10%, -1 20%, 0 40%, +1 20%, +2 10%.
+    /// </summary>
+    public static int Chemistry(World w, Character a, Character b)
+    {
+        ulong ka = NatureKey(a), kb = NatureKey(b);
+        ulong pair = ka < kb ? Mix64.Combine(ka, kb) : Mix64.Combine(kb, ka);
+        int roll = w.Rng.Truths.Range(TruthId.PairChemistry, pair, 0, 0, 100);
+        return roll < 10 ? -2 : roll < 30 ? -1 : roll < 70 ? 0 : roll < 90 ? 1 : 2;
+    }
+
+    private static ulong NatureKey(Character c) => c.CastKey.Length > 0 ? Fnv1a.Hash64(c.CastKey) : (ulong)c.Id;
+
     public static int Opinion(World w, int fromId, int toId)
     {
         Character? from = w.Find(fromId);

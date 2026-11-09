@@ -16,10 +16,14 @@ public static class SocialSystem
     public const int BaseInsultPermille = 30;
     public const int LowMoodInsultPermille = 250;
     public const int GrudgeInsultPermille = 300;
+    public const int DislikeInsultPermillePerPoint = 4;
+    public const int ClashInsultPermille = 60;
     public const int DeepTalkPermille = 300;
     public const int GrudgeAtOpinion = -40;
     public const int LeaveAtOpinion = -45;
     public const int StarvingLeaveHours = 24;
+    public const int NewcomerDays = 7;
+    public const int NewcomerLeaveSlack = 30;
     public const int StarvingLeaveMood = 20;
 
     public static void Step(World w)
@@ -34,7 +38,10 @@ public static class SocialSystem
             if (partner == null) continue;
 
             Grudge? grudge = Relations.ActiveGrudge(w, c.Id, partner.Id);
-            int insult = BaseInsultPermille + Traits.Sum(w, c, t => t.InsultPermilleAdd)
+            int chemistry = Relations.Chemistry(w, c, partner);
+            int dislike = Math.Max(0, -Relations.Opinion(w, c.Id, partner.Id));
+            int insult = BaseInsultPermille + Traits.Sum(w, c, t => t.InsultPermilleAdd) + dislike * DislikeInsultPermillePerPoint
+                + Math.Max(0, -chemistry) * ClashInsultPermille
                 + (c.Mood < 25 ? LowMoodInsultPermille : 0) + (grudge != null ? GrudgeInsultPermille : 0);
             if (dice.Chance(DiceId.SocialInsult, Math.Clamp(insult, 0, 1000)))
             {
@@ -51,8 +58,9 @@ public static class SocialSystem
             }
             else
             {
-                MoodSystem.AddThought(w, c, "chatted", partner.Id, 0);
-                MoodSystem.AddThought(w, partner, "chatted", c.Id, 0);
+                int warmth = 100 + 50 * chemistry;
+                MoodSystem.AddThought(w, c, "chatted", partner.Id, 0, warmth);
+                MoodSystem.AddThought(w, partner, "chatted", c.Id, 0, warmth);
                 c.Social = Math.Min(1000, c.Social + 150);
                 partner.Social = Math.Min(1000, partner.Social + 150);
             }
@@ -124,7 +132,9 @@ public static class SocialSystem
         {
             if (c.Status != CharStatus.Member || c.Id == w.PlayerId || c.Downed) continue;
             long cause = 0;
-            if (leader != null && Relations.Opinion(w, c.Id, leader.Id) <= LeaveAtOpinion)
+            bool newcomer = c.ArrivedTick > 0 && w.Tick - c.ArrivedTick < (long)NewcomerDays * w.Content.World.TicksPerDay;
+            int leaveAt = LeaveAtOpinion + (newcomer ? NewcomerLeaveSlack : 0);
+            if (leader != null && Relations.Opinion(w, c.Id, leader.Id) <= leaveAt)
             {
                 Grudge? grudge = Relations.ActiveGrudge(w, c.Id, leader.Id);
                 if (grudge != null) cause = grudge.FormedEvent;

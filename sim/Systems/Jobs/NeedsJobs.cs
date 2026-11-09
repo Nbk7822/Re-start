@@ -56,19 +56,7 @@ public static class NeedsJobs
         c.Asleep = false;
         bool covered = w.Map.Covered(c.Pos);
         MoodSystem.AddThought(w, c, covered ? "slept_in_shelter" : "slept_outside", 0, 0);
-        if (covered) KeepRestPromises(w, c);
         return true;
-    }
-
-    /// <summary>A promise of protected rest is kept the first time its creditor sleeps under cover.</summary>
-    private static void KeepRestPromises(World w, Character c)
-    {
-        foreach (Debt d in w.Debts)
-        {
-            if (d.Status != DebtStatus.Open || d.Kind != DebtKind.PromiseRest || d.CreditorId != c.Id) continue;
-            SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.rested_safely", new[] { c.Id }, new[] { d.FormedEvent }, EventArg.Char("a", c.Id));
-            Relations.Repay(w, d, e.Id);
-        }
     }
 
     public static bool Wander(World w, Character c, Job j)

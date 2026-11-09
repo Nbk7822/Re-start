@@ -52,9 +52,10 @@ public static class IncidentSystem
     }
 
     /// <summary>
-    /// A wanderer who reaches the hearth is invited to stay, and in the same breath the inviter
-    /// promises them a meal (or, for those who shun the sun, safe rest). One event carries both the
-    /// recruitment and the promise, so joining alone is not yet a story; what happens to the promise is.
+    /// A wanderer who reaches the hearth is invited to stay. If the camp cannot give them what they
+    /// need right now (a meal when there is no spare food; a sound roof, for those who shun the sun,
+    /// when none is mended), the inviter promises it within two days (ADR-0014). One event carries the
+    /// recruitment and any promise, so joining alone is not yet a story; what happens to the promise is.
     /// </summary>
     public static SimEvent Join(World w, Character c, long arrivalEvent)
     {
@@ -65,10 +66,20 @@ public static class IncidentSystem
             return w.Log.Emit(w, SystemTag.Social, "event.social.joined_alone", new[] { c.Id }, new[] { arrivalEvent },
                 new[] { new Effect { Kind = EffectKind.Recruitment, A = c.Id } }, EventArg.Char("a", c.Id));
 
-        bool rest = Places.BurnsInDaylight(w, c);
+        DebtKind? need = UnmetNeed(w, c);
+        if (need == null)
+        {
+            SimEvent welcomed = w.Log.Emit(w, SystemTag.Social, "event.social.joined", new[] { c.Id, inviter.Id }, new[] { arrivalEvent },
+                new[] { new Effect { Kind = EffectKind.Recruitment, A = c.Id, B = inviter.Id } },
+                EventArg.Char("a", c.Id), EventArg.Char("b", inviter.Id));
+            MoodSystem.AddThought(w, c, "joined_camp", inviter.Id, welcomed.Id);
+            return welcomed;
+        }
+
+        bool rest = need == DebtKind.PromiseRest;
         var promise = new Debt
         {
-            Id = w.NewId(), DebtorId = inviter.Id, CreditorId = c.Id, Kind = rest ? DebtKind.PromiseRest : DebtKind.PromiseMeal, Weight = 1,
+            Id = w.NewId(), DebtorId = inviter.Id, CreditorId = c.Id, Kind = need.Value, Weight = 1,
             CauseEvent = arrivalEvent, FormedTick = w.Tick, Status = DebtStatus.Open,
             DueTick = w.Tick + (long)w.Content.World.PromiseDueHours * w.Content.World.TicksPerHour,
         };
@@ -82,8 +93,23 @@ public static class IncidentSystem
             },
             EventArg.Char("a", c.Id), EventArg.Char("b", inviter.Id));
         promise.FormedEvent = joined.Id;
+        if (!rest) c.LastFoodEvent = joined.Id;
         MoodSystem.AddThought(w, c, "joined_camp", inviter.Id, joined.Id);
         return joined;
+    }
+
+    /// <summary>
+    /// What the camp cannot give a newcomer right now, as the promise it would take; null if nothing.
+    /// Food counts as short when the spare stock would not give every mouth one meal.
+    /// </summary>
+    public static DebtKind? UnmetNeed(World w, Character c)
+    {
+        if (Places.BurnsInDaylight(w, c)) return w.Map.Roof.Exists(r => r.Sound) ? null : DebtKind.PromiseRest;
+        string food = Places.Species(w, c).FoodSource;
+        int mouths = 0;
+        foreach (Character m in w.Members())
+            if (Places.Species(w, m).FoodSource == food) mouths++;
+        return Rations.Unreserved(w, food) >= mouths ? null : DebtKind.PromiseMeal;
     }
 
     private static SimEvent? StartRain(World w)

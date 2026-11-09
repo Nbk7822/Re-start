@@ -12,6 +12,9 @@ public sealed record Story(long TerminalEventId, IReadOnlyList<long> Chain, IRea
 /// over <see cref="SystemTag"/>), so a short multi-system chain is not hidden behind a longer
 /// single-system one. Each event with a persistent effect yields at most one story: the longest
 /// qualifying chain, then the one touching more systems, then the lowest system mask.
+/// One arc is one story: a story whose ending lies inside another story's chain (Hollis's broken
+/// promise, inside "...broke the promise, Hollis held a grudge, Hollis left") is part of that longer
+/// story and is not counted again.
 /// </summary>
 public static class StoryAnalyzer
 {
@@ -60,7 +63,18 @@ public static class StoryAnalyzer
                 break;
             }
         }
-        return stories;
+        return Maximal(stories);
+    }
+
+    private static List<Story> Maximal(List<Story> stories)
+    {
+        var continued = new HashSet<long>(); // membership only; never iterated
+        foreach (Story s in stories)
+            for (int k = 0; k < s.Chain.Count - 1; k++) continued.Add(s.Chain[k]);
+        var arcs = new List<Story>(stories.Count);
+        foreach (Story s in stories)
+            if (!continued.Contains(s.TerminalEventId)) arcs.Add(s);
+        return arcs;
     }
 
     private static void Upsert(List<Entry> entries, Entry entry)

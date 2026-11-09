@@ -23,6 +23,7 @@
   "log.stories.none": "No stories this time.",
   "log.story.heading": "Story {n}",
   "log.story.step": "{n}. {when} — {text}",
+  "log.story.repeat": "… and the same with {names}, until {when}.",
   "log.story.systems": "Systems: {systems}",
   "log.story.systems_sep": " → ",
   "log.story.people": "People: {people}",

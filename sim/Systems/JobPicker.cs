@@ -118,6 +118,13 @@ public static class JobPicker
     private static Job? PromiseJob(World w, Character c)
     {
         if (Traits.Sum(w, c, t => t.PromisePriority) <= 0) return null;
+        long roofPromise = RoofPromiseEvent(w, c.Id);
+        if (roofPromise != 0 && !(Places.BurnsInDaylight(w, c) && Places.SunDanger(w))
+            && Stock.Count(w, "timber") >= w.Content.WorkById("repair_roof").TimberCost)
+        {
+            Job? roof = RoofJob(w, c, roofPromise);
+            if (roof != null) return roof;
+        }
         string food = Places.Species(w, c).FoodSource;
         if (Places.Species(w, c).DrinksBlood) food = "berries";
         Point tile = Places.FoodTile(w, food);
@@ -170,6 +177,22 @@ public static class JobPicker
         return best == null ? null : new Job { Kind = JobKind.Rescue, TargetId = best.Id, Target = best.Pos, CauseEvent = best.LastHealthEvent };
     }
 
+    private static Job? RoofJob(World w, Character c, long cause)
+    {
+        foreach (RoofSection r in w.Map.Roof)
+            if (!r.Sound && !Places.Targeted(w, JobKind.RepairRoof, r.Index, c.Id))
+                return new Job { Kind = JobKind.RepairRoof, TargetId = r.Index, Target = Places.FoodTile(w, "timber"), CauseEvent = cause };
+        return null;
+    }
+
+    /// <summary>The event that made the oldest open promise of a sound roof (by debtorId, or anyone's if 0); 0 if none.</summary>
+    private static long RoofPromiseEvent(World w, int debtorId)
+    {
+        foreach (Debt d in w.Debts)
+            if (d.Status == DebtStatus.Open && d.Kind == DebtKind.PromiseRest && (debtorId == 0 || d.DebtorId == debtorId)) return d.FormedEvent;
+        return 0;
+    }
+
     private static bool OnBed(World w, Point p)
     {
         foreach (Bed b in w.Map.Beds)
@@ -209,10 +232,7 @@ public static class JobPicker
             case "repair_roof":
             {
                 if (sunBlocked || Stock.Count(w, "timber") < def.TimberCost) return null;
-                foreach (RoofSection r in w.Map.Roof)
-                    if (!r.Sound && !Places.Targeted(w, JobKind.RepairRoof, r.Index, c.Id))
-                        return new Job { Kind = JobKind.RepairRoof, TargetId = r.Index, Target = Places.FoodTile(w, "timber") };
-                return null;
+                return RoofJob(w, c, RoofPromiseEvent(w, 0));
             }
             case "gather_timber":
             {
