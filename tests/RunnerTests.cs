@@ -51,18 +51,25 @@ public class RunnerTests
     [Fact]
     public void StoryLogListsNotableEventsAndStories()
     {
+        // The sim is never stepped and starts from an empty history, so the log holds exactly the
+        // events below, whatever the systems do.
         var sim = Simulation.Create(TestContent.Db, 1);
         World w = sim.World;
+        w.Log = new EventLog();
+        int you = w.Characters.First(c => c.Otherworlder).Id;
         int mira = w.Characters.First(c => c.CastKey == "mira").Id;
         int oren = w.Characters.First(c => c.CastKey == "oren").Id;
 
         // A player decision: a World event with no effect, in no story, so not notable.
-        sim.Enqueue(new SetRationPolicy(10, RationPolicy.SelfFirst));
-        sim.Advance(8 * 300);
+        w.Tick = 10;
+        w.Policy = RationPolicy.SelfFirst;
+        w.Log.Emit(w, SystemTag.World, "event.world.ration_policy", new[] { you }, Array.Empty<long>(), null,
+            EventArg.Key("policy", SetRationPolicy.PolicyKey(RationPolicy.SelfFirst)));
+        w.Tick = 8 * 300;
         SimEvent rain = w.Log.Emit(w, SystemTag.Incident, "incident.rain", Array.Empty<int>(), Array.Empty<long>());
-        sim.Advance(300);
+        w.Tick = 9 * 300;
         SimEvent soaked = w.Log.Emit(w, SystemTag.Needs, "thought.soaked", new[] { mira }, new[] { rain.Id });
-        sim.Advance(7_200);
+        w.Tick = 7_200 + 9 * 300;
         w.Log.Emit(w, SystemTag.Social, "thought.insulted", new[] { mira, oren }, new[] { soaked.Id },
             new[] { new Effect { Kind = EffectKind.GrudgeFormed, A = mira, B = oren } });
         // A persistent change on its own: notable, but no story.
@@ -100,18 +107,24 @@ public class RunnerTests
     }
 
     [Fact]
-    public void StoryLogHandlesAnEmptyCamp()
+    public void StoryLogHandlesAnEmptyCampAndAnEmptyHistory()
     {
+        // Not stepped, history cleared: the camp is empty and nothing has happened, whatever the systems do.
         var sim = Simulation.Create(TestContent.Db, 2);
-        foreach (Character c in sim.World.Characters) c.Status = CharStatus.Dead;
-        sim.Advance(14_400);
+        World w = sim.World;
+        w.Log = new EventLog();
+        w.Tick = 2 * 7_200;
+        foreach (Character c in w.Characters) c.Status = CharStatus.Dead;
         var text = new StringWriter();
         StoryLog.Write(sim, text);
         string log = text.ToString();
         Assert.Contains("  Nobody lives there any more.\n", log);
-        Assert.Contains("  Nothing notable happened.\n", log);
+        Assert.Contains("What happened\n-------------\n  Nothing notable happened.\n", log);
         Assert.Contains("Stories\n-------\n  No stories this time.\n", log);
         Assert.Contains("  Mira (Human): Protective, ", log);
+        Assert.Contains(". Dead.\n", log);
+        Assert.Contains("Years simulated: 0.05\n", log);
+        Assert.EndsWith("Events logged: 0. Notable: 0. Stories: 0.\n", log);
         Assert.DoesNotContain("⟦", log);
     }
 
