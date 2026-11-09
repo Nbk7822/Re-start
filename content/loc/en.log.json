@@ -38,6 +38,7 @@
   "log.system.incident": "Incident",
   "log.system.combat": "Combat",
   "log.system.world": "World",
+  "log.system.growth": "Growth",
 
   "log.run.wrote": "Wrote the story log for seed {seed} to {path}.",
 

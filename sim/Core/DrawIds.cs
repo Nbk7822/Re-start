@@ -14,6 +14,12 @@ public enum TruthId : ushort
     CampPlacement = 6,
     SecondaryTrait = 7,
     PairChemistry = 8,
+
+    // 20-29: character growth (fixed decision 12, ADR-0021).
+    /// <summary>The want a person is drawn to by nature, keyed by cast key.</summary>
+    InitialWant = 20,
+    /// <summary>Breaks a tie between equally fitting people when a want is about someone, keyed by cast key.</summary>
+    WantTarget = 21,
 }
 
 /// <summary>Tags for Dice draws, used for diffing divergent runs. Append only.</summary>
@@ -55,4 +61,6 @@ public enum DiceSystem : byte
     Travel = 5,
     Incident = 6,
     Combat = 7,
+    /// <summary>Trait mutation and evolution rolls (fixed decision 12). Reserved now so the values stay contiguous; M0 draws nothing from it.</summary>
+    Growth = 8,
 }
