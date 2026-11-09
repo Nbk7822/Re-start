@@ -282,4 +282,271 @@ public class GameViewTests
         var missing = used.Where(k => !Content.Loc.Has(k)).ToList();
         Assert.True(missing.Count == 0, "Loc keys used by game/scripts but missing from content/loc: " + string.Join(", ", missing));
     }
+
+    // ---- Art pass (ADR-0009 update): poses, light, gore and looks are derived from sim state ----
+
+    [Theory]
+    [InlineData(CharStatus.Member, false, false, null, 0, true, false, Pose.Walk)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Forage, 0, true, false, Pose.Walk)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Forage, 1, false, false, Pose.Crouch)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Care, 1, false, false, Pose.Crouch)]
+    [InlineData(CharStatus.Member, false, false, JobKind.RequestBlood, 1, false, false, Pose.Crouch)]
+    [InlineData(CharStatus.Member, false, false, JobKind.GatherTimber, 1, false, false, Pose.Swing)]
+    [InlineData(CharStatus.Member, false, false, JobKind.RepairRoof, 1, false, false, Pose.Stand)]
+    [InlineData(CharStatus.Member, false, false, JobKind.RepairRoof, 2, false, false, Pose.Swing)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Fight, 0, false, false, Pose.Swing)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Fight, 0, true, false, Pose.Walk)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Eat, 0, false, false, Pose.Sit)]
+    [InlineData(CharStatus.Member, false, false, JobKind.GiveBlood, 1, false, false, Pose.Sit)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Socialize, 1, false, false, Pose.Talk)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Wander, 0, false, true, Pose.Sit)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Wander, 0, false, false, Pose.Stand)]
+    [InlineData(CharStatus.Member, false, false, JobKind.KeepWatch, 1, false, false, Pose.Stand)]
+    [InlineData(CharStatus.Member, false, true, JobKind.Sleep, 1, false, false, Pose.Sleep)]
+    [InlineData(CharStatus.Member, true, false, JobKind.Fight, 0, true, false, Pose.Downed)]
+    [InlineData(CharStatus.Dead, false, false, null, 0, false, false, Pose.Dead)]
+    [InlineData(CharStatus.Hostile, false, false, JobKind.Raid, 0, false, true, Pose.Stand)]
+    public void PoseComesFromSimState(CharStatus status, bool downed, bool asleep, JobKind? job, int stage, bool moving, bool nearHearth, Pose expected)
+    {
+        Assert.Equal(expected, Poses.For(new PoseInput(status, downed, asleep, job, stage, moving, nearHearth)));
+    }
+
+    [Fact]
+    public void PeopleFaceWhomTheyTalkTo()
+    {
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        Character you = w.Characters.First(c => c.CastKey == "you");
+        Character mira = w.Characters.First(c => c.CastKey == "mira");
+        mira.Pos = new Return.Sim.Core.Point(you.Pos.X + 2, you.Pos.Y);
+        you.Facing = Facing.W;
+
+        you.Job = new Job { Kind = JobKind.Socialize, TargetId = mira.Id, Stage = 1 };
+        Assert.Equal(Facing.E, Poses.FacingOf(w, you, moving: false));
+        Assert.Equal(Facing.W, Poses.FacingOf(w, you, moving: true));
+
+        // A chat a moment ago turns them toward the other; long after, they face where they last stepped.
+        you.Job = null;
+        int tph = Content.World.TicksPerHour;
+        you.Thoughts.Add(new Thought { DefId = "chatted", AboutId = mira.Id, ExpiresTick = w.Tick + 4 * tph });
+        Assert.Equal(Facing.E, Poses.FacingOf(w, you, moving: false));
+        sim.Advance(Poses.TalkTurnTicks + 1);
+        you.Pos = new Return.Sim.Core.Point(mira.Pos.X - 2, mira.Pos.Y);
+        you.Job = null;
+        you.Facing = Facing.W;
+        Assert.Equal(Facing.W, Poses.FacingOf(w, you, moving: false));
+    }
+
+    [Fact]
+    public void WorkersHoldTheirTools()
+    {
+        var c = new Character { Status = CharStatus.Member, Job = new Job { Kind = JobKind.GatherTimber, Stage = 1 } };
+        Assert.Equal(HeldTool.Axe, Poses.ToolFor(c, Pose.Swing));
+        c.Job = new Job { Kind = JobKind.RepairRoof, Stage = 2 };
+        Assert.Equal(HeldTool.Hammer, Poses.ToolFor(c, Pose.Swing));
+        c.Job = new Job { Kind = JobKind.Fight };
+        Assert.Equal(HeldTool.Club, Poses.ToolFor(c, Pose.Swing));
+        Assert.Equal(HeldTool.None, Poses.ToolFor(c, Pose.Walk));
+        var thief = new Character { Status = CharStatus.Hostile };
+        Assert.Equal(HeldTool.Knife, Poses.ToolFor(thief, Pose.Walk));
+        Assert.Equal(HeldTool.None, Poses.ToolFor(thief, Pose.Downed));
+    }
+
+    [Fact]
+    public void DaylightFollowsTheClock()
+    {
+        WorldDef def = Content.World;
+        DaylightState noon = Daylight.At(12.5f, def, raining: false, winter: false);
+        DaylightState dusk = Daylight.At(def.DuskHour, def, raining: false, winter: false);
+        DaylightState midnight = Daylight.At(0f, def, raining: false, winter: false);
+        Assert.True(noon.Ambient.Luma > dusk.Ambient.Luma && dusk.Ambient.Luma > midnight.Ambient.Luma);
+        Assert.True(dusk.Ambient.R > dusk.Ambient.B, "dusk is warm");
+        Assert.True(midnight.Ambient.B > midnight.Ambient.R, "night is blue");
+        Assert.Equal(0f, noon.Night, 3);
+        Assert.Equal(1f, midnight.Night, 3);
+        Assert.InRange(dusk.Night, 0.2f, 0.8f);
+
+        // Smooth: no visible jump from one in-game minute to the next, all day round.
+        Rgb last = Daylight.At(0, def, false).Ambient;
+        int minutes = def.HoursPerDay * 60;
+        for (int i = 1; i <= minutes; i++)
+        {
+            Rgb now = Daylight.At((long)i * def.TicksPerHour / 60, def, false).Ambient;
+            Assert.True(MathF.Abs(now.R - last.R) < 0.02f && MathF.Abs(now.G - last.G) < 0.02f && MathF.Abs(now.B - last.B) < 0.02f,
+                $"jump at minute {i}: {last} -> {now}");
+            last = now;
+        }
+
+        Assert.True(Daylight.At(12.5f, def, raining: true, winter: false).Ambient.Luma < noon.Ambient.Luma, "rain darkens");
+        Assert.True(noon.SunX == 0 || noon.SunHeight > 0.9f);
+        Assert.True(Daylight.At(def.DawnHour + 1f, def, false, false).SunX > 0.5f, "morning sun in the east");
+        Assert.True(Daylight.At(def.DuskHour - 1f, def, false, false).SunX < -0.5f, "evening sun in the west");
+        Assert.Equal(0f, midnight.SunHeight);
+    }
+
+    [Fact]
+    public void DawnAndDuskComeFromWorldJson()
+    {
+        WorldDef def = Content.World;
+        var lateDusk = new WorldDef
+        {
+            TicksPerHour = def.TicksPerHour, HoursPerDay = def.HoursPerDay, DaysPerSeason = def.DaysPerSeason,
+            SeasonsPerYear = def.SeasonsPerYear, DawnHour = def.DawnHour, DuskHour = def.DuskHour + 2,
+        };
+        float hour = def.DuskHour + 0.5f;
+        Assert.True(Daylight.At(hour, lateDusk, false, false).Ambient.Luma > Daylight.At(hour, def, false, false).Ambient.Luma + 0.2f);
+        Assert.True(Daylight.IsWinter((long)def.TicksPerSeason * (def.SeasonsPerYear - 1), def));
+        Assert.False(Daylight.IsWinter(0, def));
+    }
+
+    [Fact]
+    public void GoreFollowsTheThiefFightWithoutTouchingTheSim()
+    {
+        // Seed 34: a night thief reaches the camp before dawn on day 27 and Mira fights them near (16, 15).
+        Simulation watched = Simulation.Create(Content, 34), plain = Simulation.Create(Content, 34);
+        watched.Advance(188_700);
+        plain.Advance(188_700);
+        var gore = new GoreLog();
+        for (int t = 0; t < 500; t++)
+        {
+            watched.Step();
+            plain.Step();
+            gore.Observe(watched.World);
+        }
+        Assert.Equal(plain.StateHash(), watched.StateHash());
+
+        var blood = gore.Decals.Where(d => d.Kind is DecalKind.Splatter or DecalKind.Drops).ToList();
+        Assert.NotEmpty(blood);
+        Assert.Contains(blood, d => MathF.Abs(d.X - 16.5f) <= 2.5f && MathF.Abs(d.Y - 15.5f) <= 2.5f);
+
+        // The same history always leaves the same marks.
+        var again = new GoreLog();
+        Simulation replay = Simulation.Create(Content, 34);
+        replay.Advance(188_700);
+        for (int t = 0; t < 500; t++)
+        {
+            replay.Step();
+            again.Observe(replay.World);
+        }
+        Assert.Equal(gore.Decals.Select(Describe), again.Decals.Select(Describe));
+    }
+
+    [Fact]
+    public void ADeathByWoundsLeavesABodyInItsBlood()
+    {
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        var gore = new GoreLog();
+        gore.Observe(w);
+        Character mira = w.Characters.First(c => c.CastKey == "mira");
+        Character oren = w.Characters.First(c => c.CastKey == "oren");
+        Return.Sim.Core.Point miraAt = mira.Pos;
+
+        Return.Sim.Systems.CombatSystem.Hurt(w, mira, 2000, 0, "event.combat.died_wounds", Return.Sim.Events.SystemTag.Combat);
+        Return.Sim.Systems.Lifecycle.Die(w, oren, Return.Sim.Events.SystemTag.Needs, "event.needs.died_starving", 0);
+        sim.Step();
+        gore.Observe(w);
+
+        Assert.Equal(CharStatus.Dead, mira.Status);
+        Assert.Equal(DeathKind.Wounds, gore.RemainsOf(w, mira)!.Value.Kind);
+        Assert.Equal(DeathKind.Wasted, gore.RemainsOf(w, oren)!.Value.Kind);
+        Assert.Null(gore.RemainsOf(w, w.Characters.First(c => c.CastKey == "you")));
+        Decal pool = gore.Decals.Single(d => d.Kind == DecalKind.Pool);
+        Assert.True(pool.Lasting);
+        Assert.Equal(miraAt.X + 0.5f, pool.X, 0.2f);
+        Assert.Equal(miraAt.Y + 0.5f, pool.Y, 0.2f);
+        Assert.Contains(gore.Decals, d => d.Kind == DecalKind.Splatter);
+        Assert.DoesNotContain(gore.Decals, d => MathF.Abs(d.X - (oren.Pos.X + 0.5f)) < 0.4f && MathF.Abs(d.Y - (oren.Pos.Y + 0.5f)) < 0.4f);
+
+        // Days later the splatter has worn away; the pool under the body has dried but stays.
+        for (int h = 0; h < (GoreLog.FadeDays + 1) * Content.World.HoursPerDay; h++)
+        {
+            sim.Advance(Content.World.TicksPerHour);
+            gore.Observe(w);
+        }
+        Assert.DoesNotContain(gore.Decals, d => d.Kind == DecalKind.Splatter && d.Key == pool.Key);
+        Decal dried = gore.Decals.Single(d => d.Kind == DecalKind.Pool && d.Key == pool.Key);
+        Assert.Equal(0.5f, dried.Wear, 3);
+    }
+
+    [Fact]
+    public void HungerAndSunDoNotBleed()
+    {
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        var gore = new GoreLog();
+        gore.Observe(w);
+        Character you = w.Characters.First(c => c.CastKey == "you");
+        var hungry = w.Log.Emit(w, Return.Sim.Events.SystemTag.Needs, "event.needs.starving", new[] { you.Id }, Array.Empty<long>());
+        w.Log.Emit(w, Return.Sim.Events.SystemTag.Needs, "event.needs.collapsed", new[] { you.Id }, new[] { hungry.Id });
+        gore.Observe(w);
+        Assert.Empty(gore.Decals);
+
+        var burn = w.Log.Emit(w, Return.Sim.Events.SystemTag.Needs, "event.needs.sun_burn", new[] { you.Id }, Array.Empty<long>());
+        w.Log.Emit(w, Return.Sim.Events.SystemTag.Needs, "event.needs.collapsed", new[] { you.Id }, new[] { burn.Id });
+        gore.Observe(w);
+        Assert.NotEmpty(gore.Decals);
+        Assert.All(gore.Decals, d => Assert.Equal(DecalKind.Scorch, d.Kind));
+    }
+
+    [Fact]
+    public void WoundsStainClothesOnlyWhenTheyBleed()
+    {
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = sim.World;
+        Character you = w.Characters.First(c => c.CastKey == "you");
+        you.Health = 350;
+        Assert.Equal(0, GoreLog.WoundLevel(w, you)); // weak from hunger: no blood
+        you.Thoughts.Add(new Thought { DefId = "wounded", ExpiresTick = w.Tick + 100 });
+        Assert.Equal(2, GoreLog.WoundLevel(w, you));
+        you.Health = 200;
+        Assert.Equal(3, GoreLog.WoundLevel(w, you));
+    }
+
+    [Fact]
+    public void LooksCoverTheWholeCast()
+    {
+        LookBook looks = LookBook.Load(Path.Combine(TestPaths.Root, "game", "art", "looks.json"));
+        foreach (CastDef cast in Content.Cast)
+        {
+            Assert.True(looks.Has(cast.Key), "game/art/looks.json has no look for " + cast.Key);
+            Look look = looks.For(cast.Key);
+            Rgb cloth = look.Cloth ?? Rgb.Parse(cast.Color);
+            Assert.True(cloth.Muted().Luma < cloth.Luma, "muted cloth is darker for " + cast.Key);
+        }
+        Assert.True(looks.Hostile.Hood);
+        Assert.Throws<FormatException>(() => LookBook.Parse("{\"people\":{\"x\":{\"hair\":\"red\"}}}"));
+        Assert.Throws<FormatException>(() => LookBook.Parse("{\"people\":{\"x\":{\"build\":\"huge\"}}}"));
+    }
+
+    [Fact]
+    public void GroundIsWornAroundTheCamp()
+    {
+        World w = Simulation.Create(Content, 1).World;
+        Map m = w.Map;
+        float[] wear = GroundWear.Compute(m);
+        Assert.Equal(wear, GroundWear.Compute(m));
+        var nextToHearth = new Return.Sim.Core.Point(m.Hearth.X + 1, m.Hearth.Y);
+        Assert.True(wear[m.Index(nextToHearth)] > 0.5f);
+        for (int i = 0; i < wear.Length; i++)
+        {
+            Assert.InRange(wear[i], 0f, 1f);
+            if ((TerrainKind)m.Terrain[i] is TerrainKind.Wall or TerrainKind.Floor or TerrainKind.Water or TerrainKind.Rock) Assert.Equal(0f, wear[i]);
+        }
+        Assert.Equal(TerrainKind.Door, m.At(GroundWear.DoorOf(m)));
+    }
+
+    [Fact]
+    public void ArtHashIsStableAndSpread()
+    {
+        Assert.Equal(ArtHash.Of(1, 2, 3), ArtHash.Of(1, 2, 3));
+        Assert.NotEqual(ArtHash.Of(1, 2, 3), ArtHash.Of(3, 2, 1));
+        var units = Enumerable.Range(0, 2000).Select(i => ArtHash.Unit(i, 7)).ToList();
+        Assert.All(units, u => Assert.InRange(u, 0f, 0.99999994f));
+        Assert.InRange(units.Average(), 0.45, 0.55);
+        Assert.InRange(ArtHash.Pick(4, 99), 0, 3);
+    }
+
+    private static string Describe(Decal d) =>
+        $"{d.Kind}:{d.X:F3},{d.Y:F3}:{d.Rotation:F3}:{d.Variant}:{d.Scale:F3}:{d.Tick}:{d.Wear:F4}:{d.Lasting}";
 }
