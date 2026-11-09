@@ -627,6 +627,19 @@ public class GameViewTests
         Assert.True(looks.Hostile.Hood);
         Assert.Throws<FormatException>(() => LookBook.Parse("{\"people\":{\"x\":{\"hair\":\"red\"}}}"));
         Assert.Throws<FormatException>(() => LookBook.Parse("{\"people\":{\"x\":{\"build\":\"huge\"}}}"));
+
+        // A value of the wrong JSON type is a FormatException too, so the view falls back to the default look.
+        foreach (string wrong in new[]
+        {
+            "{\"people\":{\"x\":{\"beard\":\"yes\"}}}",
+            "{\"people\":{\"x\":{\"hair\":123}}}",
+            "{\"people\":{\"x\":{\"hairStyle\":false}}}",
+            "{\"people\":{\"x\":[]}}",
+            "{\"people\":[]}",
+            "{\"default\":\"plain\"}",
+            "[]",
+        })
+            Assert.Throws<FormatException>(() => LookBook.Parse(wrong));
     }
 
     [Fact]

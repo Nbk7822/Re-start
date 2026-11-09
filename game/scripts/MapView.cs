@@ -947,7 +947,7 @@ public partial class MapView : Node2D
         {
             return LookBook.Load(path);
         }
-        catch (Exception ex) when (ex is System.IO.IOException or FormatException or System.Text.Json.JsonException)
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or FormatException or InvalidOperationException or System.Text.Json.JsonException)
         {
             GD.PushWarning("Return: could not read " + path + " (" + ex.Message + "); everyone gets the default look.");
             return LookBook.Fallback();

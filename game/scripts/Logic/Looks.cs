@@ -78,35 +78,55 @@ public sealed class LookBook
     public static LookBook Parse(string json)
     {
         using JsonDocument doc = JsonDocument.Parse(json, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
-        JsonElement root = doc.RootElement;
+        JsonElement root = Object(doc.RootElement, "the file");
         Look fallback = Fallback().Default;
         if (root.TryGetProperty("default", out JsonElement d)) fallback = Read(d, fallback, "default");
         Look hostile = fallback with { Hood = true };
         if (root.TryGetProperty("hostile", out JsonElement h)) hostile = Read(h, hostile, "hostile");
         var people = new Dictionary<string, Look>(StringComparer.Ordinal);
         if (root.TryGetProperty("people", out JsonElement p))
-            foreach (JsonProperty person in p.EnumerateObject())
+            foreach (JsonProperty person in Object(p, "people").EnumerateObject())
                 people[person.Name] = Read(person.Value, fallback, person.Name);
         return new LookBook(fallback, hostile, people);
     }
 
     private static Look Read(JsonElement e, Look basis, string who)
     {
+        Object(e, who);
         Rgb? cloth = e.TryGetProperty("cloth", out JsonElement c) ? Color(c, who, "cloth") : basis.Cloth;
         Rgb hair = e.TryGetProperty("hair", out JsonElement hr) ? Color(hr, who, "hair") : basis.Hair;
         Rgb skin = e.TryGetProperty("skin", out JsonElement s) ? Color(s, who, "skin") : basis.Skin;
         Build build = e.TryGetProperty("build", out JsonElement b) ? Enum<Build>(b, who, "build") : basis.Build;
         HairStyle style = e.TryGetProperty("hairStyle", out JsonElement st) ? Enum<HairStyle>(st, who, "hairStyle") : basis.HairStyle;
-        bool beard = e.TryGetProperty("beard", out JsonElement bd) ? bd.GetBoolean() : basis.Beard;
-        bool hood = e.TryGetProperty("hood", out JsonElement hd) ? hd.GetBoolean() : basis.Hood;
+        bool beard = e.TryGetProperty("beard", out JsonElement bd) ? Bool(bd, who, "beard") : basis.Beard;
+        bool hood = e.TryGetProperty("hood", out JsonElement hd) ? Bool(hd, who, "hood") : basis.Hood;
         return new Look(cloth, hair, skin, build, style, beard, hood);
     }
 
-    private static Rgb Color(JsonElement e, string who, string field) =>
-        Rgb.TryParse(e.GetString(), out Rgb rgb) ? rgb : throw new FormatException($"looks.json: {who}.{field} is not a #rrggbb colour.");
+    // A value of the wrong JSON type is a FormatException naming the field, like a bad value, so the
+    // view's fallback (everyone gets the default look) catches it.
 
-    private static T Enum<T>(JsonElement e, string who, string field) where T : struct, Enum =>
-        System.Enum.TryParse(e.GetString(), ignoreCase: true, out T value) && System.Enum.IsDefined(value)
+    private static JsonElement Object(JsonElement e, string what) =>
+        e.ValueKind == JsonValueKind.Object ? e : throw new FormatException($"looks.json: {what} is not an object.");
+
+    private static string Text(JsonElement e, string who, string field) =>
+        e.ValueKind == JsonValueKind.String ? e.GetString()! : throw new FormatException($"looks.json: {who}.{field} is not a string.");
+
+    private static bool Bool(JsonElement e, string who, string field) => e.ValueKind switch
+    {
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        _ => throw new FormatException($"looks.json: {who}.{field} is not true or false."),
+    };
+
+    private static Rgb Color(JsonElement e, string who, string field) =>
+        Rgb.TryParse(Text(e, who, field), out Rgb rgb) ? rgb : throw new FormatException($"looks.json: {who}.{field} is not a #rrggbb colour.");
+
+    private static T Enum<T>(JsonElement e, string who, string field) where T : struct, Enum
+    {
+        string text = Text(e, who, field);
+        return System.Enum.TryParse(text, ignoreCase: true, out T value) && System.Enum.IsDefined(value)
             ? value
-            : throw new FormatException($"looks.json: {who}.{field} '{e.GetString()}' is not one of {string.Join(", ", System.Enum.GetNames<T>())}.");
+            : throw new FormatException($"looks.json: {who}.{field} '{text}' is not one of {string.Join(", ", System.Enum.GetNames<T>())}.");
+    }
 }
