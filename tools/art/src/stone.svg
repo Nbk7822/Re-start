@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tileable rough masonry for wall faces and the ruins: uneven blocks, dark mortar, moss and soot. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <filter id="rough" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0625" numOctaves="4" seed="53" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.08  0 0 0 0 0.07  0 0 0 0 0.06  2.0 0 0 0 -0.85"/>
+    </filter>
+    <filter id="moss" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03125" numOctaves="3" seed="59" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.20  0 0 0 0 0.26  0 0 0 0 0.15  5 0 0 0 -3.0"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" fill="#2c2822"/>
+  <g stroke="none">
+    <rect x="1" y="1" width="62" height="30" fill="#7c766a"/><rect x="65" y="1" width="78" height="30" fill="#716b5f"/><rect x="145" y="1" width="54" height="30" fill="#827b6d"/><rect x="201" y="1" width="54" height="30" fill="#6c665b"/>
+    <rect x="1" y="33" width="34" height="30" fill="#6e685c"/><rect x="37" y="33" width="70" height="30" fill="#80796c"/><rect x="109" y="33" width="60" height="30" fill="#757064"/><rect x="171" y="33" width="84" height="30" fill="#7a7468"/>
+    <rect x="1" y="65" width="70" height="30" fill="#7f7869"/><rect x="73" y="65" width="50" height="30" fill="#6a645a"/><rect x="125" y="65" width="74" height="30" fill="#78726a"/><rect x="201" y="65" width="54" height="30" fill="#837c70"/>
+    <rect x="1" y="97" width="46" height="30" fill="#726c60"/><rect x="49" y="97" width="66" height="30" fill="#7d776a"/><rect x="117" y="97" width="56" height="30" fill="#6d675c"/><rect x="175" y="97" width="80" height="30" fill="#79736a"/>
+    <rect x="1" y="129" width="58" height="30" fill="#7b7568"/><rect x="61" y="129" width="72" height="30" fill="#6f695e"/><rect x="135" y="129" width="62" height="30" fill="#817a6d"/><rect x="199" y="129" width="56" height="30" fill="#736d61"/>
+    <rect x="1" y="161" width="38" height="30" fill="#6b655b"/><rect x="41" y="161" width="76" height="30" fill="#7e786b"/><rect x="119" y="161" width="54" height="30" fill="#77716a"/><rect x="175" y="161" width="80" height="30" fill="#6e685d"/>
+    <rect x="1" y="193" width="66" height="30" fill="#807a6c"/><rect x="69" y="193" width="58" height="30" fill="#716b60"/><rect x="129" y="193" width="70" height="30" fill="#7a7467"/><rect x="201" y="193" width="54" height="30" fill="#6c665c"/>
+    <rect x="1" y="225" width="50" height="30" fill="#757064"/><rect x="53" y="225" width="70" height="30" fill="#7f7869"/><rect x="125" y="225" width="58" height="30" fill="#6f695f"/><rect x="185" y="225" width="70" height="30" fill="#7b7568"/>
+  </g>
+  <g fill="#9a937f" opacity="0.28">
+    <rect x="1" y="1" width="254" height="2"/><rect x="1" y="33" width="254" height="2"/><rect x="1" y="65" width="254" height="2"/><rect x="1" y="97" width="254" height="2"/>
+    <rect x="1" y="129" width="254" height="2"/><rect x="1" y="161" width="254" height="2"/><rect x="1" y="193" width="254" height="2"/><rect x="1" y="225" width="254" height="2"/>
+  </g>
+  <rect width="256" height="256" filter="url(#rough)"/>
+  <rect width="256" height="256" filter="url(#moss)"/>
+</svg>

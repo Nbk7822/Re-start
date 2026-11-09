@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Light falloff for the hearth's firelight (a Godot PointLight2D texture): bright at the fire, then an
+     inverse-square-like falloff to nothing at the edge. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="fall" cx="128" cy="128" r="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.06" stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="0.15" stop-color="#ffffff" stop-opacity="0.70"/>
+      <stop offset="0.28" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.26"/>
+      <stop offset="0.58" stop-color="#ffffff" stop-opacity="0.13"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="0.9" stop-color="#ffffff" stop-opacity="0.012"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#fall)"/>
+</svg>

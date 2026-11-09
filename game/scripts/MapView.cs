@@ -1,89 +1,205 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Return.Game.Art;
 using Return.Game.Logic;
 using Return.Sim;
 using Return.Sim.Content;
+using Return.Sim.Systems;
 using SimPoint = Return.Sim.Core.Point;
-using SimRect = Return.Sim.Core.Rect;
+using Tree = Return.Sim.Tree;
 
 namespace Return.Game;
 
 /// <summary>
-/// Draws the world as coloured rectangles and text (fixed decision 11, ADR-0008): terrain, faint
-/// grid lines, trees, berry bushes, the shelter's three roof sections, beds, hearth, stockpile
-/// zone, watch post, item stacks, and the active people in their cast colours with their names
-/// under them and a one-character mood marker over their heads. Labels keep a constant on-screen
-/// size at any zoom. Read-only over World; the only state here is view smoothing.
+/// The map, drawn in the grounded three-quarter style (ADR-0009, darker and grimier per its
+/// 2026-11-09 update). Orchestrates four passes: the ground (terrain, mud, grime; baked once and
+/// again when the season turns), the water (the grid and the flowing river), the world (wet
+/// ground, blood, grass, then everything that stands up sorted by y so things in front hide things
+/// behind: trees, bushes, goods, walls, roofs, the hearth and the people, then smoke and flies), and
+/// an overlay above the lighting (rain, a vignette, names and mood marks). Day and night come from
+/// Art.Lighting. Read-only over World: the only state here is view smoothing, walk phases, view-only
+/// nudges and the gore log, all derived from the sim.
 /// </summary>
 public partial class MapView : Node2D
 {
     public const int TileSize = 24;
 
+    /// <summary>Figure units to map pixels: a standing person is about 1.3 tiles tall (ADR-0009).</summary>
+    private const float FigureScale = TileSize * 1.32f / Figures.Height;
+
+    /// <summary>Feet stand a little below the tile centre, so a figure rises into the tile behind.</summary>
+    private const float FeetOffset = TileSize * 0.3f;
+
+    /// <summary>Someone lying on the ground (not in a bed) lies across the tile's centre, clear of a wall top in front.</summary>
+    private const float LyingOffset = TileSize * 0.05f;
+
+    /// <summary>People sharing a tile stand this far apart, side by side (view only).</summary>
+    private const float SpreadStep = TileSize * 0.3f;
+
+    /// <summary>Someone sitting by the fire sits back this far from the hearth's stones (view only).</summary>
+    private const float HearthPush = TileSize * 0.22f;
+
+    /// <summary>Walk cycles per tile walked.</summary>
+    private const float StridesPerTile = 0.85f;
+
     private const int NameFontSize = 12;
     private const int MarkerFontSize = 16;
     private const int CountFontSize = 10;
 
-    // Calm terrain palette, indexed by TerrainKind.
-    private static readonly Color[] TerrainColors =
-    {
-        new(0.49f, 0.58f, 0.38f), // Grass
-        new(0.61f, 0.52f, 0.38f), // Soil
-        new(0.37f, 0.50f, 0.59f), // Water
-        new(0.55f, 0.54f, 0.52f), // Rock
-        new(0.73f, 0.66f, 0.54f), // Floor
-        new(0.35f, 0.31f, 0.27f), // Wall
-        new(0.56f, 0.43f, 0.29f), // Door
-    };
-
-    private static readonly Color UnknownTerrain = new(0.8f, 0.3f, 0.8f);
-    private static readonly Color GridColor = new(0f, 0f, 0f, 0.08f);
-    private static readonly Color TreeColor = new(0.25f, 0.42f, 0.24f);
-    private static readonly Color TreeInner = new(0.30f, 0.49f, 0.28f);
-    private static readonly Color TreeEdge = new(0.16f, 0.27f, 0.15f);
-    private static readonly Color BushColor = new(0.38f, 0.54f, 0.30f);
-    private static readonly Color BushEdge = new(0.24f, 0.36f, 0.19f);
-    private static readonly Color BerryColor = new(0.72f, 0.22f, 0.29f);
-    private static readonly Color BedColor = new(0.85f, 0.80f, 0.71f);
-    private static readonly Color PillowColor = new(0.95f, 0.93f, 0.88f);
-    private static readonly Color BedEdge = new(0.42f, 0.35f, 0.28f);
-    private static readonly Color HearthColor = new(0.77f, 0.39f, 0.23f);
-    private static readonly Color HearthGlow = new(0.93f, 0.66f, 0.36f);
-    private static readonly Color HearthEdge = new(0.45f, 0.22f, 0.13f);
-    private static readonly Color PostColor = new(0.42f, 0.33f, 0.25f);
-    private static readonly Color PostInner = new(0.66f, 0.55f, 0.42f);
-    private static readonly Color PostEdge = new(0.24f, 0.19f, 0.14f);
-    private static readonly Color StockpileFill = new(0.89f, 0.81f, 0.48f, 0.12f);
-    private static readonly Color StockpileEdge = new(0.89f, 0.81f, 0.48f, 0.9f);
-    private static readonly Color CoveredFill = new(0.25f, 0.22f, 0.20f, 0.28f);
-    private static readonly Color CoveredEdge = new(0.30f, 0.26f, 0.22f, 0.9f);
-    private static readonly Color RoofSoundFill = new(0.45f, 0.32f, 0.21f, 0.38f);
-    private static readonly Color RoofSoundEdge = new(0.36f, 0.25f, 0.16f);
-    private static readonly Color RoofBrokenFill = new(0.75f, 0.36f, 0.30f, 0.12f);
-    private static readonly Color RoofBrokenEdge = new(0.76f, 0.38f, 0.31f);
-    private static readonly Color RainTint = new(0.30f, 0.38f, 0.48f, 0.16f);
-    private static readonly Color ItemEdge = new(0.15f, 0.13f, 0.11f, 0.8f);
-    private static readonly Color BodyEdge = new(0.12f, 0.11f, 0.10f);
-    private static readonly Color HostileEdge = new(0.80f, 0.20f, 0.16f);
-    private static readonly Color HostileColor = new(0.55f, 0.27f, 0.24f);
-    private static readonly Color StrangerColor = new(0.70f, 0.70f, 0.70f);
-    private static readonly Color SelectColor = new(0.99f, 0.96f, 0.86f);
-    private static readonly Color NameColor = new(0.97f, 0.95f, 0.90f);
-    private static readonly Color LabelOutline = new(0.08f, 0.07f, 0.06f, 0.9f);
+    private static readonly string[] Numbers = BuildNumbers(100);
 
     private SimHost? _host;
     private Font _font = null!;
-    private Transform2D _toScreen = Transform2D.Identity;
-    private float _zoom = 1f;
-    private readonly Dictionary<int, Vector2> _shown = new();
-    private readonly Dictionary<string, Color> _castColors = new(StringComparer.Ordinal);
+    private ArtTextures _tex = null!;
+    private LookBook _looks = null!;
+    private WorldArt _art = null!;
+    private Lighting _lighting = null!;
+    private DrawLayer _ground = null!;
+    private DrawLayer _water = null!;
+    private DrawLayer _world = null!;
+    private DrawLayer _overlay = null!;
+    private readonly GoreLog _gore = new();
+    private readonly Brush _brush = new();
+    private readonly Dictionary<int, Shown> _shown = new();
+    private readonly List<Drawable> _drawables = new();
     private readonly List<(int Id, Rect2 Box)> _hits = new();
+    private readonly List<NameTag> _labels = new();
+    private readonly List<TextMark> _marks = new();
+    private readonly List<Rect2> _placed = new();
+    private readonly List<(int Id, Rect2 Box)> _bodies = new();
+    private readonly List<(int Id, Rect2 Box)> _bodiesMap = new();
+    private string _sleepMark = "";
+    private readonly Dictionary<string, Color> _castColors = new(StringComparer.Ordinal);
+    private readonly float[] _roofAlpha = new float[16];
+    private float _ruinAlpha = 1f;
+    private bool _winterDrawn;
+    private float _time;
+    private DaylightState _light;
+    private Transform2D _toScreen = Transform2D.Identity;
+    private Vector2[] _rain = Array.Empty<Vector2>();
+    private readonly System.Diagnostics.Stopwatch _paintWatch = new();
+    private double _paintMs;
+    private float _groundZoom = 1f;
+    private ImageTexture? _groundTex;
+    private SubViewport? _bakeView;
+    private int _bakeFrames;
+
+    /// <summary>How many people (and bodies) are drawn this frame.</summary>
+    public int PeopleShown => _shown.Count;
+
+    /// <summary>Milliseconds spent in the map's own update and drawing since the last call (FrameProbe).</summary>
+    public double TakePaintMilliseconds()
+    {
+        double ms = _paintMs;
+        _paintMs = 0;
+        return ms;
+    }
+
+    /// <summary>Per-person view state: where they are drawn, how far through a stride, what they look like.</summary>
+    private sealed class Shown
+    {
+        /// <summary>Where the sim has them, eased (a tile centre, or between tiles while stepping).</summary>
+        public Vector2 At;
+
+        /// <summary>A view-only nudge off that point, eased: side by side on a shared tile, back from the fire.</summary>
+        public Vector2 Spread;
+        public float Phase;
+        public bool Moving;
+        public bool HasLook;
+        public CharStatus LookStatus;
+
+        /// <summary>How they look by day (cached until their status changes).</summary>
+        public FigureLook BaseLook;
+
+        /// <summary>How they are drawn this frame (moonlit at night).</summary>
+        public FigureLook Look;
+        public FigureState State;
+
+        /// <summary>Where the figure's feet are drawn this frame (everything attached to a person reads this).</summary>
+        public Vector2 Feet;
+
+        /// <summary>How far above the feet the top of the head is this frame (mood marks sit there).</summary>
+        public float HeadAbove;
+    }
+
+    private enum Kind : byte
+    {
+        Tree,
+        Stump,
+        Bush,
+        Stack,
+        Wall,
+        Door,
+        Roof,
+        RuinRoof,
+        Hearth,
+        WatchPost,
+        Figure,
+    }
+
+    private readonly record struct Drawable(float Y, Kind Kind, int Index, float Order);
+
+    private readonly record struct NameTag(int Id, Vector2 Feet, string Name, bool Dead, bool Hostile);
+
+    private readonly record struct TextMark(Vector2 At, string Text, int Size, Color Color, Vector2 Align, int Outline);
+
+    private sealed class ByDepth : IComparer<Drawable>
+    {
+        public static readonly ByDepth Instance = new();
+
+        public int Compare(Drawable a, Drawable b)
+        {
+            int c = a.Y.CompareTo(b.Y);
+            if (c != 0) return c;
+            c = a.Order.CompareTo(b.Order);
+            return c != 0 ? c : a.Index.CompareTo(b.Index);
+        }
+    }
 
     public void Bind(SimHost host)
     {
         _host = host;
         _font = ThemeDB.FallbackFont;
+        _sleepMark = Ui.T("ui.emote.zzz");
+        _tex = ArtTextures.Load();
+        _looks = LoadLooks();
+        World w = host.World;
+        _art = new WorldArt(w.Map, _tex);
+
+        _ground = DrawLayer.Make("Ground", PaintGround);
+        _ground.TextureRepeat = TextureRepeatEnum.Enabled;
+        _ground.TextureFilter = TextureFilterEnum.LinearWithMipmaps;
+        // The grid and the river surface, between the ground and the world. The water texture does not
+        // tile seamlessly, so it repeats mirrored: no seams, however finely it is sampled.
+        _water = DrawLayer.Make("Water", PaintWater);
+        _water.TextureRepeat = TextureRepeatEnum.Mirror;
+        _water.TextureFilter = TextureFilterEnum.LinearWithMipmaps;
+        _world = DrawLayer.Make("World", PaintWorld);
+        _world.TextureRepeat = TextureRepeatEnum.Enabled;
+        _world.TextureFilter = TextureFilterEnum.LinearWithMipmaps;
+        AddChild(_ground);
+        AddChild(_water);
+        AddChild(_world);
+        _lighting = new Lighting(this, _tex, _art.HearthCenter, _art.LanternAt);
+
+        // The overlay sits above the lit, tinted map and below the menu bar: unshaded, untinted.
+        var layer = new CanvasLayer { Name = "MapOverlay", Layer = 0 };
+        _overlay = DrawLayer.Make("Overlay", PaintOverlay);
+        _overlay.Material = new CanvasItemMaterial { LightMode = CanvasItemMaterial.LightModeEnum.Unshaded };
+        _overlay.TextureFilter = TextureFilterEnum.Linear;
+        layer.AddChild(_overlay);
+        AddChild(layer);
+
+        for (int i = 0; i < _roofAlpha.Length; i++) _roofAlpha[i] = 1f;
+        _rain = new Vector2[260 * 2];
+        _gore.Observe(w);
+        _light = Daylight.At(w.Tick, w.Content.World, w.Weather.Raining);
+        FrameProbe.AttachIfAsked(host, this);
     }
+
+    /// <summary>Lets the gore log see every tick the view runs (ViewStepper), drawn or not, so blood lands where it fell.</summary>
+    public void Witness(World w) => _gore.Observe(w);
 
     /// <summary>Centre of a tile in map pixels.</summary>
     public static Vector2 TileCenter(SimPoint p) => new((p.X + 0.5f) * TileSize, (p.Y + 0.5f) * TileSize);
@@ -109,8 +225,36 @@ public partial class MapView : Node2D
     public override void _Process(double delta)
     {
         if (_host == null) return;
-        Smooth(delta);
-        QueueRedraw();
+        _paintWatch.Restart();
+        World w = _host.World;
+        WorldDef def = w.Content.World;
+        _time += (float)delta;
+        Smooth(w, delta);
+        _gore.Observe(w);
+        _light = Daylight.At(w.Tick, def, w.Weather.Raining);
+        _lighting.Update(_light, _time, LanternLit(w));
+        UpdateRoofs(w, (float)delta);
+
+        bool winter = Daylight.IsWinter(w.Tick, def);
+        float zoom = GetGlobalTransformWithCanvas().X.Length();
+        // The ground is baked once, and again when the season turns. Drawn directly (before the bake
+        // is ready), it is redrawn when the zoom changes enough that its outlines' feather would show.
+        if (winter != _winterDrawn || _bakeView == null && _groundTex == null && _bakeFrames == 0)
+        {
+            _winterDrawn = winter;
+            StartGroundBake();
+            _ground.QueueRedraw();
+        }
+        else if (_groundTex == null && MathF.Abs(zoom / _groundZoom - 1f) > 0.25f)
+        {
+            _groundZoom = zoom;
+            _ground.QueueRedraw();
+        }
+        FinishGroundBake();
+        _water.QueueRedraw();
+        _world.QueueRedraw();
+        _overlay.QueueRedraw();
+        _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
     }
 
     public override void _UnhandledInput(InputEvent e)
@@ -120,249 +264,697 @@ public partial class MapView : Node2D
         GetViewport().SetInputAsHandled();
     }
 
-    public override void _Draw()
-    {
-        if (_host == null) return;
-        World w = _host.World;
-        Map m = w.Map;
-        _toScreen = GetGlobalTransformWithCanvas();
-        _zoom = Mathf.Max(0.01f, _toScreen.X.Length());
-        _hits.Clear();
-
-        DrawTerrain(m);
-        DrawGrid(m);
-        DrawCamp(m);
-        DrawItems(w);
-        DrawPlants(m);
-        DrawRoofs(m);
-        if (w.Weather.Raining) DrawRect(new Rect2(0, 0, m.Width * TileSize, m.Height * TileSize), RainTint);
-        DrawPeople(w);
-    }
+    // ================= view state =================
 
     /// <summary>
-    /// Eases each person's drawn position toward their tile so steps read as walking; faster at
-    /// higher speeds, snapping on big jumps. View-only: the sim position is always the tile.
+    /// Eases each person's drawn position toward where the sim has them: between their tile and the
+    /// next one on their path, by how far through the step they are. Faster at higher speeds,
+    /// snapping on big jumps. The walk cycle advances with the distance actually covered, so feet
+    /// never slide.
     /// </summary>
-    private void Smooth(double delta)
+    private void Smooth(World w, double delta)
     {
-        World w = _host!.World;
-        float speed = Mathf.Max(1, _host.Clock.MultiplierOf(_host.Clock.Speed));
-        float alpha = 1f - Mathf.Exp(-(float)delta * 14f * speed);
+        float speed = Mathf.Max(1, _host!.Clock.MultiplierOf(_host.Clock.Speed));
+        float alpha = 1f - Mathf.Exp(-(float)delta * 18f * speed);
+        // Stepping aside is eased at its own pace, so someone walking through a busy tile causes a small shuffle, not a jump.
+        float settle = 1f - Mathf.Exp(-(float)delta * 9f);
         foreach (Character c in w.Characters)
         {
-            if (!c.IsActive)
+            bool drawn = (c.IsActive || c.Status == CharStatus.Dead) && w.Map.InBounds(c.Pos);
+            if (!drawn)
             {
                 _shown.Remove(c.Id);
                 continue;
             }
             Vector2 target = TileCenter(c.Pos);
-            if (!_shown.TryGetValue(c.Id, out Vector2 at) || at.DistanceTo(target) > TileSize * 3) at = target;
-            else at = at.Lerp(target, alpha);
-            _shown[c.Id] = at;
-        }
-    }
-
-    private void DrawTerrain(Map m)
-    {
-        for (int y = 0; y < m.Height; y++)
-        {
-            int x = 0;
-            while (x < m.Width)
+            bool stepping = c.Path.Count > 0 && !c.Downed && !c.Asleep && c.IsActive;
+            if (stepping && c.MoveTicks > 0)
             {
-                byte kind = m.Terrain[y * m.Width + x];
-                int run = 1;
-                while (x + run < m.Width && m.Terrain[y * m.Width + x + run] == kind) run++;
-                Color color = kind < TerrainColors.Length ? TerrainColors[kind] : UnknownTerrain;
-                DrawRect(new Rect2(x * TileSize, y * TileSize, run * TileSize, TileSize), color);
-                x += run;
+                SimPoint next = c.Path[0];
+                int ticks = TravelSystem.TicksFor(w, c, c.Pos, next);
+                target = target.Lerp(TileCenter(next), Mathf.Clamp(c.MoveTicks / (float)Math.Max(1, ticks), 0f, 1f));
             }
-        }
-    }
-
-    private void DrawGrid(Map m)
-    {
-        float width = m.Width * TileSize, height = m.Height * TileSize;
-        for (int x = 0; x <= m.Width; x++) DrawLine(new Vector2(x * TileSize, 0), new Vector2(x * TileSize, height), GridColor);
-        for (int y = 0; y <= m.Height; y++) DrawLine(new Vector2(0, y * TileSize), new Vector2(width, y * TileSize), GridColor);
-    }
-
-    private void DrawCamp(Map m)
-    {
-        Rect2 zone = TilesRect(m.Stockpile);
-        DrawRect(zone, StockpileFill);
-        DrawDashedRect(zone.Grow(-1.5f), StockpileEdge, 1.5f, 5f);
-
-        foreach (Bed b in m.Beds)
-        {
-            Rect2 tile = TileRect(b.Pos);
-            var bed = new Rect2(tile.Position + new Vector2(4, 2), new Vector2(TileSize - 8, TileSize - 4));
-            DrawRect(bed, BedColor);
-            DrawRect(new Rect2(bed.Position + new Vector2(2, 2), new Vector2(bed.Size.X - 4, 5)), PillowColor);
-            DrawRect(bed, BedEdge, false, 1f);
-        }
-
-        Rect2 hearth = TileRect(m.Hearth).Grow(-3);
-        DrawRect(hearth, HearthColor);
-        DrawRect(hearth.Grow(-5), HearthGlow);
-        DrawRect(hearth, HearthEdge, false, 1.5f);
-
-        Rect2 post = TileRect(m.WatchPost).Grow(-3);
-        DrawRect(post, PostColor);
-        DrawRect(post.Grow(-5), PostInner);
-        DrawRect(post, PostEdge, false, 1.5f);
-    }
-
-    private void DrawItems(World w)
-    {
-        foreach (ItemStack s in w.Items)
-        {
-            if (s.Count <= 0) continue;
-            Rect2 tile = TileRect(s.Pos);
-            var box = new Rect2(tile.Position + new Vector2(5, 5), new Vector2(14, 14));
-            DrawRect(box, ItemColor(s.DefId));
-            DrawRect(box, ItemEdge, false, 1f);
-            DrawScreenText(tile.End - new Vector2(1, 1), Ui.N(s.Count), CountFontSize, NameColor, new Vector2(1f, 1f), 3);
-        }
-    }
-
-    private void DrawPlants(Map m)
-    {
-        foreach (Bush b in m.Bushes)
-        {
-            Rect2 r = TileRect(b.Pos).Grow(-4);
-            DrawRect(r, BushColor);
-            DrawRect(r, BushEdge, false, 1f);
-            int dots = Math.Min(b.Berries, 6);
-            for (int i = 0; i < dots; i++)
-                DrawRect(new Rect2(r.Position.X + 3 + i % 3 * 5, r.Position.Y + 3 + i / 3 * 6, 3, 3), BerryColor);
-        }
-        foreach (var t in m.Trees)
-        {
-            if (t.Felled) continue;
-            Rect2 r = TileRect(t.Pos).Grow(-2);
-            DrawRect(r, TreeColor);
-            DrawRect(r.Grow(-6), TreeInner);
-            DrawRect(r, TreeEdge, false, 1f);
-        }
-    }
-
-    private void DrawRoofs(Map m)
-    {
-        Rect2 ruins = TilesRect(m.CoveredRuins);
-        DrawRect(ruins, CoveredFill);
-        DrawRect(ruins.Grow(-1), CoveredEdge, false, 1f);
-
-        foreach (RoofSection s in m.Roof)
-        {
-            Rect2 r = TilesRect(s.Area).Grow(-1.5f);
-            if (s.Sound)
+            Vector2 nudge = Settle(w, c, stepping);
+            if (!_shown.TryGetValue(c.Id, out Shown? s))
             {
-                DrawRect(r, RoofSoundFill);
-                DrawRect(r, RoofSoundEdge, false, 1.5f);
+                s = new Shown { At = target, Spread = nudge };
+                _shown[c.Id] = s;
             }
-            else
-            {
-                DrawRect(r, RoofBrokenFill);
-                DrawDashedRect(r, RoofBrokenEdge, 1.5f, 4f);
-            }
+            Vector2 was = s.At;
+            s.At = was.DistanceTo(target) > TileSize * 3 ? target : was.Lerp(target, alpha);
+            s.Spread = s.Spread.Lerp(nudge, settle);
+            float moved = s.At.DistanceTo(was);
+            s.Moving = c.IsActive && !c.Downed && !c.Asleep && (stepping || s.At.DistanceTo(target) > 0.6f);
+            if (s.Moving) s.Phase = (s.Phase + moved / TileSize * StridesPerTile) % 1f;
         }
     }
 
-    private void DrawPeople(World w)
+    /// <summary>
+    /// Where someone stands off their point, view only: people on the same tile stand side by side
+    /// (ordered by id, so the order never flickers), and someone sitting by the hearth sits back
+    /// from the stones. The dead and the downed stay on the blood they lie in; a carried patient
+    /// goes with the bearer.
+    /// </summary>
+    private static Vector2 Settle(World w, Character c, bool stepping)
     {
-        int selected = _host!.SelectedId;
-        var labels = new List<(int Id, Vector2 Top, Vector2 Bottom, string Name, string? Emote)>();
+        var nudge = Vector2.Zero;
+        if (Spreads(c))
+        {
+            int n = 0, k = 0;
+            foreach (Character o in w.Characters)
+            {
+                if (o.Pos != c.Pos || !Spreads(o)) continue;
+                n++;
+                if (o.Id < c.Id) k++;
+            }
+            if (n > 1) nudge.X = (k - (n - 1) / 2f) * SpreadStep;
+        }
+        SimPoint hearth = w.Map.Hearth;
+        if (!stepping && c.Pos != hearth && c.Pos.ChebyshevTo(hearth) <= Poses.HearthSitRange && Poses.For(w, c, false) == Pose.Sit)
+            nudge += (TileCenter(c.Pos) - TileCenter(hearth)).Normalized() * HearthPush;
+        return nudge;
+    }
+
+    private static bool Spreads(Character c) => c.IsActive && !c.Downed;
+
+    private void UpdateRoofs(World w, float delta)
+    {
+        Map m = w.Map;
+        float k = 1f - Mathf.Exp(-delta * 6f);
+        for (int i = 0; i < m.Roof.Count && i < _roofAlpha.Length; i++)
+            _roofAlpha[i] = Mathf.Lerp(_roofAlpha[i], Occupied(w, m.Roof[i].Area) ? 0.3f : 0.94f, k);
+        _ruinAlpha = Mathf.Lerp(_ruinAlpha, Occupied(w, m.CoveredRuins) ? 0.32f : 0.95f, k);
+    }
+
+    private static bool Occupied(World w, Return.Sim.Core.Rect area)
+    {
         foreach (Character c in w.Characters)
-        {
-            if (!c.IsActive || !w.Map.InBounds(c.Pos)) continue;
-            Vector2 at = _shown.TryGetValue(c.Id, out Vector2 shown) ? shown : TileCenter(c.Pos);
-            bool lying = c.Downed || c.Asleep;
-            Vector2 size = lying ? new Vector2(18, 10) : new Vector2(13, 18);
-            var body = new Rect2(at - size / 2 + new Vector2(0, lying ? 3 : 0), size);
-            Color color = CastColor(c);
-            if (c.Downed) color = color.Darkened(0.35f);
-            if (c.Id == selected) DrawRect(body.Grow(3), SelectColor, false, 2f);
-            DrawRect(body, color);
-            DrawRect(body, c.Status == CharStatus.Hostile ? HostileEdge : BodyEdge, false, 1.5f);
-            _hits.Add((c.Id, new Rect2(at - new Vector2(TileSize, TileSize) / 2, new Vector2(TileSize, TileSize))));
-            labels.Add((c.Id, new Vector2(at.X, body.Position.Y - 1), new Vector2(at.X, body.End.Y + 1), Ui.T(c.NameKey), ViewText.MoodEmote(w, c)));
-        }
+            if ((c.IsActive || c.Status == CharStatus.Dead) && area.Contains(c.Pos)) return true;
+        return false;
+    }
 
-        // Names go under bodies, left to right; a name that would overlap one already placed drops a line.
-        labels.Sort((a, b) => a.Bottom.X != b.Bottom.X ? a.Bottom.X.CompareTo(b.Bottom.X) : a.Id.CompareTo(b.Id));
-        var placed = new List<Rect2>();
-        foreach (var label in labels)
+    private static bool LanternLit(World w)
+    {
+        foreach (Character c in w.Characters)
+            if (c.Status == CharStatus.Member && c.Job is { Kind: JobKind.KeepWatch, Stage: >= 1 }) return true;
+        return false;
+    }
+
+    // ================= ground =================
+
+    /// <summary>
+    /// The ground is static, so it is drawn once into an offscreen texture (three texels per map
+    /// pixel, mipmapped) and then shown as a single quad: its grime overlays and soft blobs would
+    /// otherwise cost several full-screen passes every frame. Until the bake is ready (or if it
+    /// fails, as in a headless run) the ground is drawn directly.
+    /// </summary>
+    private void PaintGround(DrawLayer layer)
+    {
+        if (_host == null) return;
+        Map m = _host.World.Map;
+        // The margins around the map, zoomed out, take the same day and night as the map (the window's
+        // clear colour is not tinted). Four bands around it, so nothing is drawn twice under the map.
+        float w = m.Width * TileSize, h = m.Height * TileSize, g = 4000f;
+        layer.DrawRect(new Rect2(-g, -g, w + 2f * g, g), Palette.Margin);
+        layer.DrawRect(new Rect2(-g, h, w + 2f * g, g), Palette.Margin);
+        layer.DrawRect(new Rect2(-g, 0f, g, h), Palette.Margin);
+        layer.DrawRect(new Rect2(w, 0f, g, h), Palette.Margin);
+        if (_groundTex != null)
         {
-            Vector2 size = _font.GetStringSize(label.Name, HorizontalAlignment.Left, -1, NameFontSize);
-            Vector2 at = (_toScreen * label.Bottom).Round();
-            var box = new Rect2(at.X - size.X / 2 - 3, at.Y, size.X + 6, size.Y - 2);
-            for (int tries = 0; tries < 4 && Overlaps(box, placed); tries++) box.Position += new Vector2(0, size.Y - 2);
-            placed.Add(box);
-            DrawScreenText(label.Bottom, label.Name, NameFontSize, NameColor, new Vector2(0.5f, 0f), 4, box.Position.Y - at.Y);
-            if (label.Emote == null) continue;
-            string? glyph = ViewText.EmoteGlyph(label.Emote);
-            if (glyph != null) DrawScreenText(label.Top, glyph, MarkerFontSize, EmoteColor(label.Emote), new Vector2(0.5f, 1f), 4);
+            layer.DrawTextureRect(_groundTex, new Rect2(0f, 0f, w, h), false);
+            return;
+        }
+        _groundZoom = layer.GetGlobalTransformWithCanvas().X.Length();
+        _brush.Begin(layer, PixelsPerUnit(layer));
+        _art.DrawGround(_brush, _winterDrawn);
+        _brush.End();
+    }
+
+    private float BakeScale
+    {
+        get
+        {
+            Map m = _host!.World.Map;
+            float largest = Mathf.Max(m.Width, m.Height) * TileSize;
+            return Mathf.Clamp(Mathf.Floor(8192f / largest), 1f, 3f);
         }
     }
 
-    private static bool Overlaps(Rect2 box, List<Rect2> placed)
+    private void StartGroundBake()
     {
-        foreach (Rect2 r in placed)
-            if (r.Intersects(box)) return true;
+        _bakeView?.QueueFree();
+        Map m = _host!.World.Map;
+        float s = BakeScale;
+        bool winter = _winterDrawn;
+        var view = new SubViewport
+        {
+            Name = "GroundBake",
+            Size = new Vector2I((int)(m.Width * TileSize * s), (int)(m.Height * TileSize * s)),
+            Disable3D = true,
+            TransparentBg = false,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Once,
+        };
+        DrawLayer painter = DrawLayer.Make("Painter", layer =>
+        {
+            _brush.Begin(layer, s);
+            _art.DrawGround(_brush, winter);
+            _brush.End();
+        });
+        painter.Scale = new Vector2(s, s);
+        painter.TextureRepeat = TextureRepeatEnum.Enabled;
+        painter.TextureFilter = TextureFilterEnum.LinearWithMipmaps;
+        view.AddChild(painter);
+        AddChild(view);
+        _bakeView = view;
+        _bakeFrames = 0;
+    }
+
+    private void FinishGroundBake()
+    {
+        if (_bakeView == null || ++_bakeFrames < 3) return;
+        Image? image = _bakeView.GetTexture()?.GetImage();
+        if (image != null && !image.IsEmpty())
+        {
+            image.GenerateMipmaps();
+            _groundTex = ImageTexture.CreateFromImage(image);
+        }
+        _bakeView.QueueFree();
+        _bakeView = null;
+        _ground.QueueRedraw();
+    }
+
+    /// <summary>Physical screen pixels per unit of a layer's space (the window may be HiDPI and the camera zoomed).</summary>
+    private float PixelsPerUnit(CanvasItem layer)
+    {
+        Vector2 logical = GetViewport().GetVisibleRect().Size;
+        float stretch = logical.X > 0f ? DisplayServer.WindowGetSize().X / logical.X : 1f;
+        return Mathf.Max(0.01f, stretch * layer.GetGlobalTransformWithCanvas().X.Length());
+    }
+
+    // ================= water and world =================
+
+    private void PaintWater(DrawLayer layer)
+    {
+        if (_host == null) return;
+        _paintWatch.Restart();
+        _brush.Begin(layer, PixelsPerUnit(layer));
+        _art.DrawGrid(_brush);
+        _art.DrawWater(_brush, _time, _host.World.Weather.Raining);
+        _brush.End();
+        _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
+    }
+
+    private void PaintWorld(DrawLayer layer)
+    {
+        if (_host == null) return;
+        _paintWatch.Restart();
+        World w = _host.World;
+        Map m = w.Map;
+        WorldDef def = w.Content.World;
+        bool raining = w.Weather.Raining;
+        bool winter = _winterDrawn;
+        _toScreen = GetGlobalTransformWithCanvas();
+        _brush.Begin(layer, PixelsPerUnit(layer));
+        _hits.Clear();
+        _bodiesMap.Clear();
+
+        // Wet ground darkens, less so at night (as the rain's grey does), so rain never sinks the dark further.
+        if (raining) _brush.Rect(0f, 0f, m.Width * TileSize, m.Height * TileSize, new Color(0.03f, 0.05f, 0.08f, 0.24f * (1f - Daylight.RainAtNight * _light.Night)));
+        Gore.DrawDecals(_brush, _tex, _gore.Decals, w.Tick, def.TicksPerHour);
+        _art.DrawGrass(_brush, _time, winter, raining ? 1.6f : 0.5f);
+        if (raining) RainSplashes();
+
+        // Shadows first, all together (one texture, so one batch), then everything that stands, by depth.
+        float shadowAlpha = 0.36f * (1f - 0.8f * _light.Night) * (raining ? 0.6f : 1f);
+        var shadow = new Vector2(-_light.SunX * (1f - _light.SunHeight) * 5f, 0.5f);
+        CollectDrawables(w);
+        _drawables.Sort(ByDepth.Instance);
+        foreach (Drawable d in _drawables) PaintShadow(w, d, shadow, shadowAlpha);
+        foreach (Drawable d in _drawables) Paint(w, d, winter);
+
+        Effects(w);
+        _brush.End();
+        _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
+    }
+
+    private void CollectDrawables(World w)
+    {
+        Map m = w.Map;
+        _drawables.Clear();
+        for (int i = 0; i < m.Trees.Count; i++)
+        {
+            Tree t = m.Trees[i];
+            _drawables.Add(t.Felled ? new Drawable((t.Pos.Y + 0.6f) * TileSize, Kind.Stump, i, 0) : new Drawable(WorldArt.TreeBaseY(t), Kind.Tree, i, 0));
+        }
+        for (int i = 0; i < m.Bushes.Count; i++) _drawables.Add(new Drawable(WorldArt.BushBaseY(m.Bushes[i]), Kind.Bush, i, 0));
+        for (int i = 0; i < w.Items.Count; i++)
+            if (w.Items[i].Count > 0) _drawables.Add(new Drawable(WorldArt.StackSortY(w.Items[i]), Kind.Stack, i, 0));
+        for (int y = 0; y < m.Height; y++)
+            for (int x = 0; x < m.Width; x++)
+            {
+                TerrainKind k = (TerrainKind)m.Terrain[y * m.Width + x];
+                if (k == TerrainKind.Wall) _drawables.Add(new Drawable(WorldArt.WallSortY(new SimPoint(x, y)), Kind.Wall, y * m.Width + x, 1));
+                else if (k == TerrainKind.Door) _drawables.Add(new Drawable(WorldArt.DoorSortY(new SimPoint(x, y)), Kind.Door, y * m.Width + x, 1));
+            }
+        for (int i = 0; i < m.Roof.Count; i++) _drawables.Add(new Drawable(_art.RoofSortY, Kind.Roof, i, 2));
+        _drawables.Add(new Drawable(_art.RuinRoofSortY, Kind.RuinRoof, 0, 2));
+        _drawables.Add(new Drawable(_art.HearthSortY, Kind.Hearth, 0, 0));
+        _drawables.Add(new Drawable(_art.WatchPostSortY, Kind.WatchPost, 0, 0));
+        for (int i = 0; i < w.Characters.Count; i++)
+        {
+            Character c = w.Characters[i];
+            if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
+            Character? bearer = Bearer(w, c);
+            s.Look = Moonlit(LookOf(w, c, s), _light.Night);
+            s.State = StateOf(w, c, s);
+            s.State.Carried = bearer != null;
+            bool lying = s.State.Pose is Pose.Sleep or Pose.Downed or Pose.Dead;
+            float anchor = lying && !s.State.OnBed && !s.State.Carried ? LyingOffset : FeetOffset;
+            Vector2 at = bearer != null && _shown.TryGetValue(bearer.Id, out Shown? bs) ? bs.At + bs.Spread : s.At + s.Spread;
+            s.Feet = at + new Vector2(0f, anchor);
+            s.HeadAbove = HeadAbove(s.State);
+            _drawables.Add(new Drawable(s.Feet.Y + (bearer != null ? 0.1f : 0f), Kind.Figure, i, 0.5f));
+        }
+    }
+
+    /// <summary>How far above the feet the top of a figure's head is, by pose (mood marks sit there).</summary>
+    private static float HeadAbove(in FigureState s)
+    {
+        if (s.Carried) return TileSize * 1.2f;
+        return s.Pose switch
+        {
+            Pose.Sleep when s.OnBed => TileSize * 0.85f,
+            Pose.Sleep or Pose.Downed or Pose.Dead => TileSize * 0.42f,
+            Pose.Sit => TileSize * 1.32f - 9f * FigureScale,
+            Pose.Crouch => TileSize * 1.32f - 5f * FigureScale,
+            _ => TileSize * 1.32f,
+        };
+    }
+
+    private void PaintShadow(World w, Drawable d, Vector2 shadow, float alpha)
+    {
+        if (alpha <= 0.01f) return;
+        Map m = w.Map;
+        switch (d.Kind)
+        {
+            case Kind.Tree: _art.TreeShadow(_brush, m.Trees[d.Index], shadow, alpha); break;
+            case Kind.Bush: _art.BushShadow(_brush, m.Bushes[d.Index], shadow, alpha); break;
+            case Kind.Stack: _art.StackShadow(_brush, w.Items[d.Index], alpha); break;
+            case Kind.Hearth: _art.HearthShadow(_brush); break;
+            case Kind.WatchPost: _art.PostShadow(_brush, alpha); break;
+            case Kind.Figure:
+            {
+                Shown s = _shown[w.Characters[d.Index].Id];
+                _brush.Push();
+                _brush.Translate(s.Feet.X, s.Feet.Y);
+                _brush.Scale(FigureScale, FigureScale);
+                Figures.PersonShadow(_brush, s.Look, s.State, _tex, shadow / FigureScale, alpha);
+                _brush.Pop();
+                break;
+            }
+        }
+    }
+
+    /// <summary>Whoever is carrying this downed person to a bed right now (they share a tile), or null.</summary>
+    private static Character? Bearer(World w, Character patient)
+    {
+        if (!patient.Downed || patient.Status != CharStatus.Member) return null;
+        foreach (Character c in w.Characters)
+            if (c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Rescue, Stage: >= 1 } j && j.TargetId == patient.Id && c.Pos == patient.Pos)
+                return c;
+        return null;
+    }
+
+    private void Paint(World w, Drawable d, bool winter)
+    {
+        Map m = w.Map;
+        switch (d.Kind)
+        {
+            case Kind.Tree: _art.DrawTree(_brush, m.Trees[d.Index], _time, winter); break;
+            case Kind.Stump: WorldArt.DrawStump(_brush, m.Trees[d.Index]); break;
+            case Kind.Bush: WorldArt.DrawBush(_brush, m.Bushes[d.Index], _time, winter); break;
+            case Kind.Stack: WorldArt.DrawStack(_brush, w.Items[d.Index]); break;
+            case Kind.Wall: _art.DrawWall(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;
+            case Kind.Door: WorldArt.DrawDoor(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;
+            case Kind.Roof: _art.DrawRoof(_brush, m.Roof[d.Index], _roofAlpha[Math.Min(d.Index, _roofAlpha.Length - 1)]); break;
+            case Kind.RuinRoof: _art.DrawRuinRoof(_brush, _ruinAlpha); break;
+            case Kind.Hearth: _art.DrawHearth(_brush, _time); break;
+            case Kind.WatchPost: _art.DrawWatchPost(_brush, LanternLit(w) && _light.Night > 0.3f, _time); break;
+            case Kind.Figure: PaintFigure(w.Characters[d.Index]); break;
+        }
+    }
+
+    private void PaintFigure(Character c)
+    {
+        Shown s = _shown[c.Id];
+        Vector2 feet = s.Feet;
+        FigureState state = s.State;
+        bool lying = state.Pose is Pose.Sleep or Pose.Downed or Pose.Dead;
+
+        if (c.Id == _host!.SelectedId && !state.Carried)
+        {
+            _brush.Clear().Ellipse(feet.X, feet.Y + (lying ? -1f : 0.5f), lying ? 14f : 10f, lying ? 6f : 4.6f, 20).Stroke(Palette.Select.WithAlpha(0.9f), 1.6f);
+            _brush.Clear().Ellipse(feet.X, feet.Y + (lying ? -1f : 0.5f), lying ? 15.6f : 11.6f, lying ? 7f : 5.6f, 20).Stroke(Palette.Ink.WithAlpha(0.7f), 0.8f);
+        }
+
+        // Someone burning in the sun glows like the fire they are: readable at any zoom, by day.
+        if (state.Burning && _tex.Light != null)
+        {
+            float flick = 0.85f + 0.1f * MathF.Sin(_time * 11.3f + c.Id) + 0.05f * MathF.Sin(_time * 23.1f + c.Id * 2f);
+            float size = TileSize * 3.3f * (0.94f + 0.06f * flick);
+            _brush.Texture(_tex.Light, feet.X, feet.Y - TileSize * 0.6f, size, size * 1.1f, 0f, new Color(1f, 0.45f, 0.12f, 0.85f * flick));
+            _brush.Texture(_tex.Light, feet.X, feet.Y - TileSize * 0.65f, size * 0.55f, size * 0.7f, 0f, new Color(1f, 0.62f, 0.25f, 0.75f * flick));
+        }
+
+        _brush.Push();
+        _brush.Translate(feet.X, feet.Y);
+        _brush.Scale(FigureScale, FigureScale);
+        Figures.Person(_brush, s.Look, state, _tex, Vector2.Zero, 0f);
+        _brush.Pop();
+
+        // Small flames lick up off the shoulders and head of the burning.
+        if (state.Burning && !lying)
+        {
+            float top = feet.Y - s.HeadAbove;
+            WorldArt.Flames(_brush, feet.X - 3.5f, top + TileSize * 0.38f, _time * 1.3f + c.Id, 0.42f);
+            WorldArt.Flames(_brush, feet.X + 3f, top + TileSize * 0.3f, _time * 1.1f + c.Id * 2.3f, 0.38f);
+            WorldArt.Flames(_brush, feet.X + 0.5f, top + TileSize * 0.08f, _time * 1.2f + c.Id * 3.1f, 0.34f);
+        }
+
+        Rect2 box = state.Carried ? new Rect2(feet.X - TileSize * 0.7f, feet.Y - TileSize * 1.5f, TileSize * 1.4f, TileSize * 0.8f)
+            : lying && state.OnBed ? new Rect2(feet.X - TileSize * 0.4f, feet.Y - TileSize * 0.95f, TileSize * 0.8f, TileSize * 1.15f)
+            : lying ? new Rect2(feet.X - TileSize * 0.7f, feet.Y - TileSize * 0.5f, TileSize * 1.4f, TileSize * 0.65f)
+            : new Rect2(feet.X - TileSize * 0.42f, feet.Y - s.HeadAbove, TileSize * 0.84f, s.HeadAbove + TileSize * 0.13f);
+        _hits.Add((c.Id, box));
+        // What names keep off: the body as drawn, head to feet for someone upright (the hit box is
+        // more generous, for clicking), the whole shape for someone lying down.
+        _bodiesMap.Add((c.Id, lying || state.Carried ? box : new Rect2(feet.X - TileSize * 0.3f, feet.Y - s.HeadAbove, TileSize * 0.6f, s.HeadAbove)));
+    }
+
+    private FigureState StateOf(World w, Character c, Shown s)
+    {
+        Pose pose = Poses.For(w, c, s.Moving);
+        var state = new FigureState
+        {
+            Pose = pose,
+            Facing = Poses.FacingOf(w, c, s.Moving),
+            Phase = s.Phase,
+            Time = _time,
+            Seed = c.Id * 1.37f,
+            Tool = Poses.ToolFor(c, pose),
+            Carry = c.Carrying == null ? Carried.None : c.Carrying.DefId switch { "timber" => Carried.Timber, "berries" => Carried.Berries, _ => Carried.Bundle },
+            Wounds = GoreLog.WoundLevel(w, c),
+            Burning = GoreLog.Burning(w, c),
+            HeadLeft = pose == Pose.Dead ? ArtHash.Unit(c.Id, 5) < 0.5f : c.Facing == Facing.W,
+            OnBed = pose == Pose.Sleep && OnBed(w.Map, c.Pos),
+        };
+        if (pose == Pose.Dead && _gore.RemainsOf(w, c) is Remains r)
+        {
+            state.Death = r.Kind;
+            state.DeadHours = Math.Max(0, w.Tick - r.Tick) / (float)w.Content.World.TicksPerHour;
+        }
+        return state;
+    }
+
+    private static bool OnBed(Map m, SimPoint p)
+    {
+        foreach (Bed b in m.Beds)
+            if (b.Pos == p) return true;
         return false;
     }
 
     /// <summary>
-    /// Draws text at a constant on-screen size whatever the camera zoom, snapped to whole pixels.
-    /// <paramref name="anchor"/> is in map pixels; <paramref name="align"/> chooses which point of
-    /// the text box sits on it ((0.5, 0) top centre, (0.5, 1) bottom centre, (1, 1) bottom right);
-    /// <paramref name="screenDy"/> shifts it down by that many screen pixels.
+    /// How someone looks: hair, skin and build from game/art/looks.json; cloth from looks.json or
+    /// cast.json, darkened and muted; the demo's chest marks by role; a vampire's collar and diamond.
     /// </summary>
-    private void DrawScreenText(Vector2 anchor, string text, int fontSize, Color color, Vector2 align, int outline, float screenDy = 0f)
+    private FigureLook LookOf(World w, Character c, Shown s)
+    {
+        if (s.HasLook && s.LookStatus == c.Status) return s.BaseLook;
+        bool hostile = c.Status == CharStatus.Hostile || (c.Status == CharStatus.Dead && !c.Named);
+        Look look = hostile ? _looks.Hostile : _looks.For(c.CastKey);
+        SpeciesDef species = w.Content.SpeciesById(c.SpeciesId);
+        bool vampire = species.DrinksBlood;
+        Rgb cloth = look.Cloth ?? CastRgb(c.CastKey) ?? new Rgb(0.45f, 0.43f, 0.4f);
+        (float wide, float tall) = look.Scale;
+        Mark mark = hostile ? Mark.None
+            : c.Id == w.PlayerId || c.Otherworlder ? Mark.You
+            : vampire ? Mark.Vampire
+            : c.RoleId == "forager" ? Mark.Forager
+            : Mark.Cross;
+        s.BaseLook = new FigureLook
+        {
+            Cloth = Palette.Of(hostile ? cloth : cloth.Muted(0.8f, 0.25f)),
+            Hair = Palette.Of(look.Hair),
+            Skin = Palette.Of(look.Skin),
+            Mark = mark,
+            Vampire = vampire,
+            Hostile = hostile,
+            HairStyle = look.HairStyle,
+            Beard = look.Beard,
+            Hood = look.Hood || hostile,
+            Wide = wide,
+            Tall = tall,
+        };
+        s.HasLook = true;
+        s.LookStatus = c.Status;
+        return s.BaseLook;
+    }
+
+    private static readonly Color Moon = new(0.70f, 0.76f, 0.90f);
+
+    /// <summary>
+    /// At night people catch the moonlight: cloth, hair and skin are lifted toward a cool light in
+    /// proportion to the dark, so a dark cloak still reads against the ground away from the fire
+    /// (the tint over the map multiplies everything alike, so it cannot do that by itself). A thief
+    /// in black catches less of it.
+    /// </summary>
+    private static FigureLook Moonlit(FigureLook look, float night)
+    {
+        if (night <= 0.01f) return look;
+        float k = night * (look.Hostile ? 0.5f : 1f);
+        look.Cloth = look.Cloth.Lerp(Moon, 0.32f * k);
+        look.Hair = look.Hair.Lerp(Moon, 0.22f * k);
+        look.Skin = look.Skin.Lerp(Moon, 0.1f * k);
+        return look;
+    }
+
+    private Rgb? CastRgb(string castKey)
+    {
+        foreach (CastDef def in _host!.Content.Cast)
+            if (def.Key == castKey && Rgb.TryParse(def.Color, out Rgb rgb)) return rgb;
+        return null;
+    }
+
+    private void Effects(World w)
+    {
+        float wind = w.Weather.Raining ? 1.4f : 0.6f;
+        _art.DrawSmoke(_brush, _art.HearthCenter + new Vector2(0f, -8f), _time, w.Weather.Raining ? 1.3f : 1f, wind, 0);
+        foreach (Character c in w.Characters)
+        {
+            if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
+            Vector2 feet = s.Feet;
+            if (s.State.Burning)
+            {
+                _art.DrawSmoke(_brush, feet + new Vector2(0f, -TileSize * 0.6f), _time, 1f, wind, c.Id, dark: true);
+                Gore.Embers(_brush, feet.X, feet.Y - TileSize * 0.5f, _time, c.Id);
+            }
+            if (c.Status != CharStatus.Dead || _gore.RemainsOf(w, c) is not Remains r) continue;
+            float hours = Math.Max(0, w.Tick - r.Tick) / (float)w.Content.World.TicksPerHour;
+            if (r.Kind == DeathKind.Sun && hours < 12f && _light.Night < 0.5f)
+                _art.DrawSmoke(_brush, feet + new Vector2(0f, -4f), _time * 0.8f, 0.55f, wind, c.Id, dark: true);
+            if (hours > 1f && _light.Night < 0.6f && !w.Weather.Raining)
+                Gore.Flies(_brush, feet.X, feet.Y - 4f, _time, c.Id, hours > 8f ? 6 : 3);
+        }
+    }
+
+    private void RainSplashes()
+    {
+        Rect2 view = VisibleMapRect();
+        for (int i = 0; i < 90; i++)
+        {
+            float slot = MathF.Floor(_time * 2.2f + ArtHash.Unit(i, 300));
+            float k = (_time * 2.2f + ArtHash.Unit(i, 300)) - slot;
+            float x = view.Position.X + ArtHash.Unit(i, (long)slot, 301) * view.Size.X;
+            float y = view.Position.Y + ArtHash.Unit(i, (long)slot, 302) * view.Size.Y;
+            _brush.Clear().Ellipse(x, y, 1f + k * 3f, 0.6f + k * 1.6f, 10).Stroke(new Color(0.75f, 0.8f, 0.86f, 0.35f * (1f - k)), 0.6f);
+        }
+    }
+
+    /// <summary>The part of the map on screen, in map pixels.</summary>
+    private Rect2 VisibleMapRect()
+    {
+        Transform2D inv = _toScreen.AffineInverse();
+        Vector2 size = GetViewportRect().Size;
+        Vector2 a = inv * Vector2.Zero, b = inv * size;
+        return new Rect2(a, b - a);
+    }
+
+    // ================= overlay (screen space, above the lighting) =================
+
+    private void PaintOverlay(DrawLayer layer)
+    {
+        if (_host == null) return;
+        _paintWatch.Restart();
+        World w = _host.World;
+        Vector2 screen = layer.GetViewportRect().Size;
+        _brush.Begin(layer, PixelsPerUnit(layer));
+        if (w.Weather.Raining) RainStreaks(screen);
+        // A flat vignette: deepening it at night would black out the corners.
+        _brush.TextureRect(_tex.Vignette, new Rect2(Vector2.Zero, screen), new Color(1f, 1f, 1f, 0.5f));
+        Glints(w);
+        _brush.End(); // text is drawn directly, after everything batched
+        Labels(w);
+        _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
+    }
+
+    private void RainStreaks(Vector2 screen)
+    {
+        int n = _rain.Length / 2;
+        var slant = new Vector2(-0.22f, 1f);
+        for (int i = 0; i < n; i++)
+        {
+            float speed = 520f + 260f * ArtHash.Unit(i, 310);
+            float len = 9f + 9f * ArtHash.Unit(i, 311);
+            float x0 = ArtHash.Unit(i, 312) * (screen.X + 200f);
+            float y = (ArtHash.Unit(i, 313) * (screen.Y + 40f) + _time * speed) % (screen.Y + 40f) - 20f;
+            float x = (x0 + slant.X * (y + 20f) % (screen.X + 200f) + screen.X + 200f) % (screen.X + 200f) - 100f;
+            _rain[i * 2] = new Vector2(x, y);
+            _rain[i * 2 + 1] = new Vector2(x + slant.X * len, y + slant.Y * len);
+        }
+        _brush.Segments(_rain, null, new Color(0.72f, 0.78f, 0.86f, 0.32f), 1f);
+    }
+
+    /// <summary>A thief's eyes catch the light in the dark.</summary>
+    private void Glints(World w)
+    {
+        if (_light.Night < 0.35f) return;
+        foreach (Character c in w.Characters)
+        {
+            if (c.Status != CharStatus.Hostile || c.Downed || !_shown.TryGetValue(c.Id, out Shown? s)) continue;
+            Facing f = s.State.Facing;
+            if (f == Facing.N) continue;
+            Vector2 head = _toScreen * (s.Feet - new Vector2(0f, 33.4f * FigureScale));
+            float z = _toScreen.X.Length() * FigureScale;
+            var glint = new Color(0.95f, 0.82f, 0.55f, 0.85f * _light.Night);
+            if (f == Facing.S)
+            {
+                _brush.Dot(head.X - 1.2f * z, head.Y + 0.8f * z, 0.7f * z, glint);
+                _brush.Dot(head.X + 1.2f * z, head.Y + 0.8f * z, 0.7f * z, glint);
+            }
+            else _brush.Dot(head.X + (f == Facing.E ? 3.2f : -3.2f) * z, head.Y + 0.8f * z, 0.7f * z, glint);
+        }
+    }
+
+    /// <summary>
+    /// Names, mood marks and stack counts, placed so they cover neither each other nor anyone's head
+    /// and chest. Marks attach to heads (the mood mark at the upper right, the sleep mark at the upper
+    /// left); names go under the feet, or beside them, or one line lower, whichever is clear first.
+    /// </summary>
+    private void Labels(World w)
+    {
+        int selected = _host!.SelectedId;
+        float tile = TileSize * _toScreen.X.Length();
+        _labels.Clear();
+        _placed.Clear();
+        _marks.Clear();
+
+        // Obstacles first: every figure (a name keeps off everyone but its owner) and every stack count.
+        _bodies.Clear();
+        foreach ((int id, Rect2 box) in _bodiesMap) _bodies.Add((id, ScreenRect(box)));
+        foreach (ItemStack stack in w.Items)
+        {
+            if (stack.Count <= 0) continue;
+            Vector2 corner = (_toScreen * new Vector2((stack.Pos.X + 1f) * TileSize - 1f, (stack.Pos.Y + 1f) * TileSize - 1f)).Round();
+            AddMark(corner, stack.Count < Numbers.Length ? Numbers[stack.Count] : Ui.N(stack.Count), CountFontSize, Palette.Name, new Vector2(1f, 1f), 3);
+        }
+
+        foreach (Character c in w.Characters)
+        {
+            if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
+            bool dead = c.Status == CharStatus.Dead;
+            Vector2 head = (_toScreen * (s.Feet - new Vector2(0f, s.HeadAbove))).Round();
+            string? emote = dead ? null : ViewText.MoodEmote(w, c);
+            string? glyph = emote == null ? null : ViewText.EmoteGlyph(emote);
+            if (glyph != null) AddMark(head + new Vector2(tile * 0.45f, 0f), glyph, MarkerFontSize, EmoteColor(emote!), new Vector2(0.5f, 1f), 4);
+            if (c.Asleep)
+            {
+                float bob = MathF.Sin(_time * 2f + c.Id) * 2f;
+                AddMark(head + new Vector2(-tile * 0.4f, bob), _sleepMark, 11, new Color(0.85f, 0.85f, 0.9f, 0.85f), new Vector2(0.5f, 1f), 3);
+            }
+            _labels.Add(new NameTag(c.Id, s.Feet + new Vector2(0f, 2f), Ui.T(c.NameKey), dead, c.Status == CharStatus.Hostile));
+        }
+
+        // Names left to right: under the feet; else beside them (close, then clear of a neighbour's
+        // body); else one line lower; failing all of those, wherever overlaps least.
+        _labels.Sort(static (a, b) => a.Feet.X != b.Feet.X ? a.Feet.X.CompareTo(b.Feet.X) : a.Id.CompareTo(b.Id));
+        foreach (NameTag label in _labels)
+        {
+            Vector2 size = _font.GetStringSize(label.Name, HorizontalAlignment.Left, -1, NameFontSize);
+            Vector2 at = (_toScreen * label.Feet).Round();
+            float h = size.Y - 2f, near = size.X / 2f + 4f, far = size.X / 2f + tile * 0.3f + 4f;
+            Rect2 best = default;
+            float least = float.MaxValue;
+            for (int k = 0; k < 6; k++)
+            {
+                float dx = k switch { 1 => near, 2 => -near, 3 => far, 4 => -far, _ => 0f };
+                var box = new Rect2(at.X + dx - size.X / 2f - 3f, at.Y + (k == 5 ? h : 0f), size.X + 6f, h);
+                float overlap = OverlapArea(box, _placed);
+                foreach ((int id, Rect2 body) in _bodies)
+                    if (id != label.Id) overlap += OverlapArea(box, body);
+                if (overlap < least)
+                {
+                    least = overlap;
+                    best = box;
+                }
+                if (overlap <= 0f) break;
+            }
+            _placed.Add(best);
+            Color color = label.Id == selected ? Palette.Select
+                : label.Dead ? new Color(0.72f, 0.66f, 0.6f, 0.85f)
+                : label.Hostile ? new Color(0.92f, 0.55f, 0.48f)
+                : Palette.Name;
+            Text(new Vector2(best.GetCenter().X, best.Position.Y), label.Name, NameFontSize, color, new Vector2(0.5f, 0f), 4);
+        }
+
+        foreach (TextMark m in _marks) Text(m.At, m.Text, m.Size, m.Color, m.Align, m.Outline);
+    }
+
+    /// <summary>A mark that stays where it is put (on a head, at a stack's corner); names keep clear of it.</summary>
+    private void AddMark(Vector2 at, string text, int fontSize, Color color, Vector2 align, int outline)
+    {
+        Vector2 size = _font.GetStringSize(text, HorizontalAlignment.Left, -1, fontSize);
+        _placed.Add(new Rect2(at.X - size.X * align.X, at.Y - size.Y * align.Y, size.X, size.Y));
+        _marks.Add(new TextMark(at, text, fontSize, color, align, outline));
+    }
+
+    /// <summary>A map-space rectangle on screen (the overlay's space).</summary>
+    private Rect2 ScreenRect(Rect2 map)
+    {
+        Vector2 a = _toScreen * map.Position, b = _toScreen * map.End;
+        return new Rect2(a, b - a).Abs();
+    }
+
+    private void Text(Vector2 screen, string text, int fontSize, Color color, Vector2 align, int outline)
     {
         Vector2 size = _font.GetStringSize(text, HorizontalAlignment.Left, -1, fontSize);
         float ascent = _font.GetAscent(fontSize);
-        Vector2 screen = (_toScreen * anchor).Round() + new Vector2(0, screenDy);
-        Vector2 local = _toScreen.AffineInverse() * screen;
-        DrawSetTransform(local, 0f, new Vector2(1f / _zoom, 1f / _zoom));
-        var pos = new Vector2(Mathf.Round(-size.X * align.X), Mathf.Round(-size.Y * align.Y + ascent));
-        if (outline > 0) DrawStringOutline(_font, pos, text, HorizontalAlignment.Left, -1, fontSize, outline, LabelOutline);
-        DrawString(_font, pos, text, HorizontalAlignment.Left, -1, fontSize, color);
-        DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
+        var pos = new Vector2(Mathf.Round(screen.X - size.X * align.X), Mathf.Round(screen.Y - size.Y * align.Y + ascent));
+        if (outline > 0) _overlay.DrawStringOutline(_font, pos, text, HorizontalAlignment.Left, -1, fontSize, outline, Palette.NameShadow);
+        _overlay.DrawString(_font, pos, text, HorizontalAlignment.Left, -1, fontSize, color);
     }
 
-    private void DrawDashedRect(Rect2 r, Color color, float width, float dash)
+    private static float OverlapArea(Rect2 box, List<Rect2> placed)
     {
-        var a = r.Position;
-        var b = new Vector2(r.End.X, r.Position.Y);
-        var c = r.End;
-        var d = new Vector2(r.Position.X, r.End.Y);
-        DrawDashedLine(a, b, color, width, dash);
-        DrawDashedLine(b, c, color, width, dash);
-        DrawDashedLine(c, d, color, width, dash);
-        DrawDashedLine(d, a, color, width, dash);
+        float area = 0f;
+        foreach (Rect2 r in placed) area += OverlapArea(box, r);
+        return area;
     }
 
-    private Color CastColor(Character c)
+    private static float OverlapArea(Rect2 a, Rect2 b)
     {
-        if (_castColors.TryGetValue(c.CastKey, out Color color)) return color;
-        color = c.Status == CharStatus.Hostile ? HostileColor : StrangerColor;
-        foreach (CastDef def in _host!.Content.Cast)
-            if (def.Key == c.CastKey && Color.HtmlIsValid(def.Color))
-            {
-                color = Color.FromHtml(def.Color);
-                break;
-            }
-        _castColors[c.CastKey] = color;
-        return color;
+        Rect2 i = a.Intersection(b);
+        return i.Size.X > 0f && i.Size.Y > 0f ? i.Size.X * i.Size.Y : 0f;
     }
-
-    private static Color ItemColor(string defId) => defId switch
-    {
-        "berries" => new Color(0.71f, 0.22f, 0.30f),
-        "timber" => new Color(0.55f, 0.36f, 0.21f),
-        _ => new Color(0.76f, 0.76f, 0.74f),
-    };
 
     private static Color EmoteColor(string emote) => emote switch
     {
@@ -375,10 +967,27 @@ public partial class MapView : Node2D
         "zzz" => new Color(0.76f, 0.80f, 0.90f),
         "gloom" => new Color(0.66f, 0.68f, 0.74f),
         "music" => new Color(0.66f, 0.87f, 0.63f),
-        _ => NameColor,
+        _ => Palette.Name,
     };
 
-    private static Rect2 TileRect(SimPoint p) => new(p.X * TileSize, p.Y * TileSize, TileSize, TileSize);
+    private static LookBook LoadLooks()
+    {
+        string path = System.IO.Path.Combine(ArtTextures.ArtDir, "looks.json");
+        try
+        {
+            return LookBook.Load(path);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or FormatException or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            GD.PushWarning("Return: could not read " + path + " (" + ex.Message + "); everyone gets the default look.");
+            return LookBook.Fallback();
+        }
+    }
 
-    private static Rect2 TilesRect(SimRect r) => new(r.X * TileSize, r.Y * TileSize, r.W * TileSize, r.H * TileSize);
+    private static string[] BuildNumbers(int n)
+    {
+        var a = new string[n];
+        for (int i = 0; i < n; i++) a[i] = Ui.N(i);
+        return a;
+    }
 }
