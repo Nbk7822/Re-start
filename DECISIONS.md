@@ -79,3 +79,8 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
   1. Work priorities are keyed by content work id (`"forage"`), not by the `JobKind` enum, so they stay data-driven. `SetWorkPriority` takes a work id.
   2. A character's secondary trait is drawn from every trait except their signature, instead of the demo's fixed pool of four. Keeping the pool would need a new field in `traits.schema.json` (for example `"secondaryPool": true`), and schema changes need founder approval. If soaks show the wider pool hurts (say, too many Desperate secondaries), propose that field.
   3. `content/roles.json` (role → default work priorities) was added in Task 3 alongside the other schemas.
+
+## ADR-0013 — M0 tuning constants live in code (for now)
+- **Status:** accepted for M0 (2026-11-08); proposal for founder review.
+- **Context:** Some numbers are tuning, not content: conversation odds (start 60‰ per check, insult 50‰ base, +250‰ in a low mood, +300‰ toward a grudge target, deep talk 300‰), thresholds (hungry < 300, starving < 150, fed ≥ 450, collapse < 150, recover ≥ 300, grudge at opinion −40, leave at −45). Putting them in `/content` needs new schema fields, which needs approval.
+- **Decision:** Keep them as named constants (`NeedsSystem`, `SocialSystem`) during M0 so soak tuning can move fast. Proposal: after the M0 soak settles the values, add a `tuning` block to `world.json` and its schema.

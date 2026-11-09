@@ -8,7 +8,8 @@ namespace Return.Sim.Systems;
 /// </summary>
 public static class MoodSystem
 {
-    public static void AddThought(World w, Character c, string thoughtId, int aboutId, long cause)
+    /// <param name="opinionScalePct">Scales the thought's opinion effect (traits such as Proud take insults harder).</param>
+    public static void AddThought(World w, Character c, string thoughtId, int aboutId, long cause, int opinionScalePct = 100)
     {
         ThoughtDef def = w.Content.ThoughtById(thoughtId);
         long expires = w.Tick + (long)def.DurationHours * w.Content.World.TicksPerHour;
@@ -29,7 +30,7 @@ public static class MoodSystem
         {
             c.Thoughts.Add(new Thought { DefId = thoughtId, AboutId = aboutId, ExpiresTick = expires, CauseEvent = cause });
         }
-        if (def.Opinion != 0 && aboutId != 0) Relations.ChangeOpinion(w, c, aboutId, def.Opinion, cause);
+        if (def.Opinion != 0 && aboutId != 0) Relations.ChangeOpinion(w, c, aboutId, def.Opinion * opinionScalePct / 100, cause);
     }
 
     public static void Hourly(World w)

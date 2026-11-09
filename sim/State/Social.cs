@@ -17,6 +17,7 @@ public sealed class Grudge
     public int TargetId { get; set; }
     public int Intensity { get; set; }
     public long CauseEvent { get; set; }
+    public long FormedEvent { get; set; }
     public long FormedTick { get; set; }
     public bool Active { get; set; } = true;
 }
@@ -50,6 +51,8 @@ public sealed class Debt
     public DebtKind Kind { get; set; }
     public int Weight { get; set; }
     public long CauseEvent { get; set; }
+    public long FormedEvent { get; set; }
+    public long ClosedEvent { get; set; }
     public long FormedTick { get; set; }
     public long DueTick { get; set; }
     public DebtStatus Status { get; set; }

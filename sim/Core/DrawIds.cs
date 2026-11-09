@@ -20,6 +20,9 @@ public enum DiceId : ushort
 {
     ArrivalDay = 1,
     ArrivalHour = 2,
+    SocialInitiate = 3,
+    SocialInsult = 4,
+    SocialDeepTalk = 5,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>

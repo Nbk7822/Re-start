@@ -166,6 +166,20 @@
   "event.needs.went_without": "{a} went without so others could eat.",
   "event.needs.food_rotted": "{n} {item} rotted in the stockpile.",
 
+  "event.social.insulted": "{a} insulted {b}.",
+  "event.social.grudge_formed": "{a} now holds a grudge against {b}.",
+  "event.social.grudge_ended": "{a} let go of their grudge against {b}.",
+  "event.social.promised_meal": "{a} promised {b} a meal within two days.",
+  "event.social.promised_rest": "{a} promised {b} safe rest within two days.",
+  "event.social.owes_care": "{a} owes {b} for tending their wounds.",
+  "event.social.owes_blood": "{a} owes {b} for the blood.",
+  "event.social.owes_meal": "{a} owes {b} for a shared meal.",
+  "event.social.owes_rescue": "{a} owes {b} their life.",
+  "event.social.promise_kept": "{a} kept their promise to {b}.",
+  "event.social.debt_repaid": "{a} repaid what they owed {b}.",
+  "event.social.promise_broken": "{a} broke their promise to {b}.",
+  "event.social.left_camp": "{a} left the camp.",
+
   "event.world.ration_policy": "You decided that when food runs short, {policy}.",
   "event.world.work_priority": "{a}'s priority for {work} is now {n}.",
 
