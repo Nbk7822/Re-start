@@ -91,7 +91,7 @@ public static class IncidentSystem
                 new Effect { Kind = EffectKind.Recruitment, A = c.Id, B = inviter.Id },
                 new Effect { Kind = EffectKind.DebtFormed, A = inviter.Id, B = c.Id, RefId = promise.Id },
             },
-            EventArg.Char("a", c.Id), EventArg.Char("b", inviter.Id));
+            EventArg.Char("a", c.Id), EventArg.Char("b", inviter.Id), EventArg.Num("n", Math.Max(1, (w.Content.World.PromiseDueHours + 12) / 24)));
         promise.FormedEvent = joined.Id;
         if (!rest) c.LastFoodEvent = joined.Id;
         MoodSystem.AddThought(w, c, "joined_camp", inviter.Id, joined.Id);
@@ -100,16 +100,13 @@ public static class IncidentSystem
 
     /// <summary>
     /// What the camp cannot give a newcomer right now, as the promise it would take; null if nothing.
-    /// Food counts as short when the spare stock would not give every mouth one meal.
+    /// Food is short when nothing in the stockpile is free for them to eat now (everything left is
+    /// set aside for others, or there is nothing at all).
     /// </summary>
     public static DebtKind? UnmetNeed(World w, Character c)
     {
         if (Places.BurnsInDaylight(w, c)) return w.Map.Roof.Exists(r => r.Sound) ? null : DebtKind.PromiseRest;
-        string food = Places.Species(w, c).FoodSource;
-        int mouths = 0;
-        foreach (Character m in w.Members())
-            if (Places.Species(w, m).FoodSource == food) mouths++;
-        return Rations.Unreserved(w, food) >= mouths ? null : DebtKind.PromiseMeal;
+        return Rations.Unreserved(w, Places.Species(w, c).FoodSource) > 0 ? null : DebtKind.PromiseMeal;
     }
 
     private static SimEvent? StartRain(World w)

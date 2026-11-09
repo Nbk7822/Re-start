@@ -97,8 +97,8 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
 ## ADR-0014 — Promises only when fulfilment is uncertain
 - **Status:** accepted for M0 (2026-11-09), lead's call; for founder review.
 - **Context:** Every wanderer was promised a meal on joining and ate within the hour, so 700 of the first soak's 1,428 "stories" were the same instant promise-kept chain. A debt opened and closed in an hour is not a story, and it hid that real stories ran at ~7 per world.
-- **Decision:** A newcomer is promised only what the camp cannot give right now: a meal when spare stock would not give every mouth one; for vampires, a sound roof against the sun when no roof section is mended. Otherwise they are simply welcomed (a Recruitment, not a story by itself). A promised meal is a first claim on food: if food is shared out and the creditor, hungry, is left out, the promise breaks at once (as in the demo, the ration policy decides whether you keep your word). A promised roof is kept when anyone mends a section in time, and repairs made while such a promise is open cite it. The newcomer's food cause becomes the promise, so the hunger that follows chains back to it.
-- **Consequences:** "Broken promise → departure" appears in 40% of soak worlds and "promise kept" is now a promise that was at risk. Promised rest is no longer kept by sleeping in the ruins.
+- **Decision:** A newcomer is promised only what the camp cannot give right now: a meal when nothing in the stockpile is free for them to eat (amended 2026-11-09 after review: "less than a meal per mouth" still let promises close within minutes); for vampires, a sound roof against the sun when no roof section is mended. Otherwise they are simply welcomed (a Recruitment, not a story by itself). A promised meal is a first claim on food: if food is shared out and the creditor, hungry, is left out, the promise breaks at once (as in the demo, the ration policy decides whether you keep your word). A promised roof is kept when anyone mends a section in time, and repairs made while such a promise is open cite it. The newcomer's food cause becomes the promise, so the hunger that follows chains back to it.
+- **Consequences:** "Broken promise → departure" appears in 38% of soak worlds. Kept promises stay open 1 to 40 hours (median about 15); none closes within the hour. Promised rest is no longer kept by sleeping in the ruins. The promise's length comes from world.json (`promiseDueHours`) and reaches the text as "within {n} days" / "within a day".
 
 ## ADR-0015 — Rationing that bites, and a winter squeeze instead of a cliff
 - **Status:** accepted for M0 (2026-11-09), lead's call; for founder review. Pacing change: the last three wanderers now arrive near winter.
@@ -119,4 +119,23 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
   2. The headless runner has a stand-in player that sets one of the three ration policies on the first tick, chosen by seed, so a soak exercises every policy's stories. `run` and `soak` share it.
   3. The story log folds a run of identical steps that differ only in one person ("… and the same with Bram, Nia, Mira, until Day 40, 04:00"), and uses singular item names for one.
   4. The player speaks in second person: `World.PlayerId` names the player, and event text picks `<key>_you_<arg>` templates when the player fills that placeholder ("You were hurt", "Mira tended your wounds"). Rival otherworlders, later, are not the player.
-- **Consequences:** The honest count is 9.1 stories per world-year (10.3 if nested sub-stories counted), from 14 distinct system sets; every world has at least 4.
+- **Consequences:** The honest count is 8.5 stories per world-year after the ADR-0018 cause fixes (it was 9.1 before them, 10.3 with nested sub-stories), from 14 distinct system sets; every world has at least 4. This is below the M0 plan's target of 10, and stays reported as such.
+
+## ADR-0018 — M0 exit check: cause honesty, hooks, and content the code relies on
+- **Status:** accepted (2026-11-09).
+- **Context:** The exit check gave four fresh readers one raw story log each (all four retold a specific causal story unprompted) and had three reviewers audit determinism (no findings: 12,880 snapshot-restore checks, serial and parallel soaks byte-identical), architecture and story counting.
+- **Decision (fixes made):**
+  1. An event cites only what brought it about. An insult cites a grudge, else (only when the speaker's mood is low enough to count) their worst thought, else their worst thought about the target, else nothing. "Went without" cites the ration policy only when hungriest-first would have fed that person. A sunburn cites earlier harm only if it is still going on (starving now, or burnt in the last hour). A departure cites food only if the leaver is hungry. Winter is the food cause only for people who actually get hungry.
+  2. Someone who leaves or dies takes their grudges with them, silently: no "let go of their grudge" endings for people who are gone.
+  3. Mod hooks see each event at the end of the tick it happened in, after all systems have run, so a hook may change the world (it used to crash a system mid-loop).
+  4. `RequiredContent` lists the content ids and incident params the code names; `ContentDb` checks them at load, and a test keeps the list in step with the code. An incident with no behaviour is rejected at load.
+  5. Food is berries-only until the items milestone: a species that eats another item is rejected at load with a pointer here, instead of starving in play.
+  6. Calendar facts come from world.json (late arrivals on the eve of winter; humans sleep from three hours after dusk to dawn). `work_accident` is labelled a minor incident, which is how it has always been paced.
+- **Known seams, not yet fixed (from the stranger readers and the architecture review):**
+  - Hunger runs on fixed clocks (hungry to starving in exactly six hours; departures exactly a day after starving begins). Per-person appetite and temperament would vary them, but that is a new Truth draw: proposal for the founder.
+  - The log's "What happened" shows only notable events, so a refusal "hungry themselves" can appear before any visible hunger line.
+  - Blood debts are seldom repaid, so many stories end on a debt nobody returns to.
+  - Two near-identical stories (two vampires' first feeding) are told separately, and a story shows one causal path, so a character's earlier deeds (Ilex fighting off thieves before being refused) are left out. Arc detection (fixed decision 8) is the place for this.
+  - A spotted thief who reaches the berries before anyone reaches them still steals; it reads oddly when it happens three times in a year.
+  - Most stories land in the last ten days (the winter squeeze); the director has no mid-year pressure besides thieves and spoilage.
+  - Content fields with no effect yet: items `stackLimit`, incidents `kind` (pacing is in code), traits `sharesFood` (only speeds grudge decay; no food is shared), and work fields for ids whose code does not read them.

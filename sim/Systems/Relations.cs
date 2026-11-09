@@ -72,6 +72,13 @@ public static class Relations
         return g;
     }
 
+    /// <summary>Someone who leaves or dies takes their grudges with them; nobody sees them let go, so no event.</summary>
+    public static void DropGrudgesHeldBy(World w, Character c)
+    {
+        foreach (Grudge g in w.Grudges)
+            if (g.HolderId == c.Id) g.Active = false;
+    }
+
     public static void EndGrudge(World w, Grudge g)
     {
         if (!g.Active) return;

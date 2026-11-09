@@ -115,7 +115,7 @@ public static class StateApi
         var contents = new List<string>();
         if (m.TreeAt(p) != null) contents.Add(loc.Get("place.tree"));
         Bush? bush = m.BushAt(p);
-        if (bush != null) contents.Add(loc.Format("place.bush", new[] { new KeyValuePair<string, string>("n", bush.Berries.ToString(Inv)) }));
+        if (bush != null) contents.Add(loc.Format(bush.Berries == 1 ? "place.bush_one" : "place.bush", new[] { new KeyValuePair<string, string>("n", bush.Berries.ToString(Inv)) }));
         foreach (Bed b in m.Beds)
             if (b.Pos == p) contents.Add(loc.Get("place.bed"));
         if (m.Hearth == p) contents.Add(loc.Get("place.hearth"));

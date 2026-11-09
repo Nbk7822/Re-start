@@ -18,7 +18,6 @@ public static class WorldGen
     private const int BushesPerCluster = 4;
     private const int StartBerriesOnBush = 4;
     private const int LateArrivals = 3;
-    private const int LateArrivalDay = 29;
 
     public static World Create(ContentDb content, ulong seed)
     {
@@ -251,12 +250,13 @@ public static class WorldGen
             (waiting[k], waiting[j]) = (waiting[j], waiting[k]);
         }
         int early = Math.Max(0, waiting.Count - LateArrivals);
+        int lateFrom = (def.SeasonsPerYear - 1) * def.DaysPerSeason - 1; // the eve of winter
         for (int i = 0; i < waiting.Count; i++)
         {
             Character c = waiting[i];
             int day = i < early
                 ? 1 + i * 3 / 2 + dice.Range(DiceId.ArrivalDay, 0, 2)
-                : LateArrivalDay + (i - early) * 3 + dice.Range(DiceId.ArrivalDay, 0, 3);
+                : lateFrom + (i - early) * 3 + dice.Range(DiceId.ArrivalDay, 0, 3);
             bool burns = w.Content.SpeciesById(c.SpeciesId).DaylightBurnPerHour > 0;
             int hour = burns
                 ? (def.DuskHour + 1 + dice.Range(DiceId.ArrivalHour, 0, 6)) % def.HoursPerDay

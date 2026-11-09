@@ -91,6 +91,72 @@ public class ContentTests
     }
 
     [Fact]
+    public void RenamingAnIdTheCodeNeedsFailsAtLoad()
+    {
+        string dir = CopyContent();
+        string items = Path.Combine(dir, "items.json");
+        File.WriteAllText(items, File.ReadAllText(items).Replace("\"id\": \"timber\"", "\"id\": \"wood\"", StringComparison.Ordinal));
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(dir));
+        Assert.Contains("items.json", ex.Message);
+        Assert.Contains("timber", ex.Message);
+    }
+
+    [Fact]
+    public void AnIncidentParamTheCodeReadsIsRequired()
+    {
+        string dir = CopyContent();
+        string incidents = Path.Combine(dir, "incidents.json");
+        File.WriteAllText(incidents, File.ReadAllText(incidents).Replace("\"stealMax\": 3, ", "", StringComparison.Ordinal));
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(dir));
+        Assert.Contains("night_thief", ex.Message);
+        Assert.Contains("stealMax", ex.Message);
+    }
+
+    [Fact]
+    public void FoodOtherThanBerriesIsRejectedUntilFoodIsGeneral()
+    {
+        string mod = Path.Combine(Path.GetTempPath(), "return-mod-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(mod);
+        File.WriteAllText(Path.Combine(mod, "items.json"), "[{ \"id\": \"bread\", \"nameKey\": \"item.berries.name\", \"nutrition\": 450, \"spoilDays\": 5, \"stackLimit\": 20 }]");
+        string species = File.ReadAllText(Path.Combine(ContentDir, "species.json")).Replace("\"foodSource\": \"berries\"", "\"foodSource\": \"bread\"", StringComparison.Ordinal);
+        File.WriteAllText(Path.Combine(mod, "species.json"), species);
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(ContentDir, new[] { mod }));
+        Assert.Contains("species.json", ex.Message);
+        Assert.Contains("bread", ex.Message);
+    }
+
+    /// <summary>Every content id named as a string in sim/ is in RequiredContent, so ContentDb checks it at load.</summary>
+    [Fact]
+    public void RequiredContentCoversIdsNamedInCode()
+    {
+        ContentDb db = ContentDb.Load(ContentDir);
+        var literal = new System.Text.RegularExpressions.Regex("\"([a-z][a-z_]*)\"");
+        var param = new System.Text.RegularExpressions.Regex("Param\\(\"([A-Za-z]+)\"\\)");
+        var kinds = new (string Kind, HashSet<string> Content, IReadOnlyList<string> Required)[]
+        {
+            ("item", db.Items.Select(i => i.Id).ToHashSet(), RequiredContent.Items),
+            ("species", db.Species.Select(s => s.Id).ToHashSet(), RequiredContent.Species),
+            ("work", db.Work.Select(x => x.Id).ToHashSet(), RequiredContent.Work),
+            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts),
+            ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
+        };
+        var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).ToHashSet();
+        var missing = new List<string>();
+        foreach (string file in Directory.EnumerateFiles(Path.Combine(TestPaths.Root, "sim"), "*.cs", SearchOption.AllDirectories))
+        {
+            if (file.EndsWith("RequiredContent.cs", StringComparison.Ordinal)) continue;
+            string text = File.ReadAllText(file);
+            foreach (System.Text.RegularExpressions.Match m in literal.Matches(text))
+                foreach (var k in kinds)
+                    if (k.Content.Contains(m.Groups[1].Value) && !k.Required.Contains(m.Groups[1].Value))
+                        missing.Add($"{Path.GetFileName(file)} names {k.Kind} '{m.Groups[1].Value}'");
+            foreach (System.Text.RegularExpressions.Match m in param.Matches(text))
+                if (!allParams.Contains(m.Groups[1].Value)) missing.Add($"{Path.GetFileName(file)} reads incident param '{m.Groups[1].Value}'");
+        }
+        Assert.True(missing.Count == 0, "Not in RequiredContent: " + string.Join("; ", missing.Distinct()));
+    }
+
+    [Fact]
     public void MissingLocKeyIsVisible()
     {
         ContentDb db = ContentDb.Load(ContentDir);

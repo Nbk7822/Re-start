@@ -140,6 +140,7 @@
 
   "place.tree": "Tree",
   "place.bush": "Berry bush ({n} berries)",
+  "place.bush_one": "Berry bush (1 berry)",
   "place.bed": "Bed",
   "place.hearth": "Hearth",
   "place.stockpile": "Stockpile",
@@ -193,8 +194,10 @@
   "event.combat.thief_fled": "The thief fled, wounded.",
   "event.combat.thief_killed": "The thief was killed.",
 
-  "event.social.joined_promised_meal": "{a} agreed to stay after {b} promised them a meal within two days.",
-  "event.social.joined_promised_rest": "{a} agreed to stay after {b} promised them a sound roof against the sun within two days.",
+  "event.social.joined_promised_meal": "{a} agreed to stay after {b} promised them a meal within {n} days.",
+  "event.social.joined_promised_meal_one": "{a} agreed to stay after {b} promised them a meal within a day.",
+  "event.social.joined_promised_rest": "{a} agreed to stay after {b} promised them a sound roof against the sun within {n} days.",
+  "event.social.joined_promised_rest_one": "{a} agreed to stay after {b} promised them a sound roof against the sun within a day.",
   "event.social.joined_alone": "{a} settled in the empty camp.",
   "event.social.joined": "{b} welcomed {a} into the camp.",
   "event.work.rescued": "{a} carried {b} to safety.",

@@ -26,6 +26,8 @@ public static class Rations
         int stock = Stock.Count(w, food);
         if (stock >= eaters.Count || stock == 0) return; // with nothing to share out, nobody goes without "so others could eat"
 
+        var byNeed = new List<Character>(eaters);
+        byNeed.Sort(ByNeed);
         eaters.Sort((a, b) => Compare(w, a, b));
         for (int i = 0; i < eaters.Count; i++)
         {
@@ -37,8 +39,10 @@ public static class Rations
             }
             if (!c.SkippedRation)
             {
+                // The player's policy is a cause only if it changed the outcome: hungriest-first would have fed them.
+                long policy = byNeed.IndexOf(c) < stock ? w.PolicyEvent : 0;
                 SimEvent e = w.Log.Emit(w, SystemTag.Needs, "event.needs.went_without", new[] { c.Id },
-                    new[] { w.PolicyEvent, c.LastFoodEvent }, null, EventArg.Char("a", c.Id));
+                    new[] { policy, c.LastFoodEvent }, null, EventArg.Char("a", c.Id));
                 c.SkippedRation = true;
                 c.LastFoodEvent = e.Id;
             }
@@ -132,6 +136,12 @@ public static class Rations
                 break;
             }
         }
+        return ByNeed(a, b);
+    }
+
+    /// <summary>The default order: hungriest first, then by id.</summary>
+    private static int ByNeed(Character a, Character b)
+    {
         int byFood = a.Food.CompareTo(b.Food);
         return byFood != 0 ? byFood : a.Id.CompareTo(b.Id);
     }

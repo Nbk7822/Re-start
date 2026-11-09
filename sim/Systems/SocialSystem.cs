@@ -15,6 +15,7 @@ public static class SocialSystem
     public const int NeighbourRange = 6;
     public const int BaseInsultPermille = 30;
     public const int LowMoodInsultPermille = 250;
+    public const int LowMoodBelow = 25;
     public const int GrudgeInsultPermille = 300;
     public const int DislikeInsultPermillePerPoint = 4;
     public const int ClashInsultPermille = 60;
@@ -42,7 +43,7 @@ public static class SocialSystem
             int dislike = Math.Max(0, -Relations.Opinion(w, c.Id, partner.Id));
             int insult = BaseInsultPermille + Traits.Sum(w, c, t => t.InsultPermilleAdd) + dislike * DislikeInsultPermillePerPoint
                 + Math.Max(0, -chemistry) * ClashInsultPermille
-                + (c.Mood < 25 ? LowMoodInsultPermille : 0) + (grudge != null ? GrudgeInsultPermille : 0);
+                + (c.Mood < LowMoodBelow ? LowMoodInsultPermille : 0) + (grudge != null ? GrudgeInsultPermille : 0);
             if (dice.Chance(DiceId.SocialInsult, Math.Clamp(insult, 0, 1000)))
             {
                 Insult(w, c, partner);
@@ -68,13 +69,15 @@ public static class SocialSystem
     }
 
     /// <summary>
-    /// actor insults target. The event cites what drove it: a grudge actor holds, or the event behind
-    /// actor's worst current thought. If target's opinion falls far enough, target forms a grudge.
+    /// actor insults target. The event cites only what made the insult likelier: a grudge actor holds
+    /// against target; else, if actor's mood is low enough to count, the event behind their worst
+    /// thought; else the event behind their worst thought about target. Otherwise it cites nothing.
+    /// If target's opinion falls far enough, target forms a grudge.
     /// </summary>
     public static SimEvent Insult(World w, Character actor, Character target)
     {
         Grudge? grudge = Relations.ActiveGrudge(w, actor.Id, target.Id);
-        long cause = grudge?.FormedEvent ?? WorstThoughtCause(w, actor);
+        long cause = grudge?.FormedEvent ?? WorstThoughtCause(w, actor, actor.Mood < LowMoodBelow ? 0 : target.Id);
         SimEvent e = w.Log.Emit(w, SystemTag.Social, "event.social.insulted", new[] { actor.Id, target.Id }, new[] { cause }, null,
             EventArg.Char("a", actor.Id), EventArg.Char("b", target.Id));
         MoodSystem.AddThought(w, target, "insulted", actor.Id, e.Id, Traits.ScalePct(w, target, t => t.InsultOpinionScalePct));
@@ -114,6 +117,7 @@ public static class SocialSystem
         {
             if (!g.Active) continue;
             Character? holder = w.Find(g.HolderId);
+            if (holder == null || holder.Status != CharStatus.Member) continue;
             int decay = holder != null && Traits.Any(w, holder, t => t.SharesFood) ? 2 : 1;
             g.Intensity -= decay;
             if (g.Intensity <= 0) Relations.EndGrudge(w, g);
@@ -163,7 +167,8 @@ public static class SocialSystem
         c.Asleep = false;
         c.Carrying = null;
         w.Reservations.RemoveAll(r => r.CharacterId == c.Id);
-        return w.Log.Emit(w, SystemTag.Social, "event.social.left_camp", new[] { c.Id }, new[] { cause, c.LastFoodEvent },
+        Relations.DropGrudgesHeldBy(w, c);
+        return w.Log.Emit(w, SystemTag.Social, "event.social.left_camp", new[] { c.Id }, new[] { cause, c.HungerStage >= 1 ? c.LastFoodEvent : 0 },
             new[] { new Effect { Kind = EffectKind.Departure, A = c.Id } }, EventArg.Char("a", c.Id));
     }
 
@@ -184,12 +189,14 @@ public static class SocialSystem
         return best;
     }
 
-    private static long WorstThoughtCause(World w, Character c)
+    /// <summary>The event behind c's most negative thought (only thoughts about aboutId, unless it is 0); 0 if none.</summary>
+    private static long WorstThoughtCause(World w, Character c, int aboutId)
     {
         int worst = 0;
         long cause = 0;
         foreach (Thought t in c.Thoughts)
         {
+            if (aboutId != 0 && t.AboutId != aboutId) continue;
             int mood = w.Content.ThoughtById(t.DefId).Mood;
             if (mood < worst && t.CauseEvent != 0)
             {

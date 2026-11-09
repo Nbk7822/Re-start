@@ -51,7 +51,9 @@ public static class NeedsSystem
             }
             if (sp.DaylightBurnPerHour > 0 && daylight && !w.Map.Covered(c.Pos))
             {
-                SimEvent burn = w.Log.Emit(w, SystemTag.Needs, "event.needs.sun_burn", new[] { c.Id }, new[] { c.LastHealthEvent }, null, EventArg.Char("a", c.Id));
+                // Only harm that is still going on (starving now, or burning last hour) is a cause of this burn.
+                long ongoing = c.Food == 0 || IsRecent(w, c.LastHealthEvent) ? c.LastHealthEvent : 0;
+                SimEvent burn = w.Log.Emit(w, SystemTag.Needs, "event.needs.sun_burn", new[] { c.Id }, new[] { ongoing }, null, EventArg.Char("a", c.Id));
                 MoodSystem.AddThought(w, c, "burned_by_sun", 0, burn.Id);
                 damage += sp.DaylightBurnPerHour;
                 deathKey = "event.needs.died_sun";
@@ -143,8 +145,8 @@ public static class NeedsSystem
 
     /// <summary>
     /// Each season opens with an event. Winter's frost strips the bushes (they only trickle until
-    /// spring), so it becomes the cause of the hunger that follows for everyone who eats berries and
-    /// has no more recent cause.
+    /// spring), so it becomes the cause of the hunger that follows (see UpdateHunger) for anyone who
+    /// eats berries and has no more recent cause.
     /// </summary>
     private static void SeasonTurns(World w)
     {
@@ -156,9 +158,10 @@ public static class NeedsSystem
         w.WinterEvent = lean ? e.Id : 0;
         if (!lean) return;
         foreach (Bush b in w.Map.Bushes) b.Berries = 0;
-        foreach (Character m in w.Members())
-            if (m.LastFoodEvent == 0 && w.Content.SpeciesById(m.SpeciesId).FoodSource == "berries") m.LastFoodEvent = e.Id;
     }
+
+    private static bool IsRecent(World w, long eventId) =>
+        w.Log.Get(eventId) is { } e && w.Tick - e.Tick <= w.Content.World.TicksPerHour;
 
     private static int JobRestCost(World w, Character c)
     {

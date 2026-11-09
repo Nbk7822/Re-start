@@ -1,4 +1,5 @@
 using Return.Sim.Content;
+using Return.Sim.Events;
 using Return.Sim.Modding;
 using Return.Sim.Snapshots;
 using Return.Sim.Systems;
@@ -14,7 +15,11 @@ public sealed class Simulation
     private Simulation(World world)
     {
         World = world;
+        _delivered = world.Log.All.Count;
     }
+
+    /// <summary>How many log events hooks have been shown; hooks see only events from after they could be added.</summary>
+    private int _delivered;
 
     public World World { get; }
 
@@ -56,7 +61,24 @@ public sealed class Simulation
             SocialSystem.Hourly(w);
             IncidentSystem.Hourly(w);
         }
+        DeliverToHooks();
         w.Tick++;
+    }
+
+    /// <summary>
+    /// Hooks see each event at the end of the tick it happened in, in order, after every system has
+    /// run, so a hook may change the world without disturbing a system mid-loop. Events a hook emits
+    /// are delivered in the same pass.
+    /// </summary>
+    private void DeliverToHooks()
+    {
+        List<SimEvent> all = World.Log.All;
+        if (World.Hooks.Count == 0) { _delivered = all.Count; return; }
+        while (_delivered < all.Count)
+        {
+            SimEvent e = all[_delivered++];
+            for (int i = 0; i < World.Hooks.Count; i++) World.Hooks[i].OnEvent(World, e);
+        }
     }
 
     public void Advance(long ticks)

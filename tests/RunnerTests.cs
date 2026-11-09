@@ -84,6 +84,35 @@ public class RunnerTests
     }
 
     [Fact]
+    public void FoldedListsSayYouMidSentenceAndWhatHappenedFoldsToo()
+    {
+        var sim = Simulation.Create(TestContent.Db, 1);
+        World w = sim.World;
+        w.Log = new EventLog();
+        int Id(string key) => w.Characters.First(c => c.CastKey == key).Id;
+        int ilex = Id("ilex");
+        w.Tick = 7_200;
+        long last = w.Log.Emit(w, SystemTag.Needs, "event.needs.thirsting", new[] { ilex }, Array.Empty<long>(), null, EventArg.Char("a", ilex)).Id;
+        foreach (string donor in new[] { "bram", "you", "nia", "mira" })
+        {
+            w.Tick += 300;
+            long ask = w.Log.Emit(w, SystemTag.Social, "event.social.blood_request", new[] { ilex, Id(donor) }, new[] { last }, null,
+                EventArg.Char("a", ilex), EventArg.Char("b", Id(donor))).Id;
+            last = w.Log.Emit(w, SystemTag.Social, "event.social.blood_refused", new[] { ilex, Id(donor) }, new[] { ask }, null,
+                EventArg.Char("a", ilex), EventArg.Char("b", Id(donor))).Id;
+        }
+        w.Tick += 300;
+        w.Log.Emit(w, SystemTag.Social, "event.social.left_camp", new[] { ilex }, new[] { last },
+            new[] { new Effect { Kind = EffectKind.Departure, A = ilex } }, EventArg.Char("a", ilex));
+
+        var text = new StringWriter();
+        StoryLog.Write(sim, text);
+        string log = text.ToString();
+        Assert.Contains("      … and the same with you, Nia, Mira, until Day 2, 04:00.\n", log);
+        Assert.Contains("  Day 2, 01:00 — Bram refused to give Ilex blood.\n    … and the same with you, Nia, Mira, until Day 2, 04:00.\n", log);
+    }
+
+    [Fact]
     public void StoryLogFoldsOnlyStepsAboutOnePersonAtATime()
     {
         var sim = Simulation.Create(TestContent.Db, 1);

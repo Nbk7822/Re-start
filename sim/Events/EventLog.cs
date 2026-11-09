@@ -34,7 +34,6 @@ public sealed class EventLog
             Args = new List<EventArg>(args),
         };
         All.Add(e);
-        foreach (Modding.IModHook hook in w.Hooks) hook.OnEvent(w, e);
         return e;
     }
 }

@@ -16,6 +16,7 @@ public static class Lifecycle
         c.Asleep = false;
         c.Carrying = null;
         w.Reservations.RemoveAll(r => r.CharacterId == c.Id);
+        Relations.DropGrudgesHeldBy(w, c);
         SimEvent e = w.Log.Emit(w, system, key, new[] { c.Id }, new[] { cause },
             new[] { new Effect { Kind = EffectKind.Death, A = c.Id } }, EventArg.Char("a", c.Id));
         if (!wasMember) return e;

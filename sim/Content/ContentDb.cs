@@ -105,6 +105,8 @@ public sealed class ContentDb
             RequireLoc("species.json", s.Id, s.NameKey);
             if (!s.DrinksBlood && !_items.ContainsKey(s.FoodSource))
                 Fail("species.json", $"'{s.Id}' has foodSource '{s.FoodSource}', which is neither \"blood\" nor an item id");
+            if (!s.DrinksBlood && s.FoodSource != "berries")
+                Fail("species.json", $"'{s.Id}' eats '{s.FoodSource}', but M0 only grows, rations, steals and spoils berries (ADR-0018)");
         }
         foreach (TraitDef t in Traits)
         {
@@ -122,6 +124,27 @@ public sealed class ContentDb
         }
         foreach (ThoughtDef th in Thoughts) RequireLoc("thoughts.json", th.Id, th.TextKey);
         foreach (IncidentDef inc in Incidents) RequireLoc("incidents.json", inc.Id, inc.TextKey);
+
+        foreach (string id in RequiredContent.Items)
+            if (!_items.ContainsKey(id)) Fail("items.json", $"the simulation needs an item '{id}'");
+        foreach (string id in RequiredContent.Species)
+            if (!_species.ContainsKey(id)) Fail("species.json", $"the simulation needs a species '{id}'");
+        foreach (string id in RequiredContent.Work)
+            if (!_work.ContainsKey(id)) Fail("work.json", $"the simulation needs work '{id}'");
+        foreach (string id in RequiredContent.Thoughts)
+            if (!_thoughts.ContainsKey(id)) Fail("thoughts.json", $"the simulation needs a thought '{id}'");
+        foreach ((string id, string[] ps) in RequiredContent.Incidents)
+        {
+            if (!_incidents.TryGetValue(id, out IncidentDef? inc)) { Fail("incidents.json", $"the simulation needs an incident '{id}'"); continue; }
+            foreach (string param in ps)
+                if (!inc.Params.ContainsKey(param)) Fail("incidents.json", $"'{id}' needs the param '{param}'");
+        }
+        foreach (IncidentDef inc in Incidents)
+        {
+            bool known = false;
+            foreach ((string id, string[] _) in RequiredContent.Incidents) if (id == inc.Id) known = true;
+            if (!known) Fail("incidents.json", $"'{inc.Id}' has no behaviour in this version of the simulation");
+        }
 
         int otherworlders = 0;
         foreach (CastDef c in Cast)

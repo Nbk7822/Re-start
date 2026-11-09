@@ -179,12 +179,26 @@ public static class StoryLog
         Heading(o, loc.Get("log.events.heading"), '-');
         if (notable.Count == 0) Line(o, Indent + loc.Get("log.events.none"));
         int lastDay = -1;
-        foreach (SimEvent e in notable)
+        for (int k = 0; k < notable.Count;)
         {
-            int day = Calendar.Day(e.Tick, w.Content.World);
-            if (lastDay >= 0 && day != lastDay) Line(o);
-            lastDay = day;
-            Line(o, Indent + Format(loc, "log.events.line", ("when", EventText.When(w, e.Tick)), ("text", EventText.Describe(w, e))));
+            (int unit, int repeats, string arg) = Repetition(notable, k);
+            for (int u = 0; u < unit; u++)
+            {
+                SimEvent e = notable[k + u];
+                int day = Calendar.Day(e.Tick, w.Content.World);
+                if (lastDay >= 0 && day != lastDay) Line(o);
+                lastDay = day;
+                Line(o, Indent + Format(loc, "log.events.line", ("when", EventText.When(w, e.Tick)), ("text", EventText.Describe(w, e))));
+            }
+            if (repeats > 1)
+            {
+                var others = new List<string>(repeats - 1);
+                for (int r = 1; r < repeats; r++) others.Add(EventText.ResolveMid(w, ArgValue(notable[k + r * unit], arg)));
+                SimEvent last = notable[k + repeats * unit - 1];
+                Line(o, Indent + Indent + Format(loc, "log.story.repeat", ("names", List(loc, others)), ("when", EventText.When(w, last.Tick))));
+                lastDay = Calendar.Day(last.Tick, w.Content.World);
+            }
+            k += unit * repeats;
         }
         Line(o);
     }
@@ -215,7 +229,7 @@ public static class StoryLog
                 if (repeats > 1)
                 {
                     var others = new List<string>(repeats - 1);
-                    for (int r = 1; r < repeats; r++) others.Add(EventText.Resolve(w, ArgValue(chain[k + r * unit], arg)));
+                    for (int r = 1; r < repeats; r++) others.Add(EventText.ResolveMid(w, ArgValue(chain[k + r * unit], arg)));
                     SimEvent last = chain[k + repeats * unit - 1];
                     Line(o, Indent + Indent + Indent + Format(loc, "log.story.repeat",
                         ("names", List(loc, others)), ("when", EventText.When(w, last.Tick))));

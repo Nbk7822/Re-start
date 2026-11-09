@@ -6,7 +6,7 @@ Notable emergent stories from soaks and playtests, newest at the bottom. Each en
 
 _No entries yet. The first come from the Milestone 0 soak._
 
-## 2026-11-09 — Milestone 0 soak (100 worlds × 1 year)
+## 2026-11-09 — Milestone 0 soak (100 worlds × 1 year, build 6081a5b)
 
 ### Vale, refused by a starving camp (seed 85, soak; policy "promised meals come first")
 On day 1 you had decided that promised meals come first. On the third day of winter, when the camp shared out what little food it had, Oren went without so others could eat; by the next morning he was starving. When the vampire Vale came to him thirsting, Oren, hungry himself, refused. Vale went from person to person through the night: Nia was hungry, Wren said no, Mira was too weak, Hollis, you and Sera all refused. Before dawn Vale asked Oren again, then Nia, Wren and Mira again, and was turned away by all of them. Vale left the camp.

@@ -21,6 +21,8 @@ public static class EventText
     {
         LocTable loc = w.Content.Loc;
         string key = SecondPersonKey(w, e) ?? e.Key;
+        foreach (EventArg a in e.Args)
+            if (a.Name == "n" && a.Value == "n:1" && loc.Has(key + "_one")) { key += "_one"; break; }
         string template = loc.Get(key);
         var args = new List<KeyValuePair<string, string>>(e.Args.Count);
         bool single = false;
@@ -50,6 +52,15 @@ public static class EventText
             if (w.Content.Loc.Has(variant)) return variant;
         }
         return null;
+    }
+
+    /// <summary>Like <see cref="Resolve"/>, but a character name takes its mid-sentence form ("you") when the table has one.</summary>
+    public static string ResolveMid(World w, string value)
+    {
+        if (value.StartsWith("c:", StringComparison.Ordinal) && int.TryParse(value.AsSpan(2), NumberStyles.Integer, Inv, out int id)
+            && w.Find(id) is { } c && w.Content.Loc.Has(c.NameKey + "_mid"))
+            return w.Content.Loc.Get(c.NameKey + "_mid");
+        return Resolve(w, value);
     }
 
     public static string Resolve(World w, string value)
