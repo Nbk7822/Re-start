@@ -81,6 +81,13 @@
   "incident.night_thief": "Night thief",
   "incident.windfall": "Windfall",
 
+  "policy.hungriest": "the hungriest eat first",
+  "policy.promises_first": "promised meals come first",
+  "policy.self_first": "you eat first",
+
+  "event.world.ration_policy": "You decided that when food runs short, {policy}.",
+  "event.world.work_priority": "{a}'s priority for {work} is now {n}.",
+
   "cast.you.name": "You",
   "cast.mira.name": "Mira",
   "cast.oren.name": "Oren",

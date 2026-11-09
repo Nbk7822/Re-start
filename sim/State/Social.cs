@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Return.Sim;
 
 /// <summary>Directed opinion of one character about another, −100..100.</summary>
@@ -52,6 +54,7 @@ public sealed class Debt
     public long DueTick { get; set; }
     public DebtStatus Status { get; set; }
 
+    [JsonIgnore]
     public bool IsPromise => Kind is DebtKind.PromiseMeal or DebtKind.PromiseRest;
 }
 

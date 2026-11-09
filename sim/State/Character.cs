@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Return.Sim.Core;
 
 namespace Return.Sim;
@@ -61,5 +62,6 @@ public sealed class Character
     public long LastRestEvent { get; set; }
     public long LastHealthEvent { get; set; }
 
+    [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;
 }

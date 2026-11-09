@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Return.Sim.Core;
 
 /// <summary>A tile coordinate.</summary>
@@ -19,5 +21,6 @@ public readonly record struct Rect(int X, int Y, int W, int H)
 {
     public bool Contains(Point p) => p.X >= X && p.X < X + W && p.Y >= Y && p.Y < Y + H;
 
+    [JsonIgnore]
     public Point Center => new(X + W / 2, Y + H / 2);
 }

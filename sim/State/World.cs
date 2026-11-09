@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
 using Return.Sim.Content;
 using Return.Sim.Core;
+using Return.Sim.Events;
+using Return.Sim.Modding;
 
 namespace Return.Sim;
 
@@ -10,6 +12,8 @@ namespace Return.Sim;
 /// </summary>
 public sealed class World
 {
+    /// <summary>Bump when the snapshot shape changes incompatibly.</summary>
+    public int SchemaVersion { get; set; } = 1;
     public long Tick { get; set; }
     public ulong Seed { get; set; }
     public int NextId { get; set; } = 1;
@@ -23,9 +27,17 @@ public sealed class World
     public DirectorState Director { get; set; } = new();
     public WeatherState Weather { get; set; } = new();
     public List<Arrival> Arrivals { get; set; } = new();
+    public EventLog Log { get; set; } = new();
+    public List<Command> PendingCommands { get; set; } = new();
+    public List<Command> CommandLog { get; set; } = new();
+    public long NextCommandSeq { get; set; } = 1;
+    public long PolicyEvent { get; set; }
 
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;
+
+    [JsonIgnore]
+    public List<IModHook> Hooks { get; } = new();
 
     public int NewId() => NextId++;
 
