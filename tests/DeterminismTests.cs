@@ -102,6 +102,32 @@ public class SnapshotTests
         Assert.Equal(straight.StateHash(), r.StateHash());
     }
 
+    /// <summary>Review Focus 2: snapshots taken mid-walk, mid-job, mid-fight restore to exactly the same future.</summary>
+    [Fact]
+    public void MidActivitySnapshotsRestoreExactly()
+    {
+        const int every = 1_777, after = 3_000;
+        var straight = Simulation.Create(TestContent.Db, 5);
+        long end = 3L * straight.World.Content.World.TicksPerDay;
+        var snaps = new List<(long Tick, byte[] Snap)>();
+        var expected = new Dictionary<long, string>();
+        while (straight.World.Tick <= end + after)
+        {
+            long t = straight.World.Tick;
+            if (t > 0 && t % every == 0 && t <= end) snaps.Add((t, straight.Snapshot()));
+            if (t > after && (t - after) % every == 0 && t - after <= end) expected[t] = straight.StateHash();
+            straight.Step();
+        }
+        Assert.Equal(12, snaps.Count);
+        foreach ((long tick, byte[] snap) in snaps)
+        {
+            Simulation r = Simulation.Restore(TestContent.Db, snap);
+            Assert.Equal(tick, r.World.Tick);
+            r.Advance(after);
+            Assert.True(expected[tick + after] == r.StateHash(), $"restore from tick {tick} diverged by tick {tick + after}");
+        }
+    }
+
     [Fact]
     public void RestoreUnderOneSecondAt200Characters()
     {
