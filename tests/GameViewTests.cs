@@ -438,6 +438,18 @@ public class GameViewTests
     }
 
     [Fact]
+    public void RainNeverMakesTheEveningDarkerThanNight()
+    {
+        WorldDef def = Content.World;
+        float dryMidnight = Daylight.At(0f, def, raining: false, winter: false).Ambient.Luma;
+        float rainyDusk = Daylight.At(def.DuskHour + 0.9f, def, raining: true, winter: false).Ambient.Luma;
+        float rainyMidnight = Daylight.At(0f, def, raining: true, winter: false).Ambient.Luma;
+        Assert.True(rainyDusk >= dryMidnight, $"a rainy dusk ({rainyDusk:F3}) is darker than a dry midnight ({dryMidnight:F3})");
+        Assert.True(rainyMidnight >= 0.9f * dryMidnight, "rain should grey the night only a little");
+        Assert.True(rainyMidnight < dryMidnight, "but it still greys it");
+    }
+
+    [Fact]
     public void DawnAndDuskComeFromWorldJson()
     {
         WorldDef def = Content.World;

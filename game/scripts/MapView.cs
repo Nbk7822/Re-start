@@ -105,6 +105,11 @@ public partial class MapView : Node2D
         public bool Moving;
         public bool HasLook;
         public CharStatus LookStatus;
+
+        /// <summary>How they look by day (cached until their status changes).</summary>
+        public FigureLook BaseLook;
+
+        /// <summary>How they are drawn this frame (moonlit at night).</summary>
         public FigureLook Look;
         public FigureState State;
 
@@ -445,7 +450,8 @@ public partial class MapView : Node2D
         _hits.Clear();
 
         _art.DrawGrid(_brush);
-        if (raining) _brush.Rect(0f, 0f, m.Width * TileSize, m.Height * TileSize, new Color(0.03f, 0.05f, 0.08f, 0.24f));
+        // Wet ground darkens, less so at night (as the rain's grey does), so rain never sinks the dark further.
+        if (raining) _brush.Rect(0f, 0f, m.Width * TileSize, m.Height * TileSize, new Color(0.03f, 0.05f, 0.08f, 0.24f * (1f - Daylight.RainAtNight * _light.Night)));
         _art.DrawWater(_brush, _time, raining);
         Gore.DrawDecals(_brush, _tex, _gore.Decals, w.Tick, def.TicksPerHour);
         _art.DrawGrass(_brush, _time, winter, raining ? 1.6f : 0.5f);
@@ -492,7 +498,7 @@ public partial class MapView : Node2D
             Character c = w.Characters[i];
             if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
             Character? bearer = Bearer(w, c);
-            s.Look = LookOf(w, c, s);
+            s.Look = Moonlit(LookOf(w, c, s), _light.Night);
             s.State = StateOf(w, c, s);
             s.State.Carried = bearer != null;
             bool lying = s.State.Pose is Pose.Sleep or Pose.Downed or Pose.Dead;
@@ -653,7 +659,7 @@ public partial class MapView : Node2D
     /// </summary>
     private FigureLook LookOf(World w, Character c, Shown s)
     {
-        if (s.HasLook && s.LookStatus == c.Status) return s.Look;
+        if (s.HasLook && s.LookStatus == c.Status) return s.BaseLook;
         bool hostile = c.Status == CharStatus.Hostile || (c.Status == CharStatus.Dead && !c.Named);
         Look look = hostile ? _looks.Hostile : _looks.For(c.CastKey);
         SpeciesDef species = w.Content.SpeciesById(c.SpeciesId);
@@ -665,7 +671,7 @@ public partial class MapView : Node2D
             : vampire ? Mark.Vampire
             : c.RoleId == "forager" ? Mark.Forager
             : Mark.Cross;
-        s.Look = new FigureLook
+        s.BaseLook = new FigureLook
         {
             Cloth = Palette.Of(hostile ? cloth : cloth.Muted(0.8f, 0.25f)),
             Hair = Palette.Of(look.Hair),
@@ -681,7 +687,25 @@ public partial class MapView : Node2D
         };
         s.HasLook = true;
         s.LookStatus = c.Status;
-        return s.Look;
+        return s.BaseLook;
+    }
+
+    private static readonly Color Moon = new(0.70f, 0.76f, 0.90f);
+
+    /// <summary>
+    /// At night people catch the moonlight: cloth, hair and skin are lifted toward a cool light in
+    /// proportion to the dark, so a dark cloak still reads against the ground away from the fire
+    /// (the tint over the map multiplies everything alike, so it cannot do that by itself). A thief
+    /// in black catches less of it.
+    /// </summary>
+    private static FigureLook Moonlit(FigureLook look, float night)
+    {
+        if (night <= 0.01f) return look;
+        float k = night * (look.Hostile ? 0.5f : 1f);
+        look.Cloth = look.Cloth.Lerp(Moon, 0.32f * k);
+        look.Hair = look.Hair.Lerp(Moon, 0.22f * k);
+        look.Skin = look.Skin.Lerp(Moon, 0.1f * k);
+        return look;
     }
 
     private Rgb? CastRgb(string castKey)
@@ -745,7 +769,8 @@ public partial class MapView : Node2D
         Vector2 screen = layer.GetViewportRect().Size;
         _brush.Begin(layer, PixelsPerUnit(layer));
         if (w.Weather.Raining) RainStreaks(screen);
-        _brush.TextureRect(_tex.Vignette, new Rect2(Vector2.Zero, screen), new Color(1f, 1f, 1f, 0.55f + 0.2f * _light.Night));
+        // A flat vignette: deepening it at night would black out the corners.
+        _brush.TextureRect(_tex.Vignette, new Rect2(Vector2.Zero, screen), new Color(1f, 1f, 1f, 0.5f));
         Glints(w);
         _brush.End(); // text is drawn directly, after everything batched
         Labels(w);

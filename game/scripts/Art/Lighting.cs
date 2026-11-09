@@ -14,7 +14,7 @@ namespace Return.Game.Art;
 /// </summary>
 public sealed class Lighting
 {
-    private const float FireRadiusTiles = 7.5f;
+    private const float FireRadiusTiles = 9.5f;
     private const float LanternRadiusTiles = 3.2f;
 
     private readonly CanvasModulate _tint;
@@ -50,7 +50,7 @@ public sealed class Lighting
     {
         _tint.Color = Palette.Of(light.Ambient);
         float flicker = 1f + MathF.Sin(time * 9.1f) * 0.05f + MathF.Sin(time * 15.3f + 0.7f) * 0.035f + MathF.Sin(time * 23.7f + 1.9f) * 0.02f;
-        _fire.Energy = (0.2f + 1.35f * light.Night) * flicker;
+        _fire.Energy = (0.3f + 1.6f * light.Night) * flicker;
         _fire.TextureScale = _fireScale * (1f + MathF.Sin(time * 6.3f) * 0.025f);
         float lantern = lanternLit ? 0.9f * light.Night : 0f;
         _lantern.Energy = lantern * (1f + MathF.Sin(time * 11.7f + 2f) * 0.04f);

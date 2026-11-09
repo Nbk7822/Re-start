@@ -21,16 +21,21 @@ public readonly record struct DaylightState(Rgb Ambient, float Night, float SunH
 /// </summary>
 public static class Daylight
 {
-    public static readonly Rgb NightColor = new(0.23f, 0.26f, 0.39f);
-    public static readonly Rgb DawnBlue = new(0.34f, 0.34f, 0.47f);
+    // Night is lifted above the art direction mockup's multiply (#38435f) because the grounded
+    // palette under it is darker and grimier; the blue hours either side rise in proportion.
+    public static readonly Rgb NightColor = new(0.34f, 0.37f, 0.52f);
+    public static readonly Rgb DawnBlue = new(0.50f, 0.48f, 0.63f);
     public static readonly Rgb DawnColor = new(0.80f, 0.60f, 0.52f);
     public static readonly Rgb DayColor = new(0.94f, 0.92f, 0.87f);
     public static readonly Rgb NoonColor = new(1.00f, 0.98f, 0.94f);
     public static readonly Rgb GoldenColor = new(0.98f, 0.82f, 0.62f);
     public static readonly Rgb DuskColor = new(0.80f, 0.50f, 0.41f);
-    public static readonly Rgb DuskBlue = new(0.35f, 0.29f, 0.43f);
+    public static readonly Rgb DuskBlue = new(0.52f, 0.41f, 0.57f);
     public static readonly Rgb RainFilter = new(0.74f, 0.78f, 0.85f);
     public static readonly Rgb WinterFilter = new(0.93f, 0.96f, 1.03f);
+
+    /// <summary>How much of the rain's greying fades out by deep night (0 none … 1 all).</summary>
+    public const float RainAtNight = 0.6f;
 
     // Keyframes in hours relative to dawn and to dusk.
     private static readonly (float At, Rgb Color)[] Morning =
@@ -67,8 +72,9 @@ public static class Daylight
         float lumaNight = NightColor.Luma, lumaDay = DayColor.Luma;
         float night = 1f - Math.Clamp((bare.Luma - lumaNight) / (lumaDay - lumaNight), 0f, 1f);
 
+        // Rain greys the day; it fades out as night falls, so a rainy dusk is never darker than midnight.
         Rgb ambient = bare;
-        if (raining) ambient = ambient.Times(RainFilter);
+        if (raining) ambient = ambient.Times(Rgb.Lerp(Rgb.White, RainFilter, 1f - RainAtNight * night));
         if (winter) ambient = ambient.Times(WinterFilter);
 
         float sunHeight = daytime ? MathF.Sin(arc * MathF.PI) : 0f;
