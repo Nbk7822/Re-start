@@ -151,6 +151,42 @@ public class GrowthTests
         Assert.True(seen >= 20, $"only {seen} starters wanted something about someone");
     }
 
+    /// <summary>
+    /// Someone who wanders into an empty camp still wants what their nature says (CharacterNature.WantType),
+    /// unless that want is about another person and there is nobody to want it about; only then do they
+    /// want something that needs no one, drawn again from Truths.
+    /// </summary>
+    [Fact]
+    public void AWandererWhoFindsTheCampEmptyKeepsTheirNatureUnlessItNeedsSomeone()
+    {
+        string[] wanderers = Db.Cast.Where(c => !c.StartsInCamp).Select(c => c.Key).ToArray();
+        int kept = 0, redrawn = 0;
+        for (ulong seed = 1; seed <= 40; seed++)
+        {
+            World w = WorkTests.Only(seed);
+            foreach (string key in wanderers)
+            {
+                Character c = Cast(w, key);
+                IncidentSystem.Fire(w, "wanderer_arrives", targetId: c.Id);
+                WantDef nature = Db.WantById(WorldGen.NatureOf(Db, seed, key).WantType);
+                Want want = c.Growth.Want!;
+                if (nature.Target == "person")
+                {
+                    Assert.NotEqual("person", Db.WantById(want.TypeId).Target);
+                    Assert.NotEqual(WantTargetKind.Person, want.TargetKind);
+                    redrawn++;
+                }
+                else
+                {
+                    Assert.True(nature.Id == want.TypeId, $"seed {seed}: {key} is by nature '{nature.Id}' but alone wants '{want.TypeId}'");
+                    kept++;
+                }
+                c.Status = CharStatus.OffMap;
+            }
+        }
+        Assert.True(kept >= 20 && redrawn >= 20, $"kept {kept}, redrawn {redrawn}");
+    }
+
     // ---- A want is part of a person's nature
 
     [Fact]

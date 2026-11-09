@@ -15,21 +15,33 @@ public static class Growth
 {
     /// <summary>
     /// The want a person with these traits, species and role is drawn to by nature: a weighted pick
-    /// over wants.json in file order, rolled with the Truth <see cref="TruthId.InitialWant"/> keyed by
-    /// <paramref name="natureKey"/> (the cast key's hash). Wants about a person are left out when
-    /// there is nobody else to want them about. Null only when nothing has any weight.
+    /// over every want in wants.json, in file order, rolled with the Truth <see cref="TruthId.InitialWant"/>
+    /// (index 0) keyed by <paramref name="natureKey"/> (the cast key's hash). That pick is their nature
+    /// (<see cref="CharacterNature.WantType"/>) whoever is around. Only when it is about another person and
+    /// there is nobody else (<paramref name="someoneElse"/> false) do they want something that needs no one
+    /// instead: a second pick over the wants not about a person, with the same Truth at index 1. Null only
+    /// when nothing has any weight.
     /// </summary>
     public static WantDef? NaturalWant(ContentDb content, TruthRng truths, ulong natureKey, IReadOnlyList<string> traits,
         string speciesId, string roleId, bool otherworlder, bool someoneElse)
     {
+        WantDef? nature = Pick(content, truths, natureKey, 0, traits, speciesId, roleId, otherworlder, aboutSomeone: true);
+        if (nature == null || someoneElse || nature.Target != "person") return nature;
+        return Pick(content, truths, natureKey, 1, traits, speciesId, roleId, otherworlder, aboutSomeone: false);
+    }
+
+    /// <summary>A weighted pick over wants.json in file order (leaving out wants about a person unless <paramref name="aboutSomeone"/>), rolled with <see cref="TruthId.InitialWant"/> at <paramref name="index"/>.</summary>
+    private static WantDef? Pick(ContentDb content, TruthRng truths, ulong natureKey, uint index, IReadOnlyList<string> traits,
+        string speciesId, string roleId, bool otherworlder, bool aboutSomeone)
+    {
         int total = 0;
         foreach (WantDef d in content.Wants)
-            if (someoneElse || d.Target != "person") total += Weight(d, traits, speciesId, roleId, otherworlder);
+            if (aboutSomeone || d.Target != "person") total += Weight(d, traits, speciesId, roleId, otherworlder);
         if (total <= 0) return null;
-        int roll = truths.Range(TruthId.InitialWant, natureKey, 0, 0, total);
+        int roll = truths.Range(TruthId.InitialWant, natureKey, index, 0, total);
         foreach (WantDef d in content.Wants)
         {
-            if (!someoneElse && d.Target == "person") continue;
+            if (!aboutSomeone && d.Target == "person") continue;
             int weight = Weight(d, traits, speciesId, roleId, otherworlder);
             if (roll < weight) return d;
             roll -= weight;
