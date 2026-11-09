@@ -1,0 +1,14 @@
+[
+  { "id": "clasp_greeting", "kind": "greeting", "params": { "breachPermille": 120 } },
+  { "id": "no_touch_greeting", "kind": "greeting", "params": { "breachPermille": 120 } },
+  { "id": "bow_greeting", "kind": "greeting", "params": { "breachPermille": 120 } },
+  { "id": "veiled_greeting", "kind": "greeting", "params": { "breachPermille": 120 } },
+  { "id": "blood_taboo", "kind": "blood_stance", "params": { "consentBias": -40, "offers": 0 } },
+  { "id": "blood_gift", "kind": "blood_stance", "params": { "consentBias": 30, "offers": 1 } },
+  { "id": "guest_bread", "kind": "guest_right", "params": { "offerPermille": 700, "wrongedGrudgePct": 150 } },
+  { "id": "leader_last", "kind": "leader_last", "params": {} },
+  { "id": "debt_of_honour", "kind": "debt_of_honour", "params": { "minDebtAgeHours": 24 } },
+  { "id": "harvest_fire", "kind": "festival", "params": { "season": 2, "hours": 3, "feastPerHead": 1, "forgive": 30 } },
+  { "id": "longest_night", "kind": "festival", "params": { "season": 3, "hours": 4, "feastPerHead": 0, "forgive": 40 } },
+  { "id": "sacred_grove", "kind": "sacred_tree", "params": { "nearestTrees": 6 } }
+]

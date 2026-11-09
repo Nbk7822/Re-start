@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Culture templates: seeded once per world into named peoples with customs, a main faith and attitudes toward other peoples (ADR-0023)",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKeys", "peoples", "ethics", "faiths", "otherFaithPermille", "devotion", "customs", "customPicks", "attitudes"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKeys": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/locKey" } },
+      "peoples": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["species", "weight"],
+          "properties": {
+            "species": { "type": "string", "pattern": "^(\\*|[a-z][a-z0-9_]*)$" },
+            "weight": { "type": "integer", "minimum": 0, "maximum": 100 }
+          }
+        }
+      },
+      "ethics": { "$ref": "#/$defs/ethics" },
+      "faiths": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["faith", "weight"],
+          "properties": {
+            "faith": { "$ref": "#/$defs/id" },
+            "weight": { "type": "integer", "minimum": 0, "maximum": 100 }
+          }
+        }
+      },
+      "otherFaithPermille": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "devotion": { "$ref": "#/$defs/range" },
+      "customs": { "$ref": "#/$defs/customs" },
+      "customPicks": { "type": "integer", "minimum": 0, "maximum": 4 },
+      "attitudes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["species", "stance"],
+          "properties": {
+            "species": { "$ref": "#/$defs/id" },
+            "stance": { "enum": ["revere", "wary", "fear", "scorn"] }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+    "axis": { "type": "integer", "minimum": -2, "maximum": 2 },
+    "ethics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mortalImmortal", "arcaneMundane", "wildCivil", "oathboundFree"],
+      "properties": {
+        "mortalImmortal": { "$ref": "#/$defs/axis" },
+        "arcaneMundane": { "$ref": "#/$defs/axis" },
+        "wildCivil": { "$ref": "#/$defs/axis" },
+        "oathboundFree": { "$ref": "#/$defs/axis" }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "max": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "customs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["custom"],
+        "properties": {
+          "custom": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "always": { "type": "boolean" },
+          "weight": { "type": "integer", "minimum": 0, "maximum": 100 }
+        }
+      }
+    }
+  }
+}

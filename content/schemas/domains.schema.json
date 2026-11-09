@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "God domains: what a god cares about (deeds that please or anger it) and the signs it is believed to speak through (ADR-0023)",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "epithetKeys", "caresKey", "signs", "pleasedBy", "angeredBy"],
+    "properties": {
+      "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+      "epithetKeys": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/locKey" } },
+      "caresKey": { "$ref": "#/$defs/locKey" },
+      "signs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sign", "reads"],
+          "properties": {
+            "sign": { "enum": ["rain", "windfall", "food_spoils", "work_accident", "death"] },
+            "reads": { "enum": ["anger", "blessing"] }
+          }
+        }
+      },
+      "pleasedBy": { "type": "array", "items": { "$ref": "#/$defs/deed" } },
+      "angeredBy": { "type": "array", "items": { "$ref": "#/$defs/deed" } }
+    }
+  },
+  "$defs": {
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+    "deed": { "enum": ["oath_kept", "oath_broken", "debt_repaid", "meal_taken", "meal_shared", "guest_honoured", "guest_wronged", "blood_given", "blood_refused", "tree_felled", "sacred_harmed"] }
+  }
+}
