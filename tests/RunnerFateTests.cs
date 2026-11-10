@@ -112,6 +112,23 @@ public class RunnerFateTests
         Assert.InRange(f.CrossingStories, 1, f.FateOrGiftStories);
     }
 
+    /// <summary>A gift's lines show in the log whatever system tells them: a familiar face knowing you is Social, yet it is the gift at work.</summary>
+    [Fact]
+    public void EveryGiftLineIsInTheLog()
+    {
+        var sim = Simulation.Create(Return.Tests.TestContent.Rolled, 9, new RebirthChoice("human", Return.Sim.Systems.Gifts.FamiliarId));
+        sim.Advance(7_200 + 6 * 300);
+        World dying = sim.World;
+        Character mira = dying.Characters.First(c => c.CastKey == "mira");
+        Return.Sim.Systems.Relations.ChangeOpinion(dying, mira, dying.PlayerId, 80 - Return.Sim.Systems.Relations.Opinion(dying, mira.Id, dying.PlayerId), 0);
+        Assert.True(sim.ForceDeath());
+        sim.Step();
+        World w = sim.World;
+        Return.Sim.Events.SimEvent knew = w.Log.All.Single(e => e.Key == "event.gift.familiar.knew_you");
+        Assert.Equal(Return.Sim.Events.SystemTag.Social, knew.System);
+        Assert.Contains(knew, StoryLog.Analyze(w).Notable);
+    }
+
     [Fact]
     public void TheForcedDeathComesOnADayFromTenToThirtyFiveHashedFromTheSeed()
     {
