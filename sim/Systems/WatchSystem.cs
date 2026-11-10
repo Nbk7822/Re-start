@@ -125,9 +125,11 @@ public static class WatchSystem
     /// </summary>
     public static Reason? Refusal(World w, Character c, Character? waker, bool draw)
     {
-        int hurtBelow = Math.Max(400, Math.Max(Traits.Max(w, c, t => t.FleeHealthBelow), Traits.Max(w, c, t => t.RiskyWorkHealthBelow)));
+        // The watch is risky work when work.json says so (it does): then those who shun risky work hurt or tired (the Anxious) turn it down sooner.
+        bool risky = w.Content.WorkById(WorkId).Risky;
+        int hurtBelow = Math.Max(400, Math.Max(Traits.Max(w, c, t => t.FleeHealthBelow), risky ? Traits.Max(w, c, t => t.RiskyWorkHealthBelow) : 0));
         if (c.Health < hurtBelow) return new Reason("event.social.watch_refused_hurt", c.LastHealthEvent, true);
-        if (Places.Tires(w, c) && c.Rest < Math.Max(150, Traits.Max(w, c, t => t.RiskyWorkRestBelow)))
+        if (Places.Tires(w, c) && c.Rest < Math.Max(150, risky ? Traits.Max(w, c, t => t.RiskyWorkRestBelow) : 0))
             return new Reason("event.social.watch_refused_tired", c.WornOutEvent != 0 ? c.WornOutEvent : c.LastDutyEvent != 0 ? c.LastDutyEvent : c.LastRestEvent, true);
         if (!Places.Species(w, c).EatsNothing && (c.Food < NeedsSystem.StarvingBelow || c.Food < Traits.Max(w, c, t => t.StealFoodBelow)))
             return new Reason("event.social.watch_refused_hungry", c.LastFoodEvent, true);

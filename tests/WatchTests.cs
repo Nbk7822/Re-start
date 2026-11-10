@@ -190,6 +190,27 @@ public class WatchTests
         Assert.Null(WatchSystem.Refusal(w, mira, wren, draw: false)); // only for whoever she bears the grudge
     }
 
+    /// <summary>
+    /// The Anxious turn down risky work when tired (riskyWorkRestBelow), and the watch is risky work because work.json says
+    /// so: a mod that makes it safe leaves them only the tiredness anyone has (below 150).
+    /// </summary>
+    [Fact]
+    public void TheAnxiousTurnDownTheWatchWhenTiredBecauseItIsRiskyWork()
+    {
+        Assert.True(TestContent.Db.WorkById(WatchSystem.WorkId).Risky);
+        string safe = CultureContentTests.Mod(("work.json",
+            "[{ \"id\": \"keep_watch\", \"nameKey\": \"work.keep_watch.name\", \"durationTicks\": 900, \"restCostPerHour\": 15 }]"));
+        foreach ((ContentDb db, bool refused) in new[] { (TestContent.Db, true), (ContentDb.Load(Path.Combine(TestPaths.Root, "content"), new[] { safe }), false) })
+        {
+            World w = WorldGen.Create(db, 1);
+            Character wren = w.Characters.First(c => c.CastKey == "wren"), you = w.Characters.First(c => c.CastKey == "you");
+            wren.Status = you.Status = CharStatus.Member;
+            Plain(wren, "anxious");
+            wren.Rest = 250;
+            Assert.Equal(refused, WatchSystem.Refusal(w, wren, you, draw: false) is { Key: "event.social.watch_refused_tired" });
+        }
+    }
+
     private static (bool Refused, string Hash) WakeAnIndependent(ulong seed)
     {
         Simulation s = Camp(seed, "you", "sera", "oren");
