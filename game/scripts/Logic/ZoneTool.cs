@@ -156,12 +156,11 @@ public sealed class ZoneTool
 
     /// <summary>
     /// What the hint by the cursor says about the box: how many tiles the zone would take, where, and the facts that matter
-    /// for its kind: for a stockpile whether it is dry and out of the watch's sight; for the home area what it would leave
-    /// outside (the watch post, a bed, a stockpile tile), the three ways a home area quietly costs the camp a watch, sleep
-    /// or food after dark (zones design 4.2).
+    /// for its kind: for a stockpile whether it is dry and out of the watch's sight; for the home area whether it would
+    /// leave the watch post outside, the one way it quietly costs the camp its watch after dark (zones design 4.2; the
+    /// curfew that made beds and stockpiles outside matter moved to slice 2, ADR-0028).
     /// </summary>
-    public readonly record struct Facts(int Tiles, string PlaceKey, bool Dry, bool OutOfSight,
-        bool PostOutside = false, bool BedsOutside = false, bool StockpileOutside = false);
+    public readonly record struct Facts(int Tiles, string PlaceKey, bool Dry, bool OutOfSight, bool PostOutside = false);
 
     /// <summary>
     /// The facts for marking this box: the tiles a zone could take, the place they would lie, and for a
@@ -187,11 +186,6 @@ public sealed class ZoneTool
         var area = new HashSet<Point>(tiles);
         foreach (Zone z in shown)
             if (z.Kind == def.Id) area.UnionWith(Zones.Each(z.Tiles));
-        bool beds = false, pile = false;
-        foreach (Bed b in w.Map.Beds) beds |= !area.Contains(b.Pos);
-        foreach (Zone z in shown)
-            if (Zones.IsStores(w, z))
-                foreach (Point p in Zones.Each(z.Tiles)) pile |= !area.Contains(p);
-        return facts with { PostOutside = !area.Contains(w.Map.WatchPost), BedsOutside = beds, StockpileOutside = pile };
+        return facts with { PostOutside = !area.Contains(w.Map.WatchPost) };
     }
 }

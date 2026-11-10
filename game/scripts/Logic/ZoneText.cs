@@ -63,8 +63,6 @@ public static class ZoneText
             if (facts.OutOfSight) parts.Add(Ui.T("ui.zones.cursor.out_of_sight"));
         }
         if (facts.PostOutside) parts.Add(Ui.T("ui.zones.cursor.post_outside"));
-        if (facts.BedsOutside) parts.Add(Ui.T("ui.zones.cursor.beds_outside"));
-        if (facts.StockpileOutside) parts.Add(Ui.T("ui.zones.cursor.stockpile_outside"));
         return string.Join(Ui.T("ui.zones.cursor.sep"), parts);
     }
 

@@ -145,7 +145,7 @@ public class ZoneViewTests
 
     /// <summary>The home area's hint names what a drawn area would leave outside: the watch post, a bed, a stockpile tile, reading the one area a drag joins.</summary>
     [Fact]
-    public void TheHomeAreasHintSaysWhatItWouldLeaveOutside()
+    public void TheHomeAreasHintSaysWhenItWouldLeaveTheWatchPostOutside()
     {
         World w = WorldGen.Create(Content, 1);
         var tool = new ZoneTool();
@@ -166,7 +166,7 @@ public class ZoneViewTests
         tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
         Point h = w.Map.Hearth;
         Box(new Rect(h.X - 2, h.Y - 2, 5, 5));
-        Assert.Equal("Home area · 25 tiles · by the hearth · leaves the watch post outside · leaves the beds outside · leaves the stockpile outside", ZoneText.Cursor(w, tool));
+        Assert.Equal("Home area · 25 tiles · by the hearth · leaves the watch post outside", ZoneText.Cursor(w, tool)); // beds and stockpiles outside mattered only to the curfew (slice 2, ADR-0028)
         tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
 
         // With a home area already drawn round the camp, a small box joins it, so nothing is left outside.
@@ -185,7 +185,7 @@ public class ZoneViewTests
     public void TheListOffersTheHomeAreaAndRowsIt()
     {
         World w = WorldGen.Create(Content, 1);
-        Assert.Contains(StateApi.ZoneKinds(w), k => k.Id == "home" && k.Name == "Home area" && k.Hint == "Where people stay after dark" && k.Single);
+        Assert.Contains(StateApi.ZoneKinds(w), k => k.Id == "home" && k.Name == "Home area" && k.Hint == "After dark, only the night folk keep watch outside it" && k.Single);
         new MarkZone(w.Tick, 0, "home", Zones.FromRect(WorldGen.ClearingOf(w.Map.Shelter))).Apply(w);
         ZoneState home = StateApi.Zones(w).Single(z => z.Kind == "home");
         Assert.Equal("Home area by the hearth · 418 tiles", ZoneText.Row(home));
@@ -202,15 +202,15 @@ public class ZoneViewTests
         foreach (string key in new[] { "oren", "nia", "wren" })
         {
             int id = w.Characters.First(c => c.CastKey == key).Id;
-            w.Log.Emit(w, Return.Sim.Events.SystemTag.Work, "event.work.out_after_dark_starving", new[] { id }, Array.Empty<long>(), null, Return.Sim.Events.EventArg.Char("a", id));
+            w.Log.Emit(w, Return.Sim.Events.SystemTag.Work, "event.work.stayed_in_watch", new[] { id }, Array.Empty<long>(), null, Return.Sim.Events.EventArg.Char("a", id));
             w.Tick += 60;
         }
         int mira = w.Characters.First(c => c.CastKey == "mira").Id;
-        w.Log.Emit(w, Return.Sim.Events.SystemTag.Work, "event.work.out_after_dark_help", new[] { mira, mira }, Array.Empty<long>(), null,
-            Return.Sim.Events.EventArg.Char("a", mira), Return.Sim.Events.EventArg.Char("b", w.Characters.First(c => c.CastKey == "oren").Id));
+        w.Log.Emit(w, Return.Sim.Events.SystemTag.Incident, "event.incident.work_accident_dark", new[] { mira }, Array.Empty<long>(), null,
+            Return.Sim.Events.EventArg.Char("a", mira));
         IReadOnlyList<string> lines = ViewText.Chronicle(w);
-        Assert.Equal("Day 2, 23:36 — Mira went out after dark to help Oren.", lines[0]);
-        Assert.Equal("Day 2, 23:00 — Oren, starving, went out after dark to find food.\n    … and the same with Nia, Wren, until Day 2, 23:24.", lines[1]);
+        Assert.Equal("Day 2, 23:36 — Mira was hurt in an accident while working in the dark.", lines[0]);
+        Assert.Equal("Day 2, 23:00 — Oren would not keep watch outside the home area after dark.\n    … and the same with Nia, Wren, until Day 2, 23:24.", lines[1]);
     }
 }
 

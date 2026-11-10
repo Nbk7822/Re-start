@@ -56,7 +56,7 @@ public sealed partial class Simulation
         ApplyDueCommands(w);
         TravelSystem.Step(w);
         CombatSystem.Step(w);
-        if (w.Tick % def.TicksPerHour == 0) Zones.Hourly(w); // at dusk the home area's roll and the walk home, before the watch asks anyone (zones step 3)
+        if (w.Tick % def.TicksPerHour == 0) Zones.Hourly(w); // at dusk the home area's nightly roll, before the watch asks anyone (zones step 3)
         if (w.Tick % WatchSystem.StepEveryTicks == 0) WatchSystem.Step(w); // turns and handovers, before work (ADR-0029)
         WorkSystem.Step(w);
         if (w.Tick % ScheduleSystem.SampleEveryTicks == ScheduleSystem.SampleOffset) ScheduleSystem.Sample(w); // hours as lived (ADR-0029)

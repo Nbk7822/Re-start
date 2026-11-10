@@ -7,9 +7,9 @@ using Return.Sim.Systems;
 namespace Return.Tests;
 
 /// <summary>
-/// A year under each of the stand-in's home plans (zones design 9.2's year invariant): after dark nobody the home area
-/// binds who is neither excused nor going their own way starts food, work, company or wandering outside it; the starving
-/// may go for food. Every breach line has an excuse behind it, and every cause names an earlier event.
+/// A year under each of the stand-in's home plans: every cause names an earlier event, the home area is marked, and with
+/// the post outside it ("short") the watch's skip says why the post stands empty. The curfew proper, and design 9.2's year
+/// invariant that nobody it keeps in starts anything outside after dark, moved to slice 2 with keep-out (ADR-0028).
 /// </summary>
 public class HomeYearInvariantTests
 {
@@ -17,43 +17,28 @@ public class HomeYearInvariantTests
     [InlineData("home", 1UL)]
     [InlineData("short", 2UL)]
     [InlineData("both", 3UL)]
-    public void NobodyKeptInStartsAnythingOutsideTheHomeAreaAfterDark(string plan, ulong seed)
+    public void AYearUnderAHomePlanKeepsItsCausesAndTheShortOneSaysWhyThePostIsEmpty(string plan, ulong seed)
     {
         var s = Simulation.Create(TestContent.Db, seed);
         Autoplay.Begin(s, plan);
-        World w = s.World;
-        var seen = new Dictionary<int, Job?>();
-        int checkedEvents = 0, starts = 0, outside = 0;
-        long year = w.Content.World.TicksPerYear;
-        for (long t = 0; t < year; t++)
+        long year = s.World.Content.World.TicksPerYear;
+        int checkedEvents = 0;
+        // A return hands the simulation the restored world (ADR-0030), so the world is read afresh after every step.
+        for (long steps = 0; s.World.Tick < year && !s.World.Fate.Ended; steps++)
         {
+            Assert.True(steps < 4 * year, $"seed {seed} {plan}: the year never ended");
             s.Step();
-            if (!Zones.IsDark(w) || Zones.HomeOf(w) == null) { seen.Clear(); continue; }
-            foreach (Character c in w.Characters)
-            {
-                if (c.Status != CharStatus.Member) continue;
-                Job? job = c.Job;
-                if (seen.TryGetValue(c.Id, out Job? before) && ReferenceEquals(before, job)) continue;
-                seen[c.Id] = job;
-                if (job == null || job.StartedTick != w.Tick - 1 || !Zones.Curfewed(job.Kind) || !Zones.Bound(w, c)) continue;
-                starts++;
-                if (Zones.InHome(w, job.Target) || job.Target == c.Pos) continue; // inside, or standing where they are
-                outside++;
-                bool excused = Zones.DefiantTonight(w, c) != null || (job.Kind is JobKind.Forage or JobKind.Eat && Zones.StarvingNow(w, c));
-                Assert.True(excused, $"seed {seed} {plan}, tick {w.Tick - 1}: {c.CastKey} started {job.Kind} to {job.Target}, outside the home area, kept in");
-            }
+            World w = s.World;
+            checkedEvents = Math.Min(checkedEvents, w.Log.All.Count);
             for (; checkedEvents < w.Log.All.Count; checkedEvents++)
             {
                 SimEvent e = w.Log.All[checkedEvents];
                 foreach (long cause in e.Causes) Assert.True(cause >= 1 && cause < e.Id, $"event {e.Id} ({e.Key}) cites cause {cause}");
-                if (e.Key.StartsWith("event.work.out_after_dark", StringComparison.Ordinal))
-                    Assert.Contains(Zones.HomeOf(w)!.MadeEvent, e.Causes);
             }
         }
-        Assert.True(starts > 100, $"only {starts} curfewed starts after dark");
-        Assert.True(outside > 0, $"no start outside the home area after dark was checked ({starts} starts)");
-        Assert.Contains(w.Log.All, e => e.Key == "event.world.home_marked");
-        if (plan == "short") Assert.Contains(w.Log.All, e => e.Key == "event.work.stayed_in_watch");
+        World end = s.World;
+        Assert.Contains(end.Log.All, e => e.Key == "event.world.home_marked");
+        if (plan == "short") Assert.Contains(end.Log.All, e => e.Key == "event.work.stayed_in_watch");
     }
 }
 

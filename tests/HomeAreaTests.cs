@@ -182,7 +182,7 @@ public class HomeAreaTests
         Apply(s, new MarkZone(0, 0, "home", Zones.FromRect(clearing)));
         Zone home = Zones.HomeOf(w)!;
         SimEvent marked = w.Log.All.Last(e => e.Key == "event.world.home_marked");
-        Assert.Equal("You marked out a home area (418 tiles), asking everyone to keep inside it after dark.", EventText.Describe(w, marked));
+        Assert.Equal("You marked out a home area (418 tiles), asking that after dark nobody but the night folk keep watch outside it.", EventText.Describe(w, marked));
         Assert.Equal(marked.Id, home.MadeEvent);
         Assert.Equal(w.PlayerId, home.MadeBy);
         // An area lies over anything (walls, the hearth, the stockpile, the meeting place) and takes no tiles from them.
@@ -202,7 +202,7 @@ public class HomeAreaTests
 
         Apply(s, new RemoveZone(s.World.Tick, home.Id));
         Assert.Null(Zones.HomeOf(w));
-        Assert.Equal("You took away the home area; people may go where they like after dark.", EventText.Describe(w, w.Log.All.Last()));
+        Assert.Equal("You took away the home area; after dark the watch may be kept anywhere again.", EventText.Describe(w, w.Log.All.Last()));
         Assert.False(Zones.InHome(w, w.Map.Hearth));
     }
 
@@ -223,7 +223,7 @@ public class HomeAreaTests
         Assert.Contains("In the dark", StateApi.Location(w, far.X, far.Y).Contents);
     }
 
-    // ---- The curfew (design 5.5, tests under 9.2) ----
+    // ---- Tonight's roll (design 5.5; the curfew proper moved to slice 2, ADR-0028) ----
 
     /// <summary>A camp of these people with a home area of the tiles within <paramref name="radius"/> of the hearth (Chebyshev), marked by you at the given hour of day 2.</summary>
     private static World WithHome(int radius, double hour, params string[] keys)
@@ -236,214 +236,11 @@ public class HomeAreaTests
         return w;
     }
 
-    private static Zone Home(World w) => Zones.HomeOf(w)!;
-
     /// <summary>Lets someone go their own way tonight, as if tonight's roll had said so.</summary>
     private static void Defiant(World w, Character c, string why = Compliance.OwnWay)
     {
         c.NightRollDay = Zones.Tonight(w);
         c.DefiesTonight = why;
-    }
-
-    [Fact]
-    public void AtDuskAHumanOutAtWorkWalksHomeAndTheNightFolkDoNot()
-    {
-        World w = WithHome(4, 18.5, "oren", "ilex");
-        Character oren = Cast(w, "oren"), ilex = Cast(w, "ilex");
-        foreach (Character c in new[] { oren, ilex })
-        {
-            c.Pos = East(w, 10);
-            c.Job = new Job { Kind = JobKind.GatherTimber, Target = East(w, 11), StartedTick = w.Tick };
-        }
-        w.Tick = w.Content.World.TicksPerDay + Hours(w, 19);
-        Zones.Hourly(w);
-        Assert.Null(oren.Job); // he leaves the job: his own choice at dusk
-        Assert.Equal(JobKind.GatherTimber, ilex.Job?.Kind); // the dark is the vampire's day
-        Job next = JobPicker.Choose(w, oren)!;
-        Assert.True(Zones.InHome(w, next.Target), $"{next.Kind} to {next.Target}");
-        Assert.DoesNotContain(w.Log.All, e => e.Key.StartsWith("event.work.out_after_dark", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void MarkingAHomeAreaAtNightPullsNobodyOffTheJobInHandAndTheirNextChoiceObeysIt()
-    {
-        var s = Simulation.Create(TestContent.Db, 1);
-        World w = s.World;
-        foreach (Character c in w.Characters) if (c.CastKey != "oren") c.Status = CharStatus.OffMap;
-        Character oren = Cast(w, "oren");
-        oren.Food = 900; oren.Rest = 900; oren.Social = 900;
-        w.WatchFrom = w.WatchTo = 0; // no watch to send him to
-        w.Tick = w.Content.World.TicksPerDay + Hours(w, 21);
-        oren.Pos = East(w, 10);
-        Job walk = new() { Kind = JobKind.Wander, Target = East(w, 12), TargetId = 600, StartedTick = w.Tick };
-        oren.Job = walk;
-        Point h = w.Map.Hearth;
-        Apply(s, new MarkZone(w.Tick, 0, "home", Zones.FromRect(new Rect(h.X - 3, h.Y - 3, 7, 7))));
-        Assert.Same(walk, oren.Job);
-        oren.Job = null;
-        Job next = JobPicker.Choose(w, oren)!;
-        Assert.True(Zones.InHome(w, next.Target), $"{next.Kind} to {next.Target}");
-    }
-
-    [Fact]
-    public void AHomeAreaDrawnShortOfTheBedsNeverKeepsAnyoneFromTheirBed()
-    {
-        World w = WorkTests.Only(1, "oren");
-        w.Tick = w.Content.World.TicksPerDay + Hours(w, 23);
-        new MarkZone(w.Tick, 0, "home", Zones.FromRect(new Rect(w.Map.Hearth.X - 1, w.Map.Hearth.Y - 1, 3, 3))).Apply(w);
-        Character oren = Cast(w, "oren");
-        Job bed = JobPicker.Choose(w, oren)!;
-        Assert.Equal(JobKind.Sleep, bed.Kind);
-        Assert.False(Zones.InHome(w, bed.Target));
-        WorkSystem.Assign(w, oren);
-        Assert.DoesNotContain(w.Log.All, e => e.Key.StartsWith("event.work.out_after_dark", StringComparison.Ordinal));
-    }
-
-    /// <summary>Empties the stores and every bush inside the home area, and leaves berries on the bushes outside it.</summary>
-    private static void FoodOnlyOutside(World w)
-    {
-        Stock.Take(w, "berries", 999);
-        foreach (Bush b in w.Map.Bushes) b.Berries = Zones.InHome(w, b.Pos) ? 0 : 4;
-    }
-
-    [Fact]
-    public void TheStarvingGoOutForFoodAndSaySoOnceANightCitingTheirHungerAndTheHomeArea()
-    {
-        World w = WithHome(3, 23, "oren", "nia");
-        FoodOnlyOutside(w);
-        Character oren = Cast(w, "oren"), nia = Cast(w, "nia");
-        SimEvent starving = w.Log.Emit(w, SystemTag.Needs, "event.needs.starving", new[] { oren.Id }, Array.Empty<long>(), null, EventArg.Char("a", oren.Id));
-        oren.Food = 100;
-        oren.LastFoodEvent = starving.Id;
-        WorkSystem.Assign(w, oren);
-        Assert.Equal(JobKind.Forage, oren.Job?.Kind);
-        Assert.False(Zones.InHome(w, oren.Job!.Target));
-        SimEvent breach = Assert.Single(w.Log.All, e => e.Key == "event.work.out_after_dark_starving");
-        Assert.Equal(new[] { Home(w).MadeEvent, starving.Id }, breach.Causes);
-        Assert.Equal("Oren, starving, went out after dark to find food.", EventText.Describe(w, breach));
-        Assert.Equal(starving.Id, oren.Job.CauseEvent); // the forage's cause stays the hunger: the rule did not send him
-        oren.Job = null;
-        WorkSystem.Assign(w, oren);
-        Assert.Single(w.Log.All, e => e.Key == "event.work.out_after_dark_starving"); // once a night
-
-        // The Desperate count as starving from 220, as the Schedule gets them out of bed.
-        nia.Traits = new List<string> { "desperate" };
-        nia.Food = 200;
-        WorkSystem.Assign(w, nia);
-        Assert.Equal(JobKind.Forage, nia.Job?.Kind);
-        Assert.Contains(w.Log.All, e => e.Key == "event.work.out_after_dark_starving" && e.Actors[0] == nia.Id);
-    }
-
-    [Fact]
-    public void TheHungryStayInAsAskedAndThatBecomesTheCauseOfTheirHunger()
-    {
-        World w = WithHome(3, 20, "oren");
-        FoodOnlyOutside(w);
-        Character oren = Cast(w, "oren");
-        SimEvent hungry = w.Log.Emit(w, SystemTag.Needs, "event.needs.hungry", new[] { oren.Id }, Array.Empty<long>(), null, EventArg.Char("a", oren.Id));
-        oren.Food = 250;
-        oren.LastFoodEvent = hungry.Id;
-        Job? job = JobPicker.Choose(w, oren);
-        Assert.NotEqual(JobKind.Forage, job?.Kind);
-        Assert.True(job == null || Zones.InHome(w, job.Target));
-        SimEvent stayed = Assert.Single(w.Log.All, e => e.Key == "event.work.stayed_in_hungry");
-        Assert.Equal(new[] { Home(w).MadeEvent, hungry.Id }, stayed.Causes);
-        Assert.Equal(stayed.Id, oren.LastFoodEvent);
-        Assert.Equal("Oren, hungry, stayed in camp after dark as you asked.", EventText.Describe(w, stayed));
-        JobPicker.Choose(w, oren);
-        Assert.Single(w.Log.All, e => e.Key == "event.work.stayed_in_hungry");
-
-        // You keep your own rule: never a roll, and the line in your own words.
-        World v = WithHome(3, 20, "you");
-        FoodOnlyOutside(v);
-        Character you = Cast(v, "you");
-        you.Food = 250;
-        JobPicker.Choose(v, you);
-        Assert.Equal("You, hungry, kept to your own rule and stayed in camp after dark.", EventText.Describe(v, v.Log.All.Single(e => e.Key == "event.work.stayed_in_hungry")));
-    }
-
-    [Fact]
-    public void SomeoneGoingToTheHurtGoesOutAndSaysSo()
-    {
-        World w = WithHome(3, 23, "bram", "mira");
-        Character bram = Cast(w, "bram"), mira = Cast(w, "mira");
-        bram.Traits = new List<string> { "protective" };
-        SimEvent hurt = w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { mira.Id }, Array.Empty<long>(), null, EventArg.Char("a", mira.Id));
-        mira.Pos = East(w, 10);
-        mira.Health = 200;
-        mira.Downed = true;
-        mira.LastHealthEvent = hurt.Id;
-        bram.Rest = 900;
-        bram.Job = new Job { Kind = JobKind.Rescue, TargetId = mira.Id, Target = mira.Pos, CauseEvent = hurt.Id };
-        Zones.Started(w, bram, bram.Job);
-        SimEvent breach = Assert.Single(w.Log.All, e => e.Key == "event.work.out_after_dark_help");
-        Assert.Equal(new[] { Home(w).MadeEvent, hurt.Id }, breach.Causes);
-        Assert.Equal("Bram went out after dark to help Mira.", EventText.Describe(w, breach));
-        Assert.DoesNotContain(w.Members(), m => m.Thoughts.Any(t => t.DefId == "saw_rule_broken")); // helping is no defiance
-    }
-
-    [Fact]
-    public void ADefiantIndependentGoesOutAndRuleKeepersInSightThinkLessOfThem()
-    {
-        World w = WithHome(3, 23, "sera", "oren", "mira", "wren");
-        Character sera = Cast(w, "sera"), oren = Cast(w, "oren"), mira = Cast(w, "mira"), wren = Cast(w, "wren");
-        sera.Traits = new List<string> { "independent" };
-        oren.Traits = new List<string> { "oathbound" };
-        mira.Traits = new List<string> { "oathbound" };
-        foreach (Character c in new[] { oren, mira, wren }) { c.Asleep = false; c.Job = null; }
-        sera.Pos = East(w, 2);
-        oren.Pos = new Point(sera.Pos.X + Compliance.WitnessRange, sera.Pos.Y);
-        mira.Pos = new Point(sera.Pos.X - Compliance.WitnessRange - 1, sera.Pos.Y);
-        wren.Pos = new Point(sera.Pos.X, sera.Pos.Y + 1); // keeps no rules herself
-        Defiant(w, sera);
-        var job = new Job { Kind = JobKind.Forage, Target = East(w, 11) };
-        Assert.False(Zones.KeepsIn(w, sera, job.Target));
-        Zones.Started(w, sera, job);
-        SimEvent breach = Assert.Single(w.Log.All, e => e.Key == "event.work.out_after_dark_own_way");
-        Assert.Equal("Never one to be told, Sera went out after dark anyway.", EventText.Describe(w, breach));
-        Assert.Equal(new[] { Home(w).MadeEvent }, breach.Causes);
-        Thought t = Assert.Single(oren.Thoughts, x => x.DefId == "saw_rule_broken");
-        Assert.Equal((sera.Id, breach.Id), (t.AboutId, t.CauseEvent));
-        Assert.DoesNotContain(mira.Thoughts, x => x.DefId == "saw_rule_broken"); // nine tiles away
-        Assert.DoesNotContain(wren.Thoughts, x => x.DefId == "saw_rule_broken");
-
-        // Going their own way out of dislike cites what they hold against you.
-        Character nia = Cast(w, "nia");
-        nia.Status = CharStatus.Member;
-        nia.Traits = new List<string> { "practical" };
-        SimEvent slight = w.Log.Emit(w, SystemTag.Social, "event.social.insulted", new[] { w.PlayerId, nia.Id }, Array.Empty<long>());
-        Relations.FormGrudge(w, nia, w.Get(w.PlayerId), 30, slight.Id);
-        Defiant(w, nia, Compliance.Dislike);
-        Zones.Started(w, nia, new Job { Kind = JobKind.Wander, Target = East(w, 12) });
-        SimEvent sour = w.Log.All.Single(e => e.Key == "event.work.out_after_dark_dislike");
-        Assert.Equal(new[] { Home(w).MadeEvent, Relations.ActiveGrudge(w, nia.Id, w.PlayerId)!.FormedEvent }, sour.Causes);
-        Assert.Equal("Nia went out after dark anyway, caring little for what you want.", EventText.Describe(w, sour));
-    }
-
-    [Fact]
-    public void AnIndependentKeptFromWorkAfterDarkResentsYouOnceANight()
-    {
-        World w = WithHome(2, 23, "sera");
-        FoodOnlyOutside(w);
-        Character sera = Cast(w, "sera");
-        sera.Traits = new List<string> { "independent" };
-        for (int h = 0; h < 24; h++) ScheduleSystem.SetOwn(sera, h, DayBlock.Work); // on nights: work is hers to do now
-        sera.NightRollDay = Zones.Tonight(w); // tonight's roll said she keeps the rule
-        int before = Relations.Opinion(w, sera.Id, w.PlayerId);
-        Job? job = JobPicker.Choose(w, sera);
-        Assert.True(job == null || Zones.InHome(w, job.Target), $"{job?.Kind} to {job?.Target}");
-        Thought kept = Assert.Single(sera.Thoughts, t => t.DefId == "kept_in");
-        Assert.Equal((w.PlayerId, Home(w).MadeEvent), (kept.AboutId, kept.CauseEvent));
-        JobPicker.Choose(w, sera);
-        JobPicker.Choose(w, sera);
-        Assert.Single(sera.Thoughts, t => t.DefId == "kept_in");
-        Assert.Equal(before - 2, Relations.Opinion(w, sera.Id, w.PlayerId));
-
-        // Going her own way tonight, she goes out to work instead, and says so.
-        Defiant(w, sera);
-        WorkSystem.Assign(w, sera);
-        Assert.False(Zones.InHome(w, sera.Job!.Target));
-        Assert.Contains(w.Log.All, e => e.Key == "event.work.out_after_dark_own_way");
     }
 
     [Fact]
@@ -599,8 +396,9 @@ public class HomeAreaTests
         Assert.DoesNotContain(w.Debts, d => d.Kind == DebtKind.Watch);
     }
 
+    /// <summary>Someone going their own way tonight is not skipped: they may take a post outside the home area (the curfew's breach line went to slice 2).</summary>
     [Fact]
-    public void ADefierStillTakesAPostOutsideAndHasGoneOutAfterDark()
+    public void ADefierStillTakesAPostOutsideTheHomeArea()
     {
         Simulation s = ShortHome("you", "sera", "oren");
         World w = s.World;
@@ -618,9 +416,7 @@ public class HomeAreaTests
             took = w.Log.All.FirstOrDefault(e => e.Key == "event.work.took_watch");
         }
         Assert.Equal(sera.Id, took?.Actors[0]);
-        SimEvent breach = w.Log.All.Single(e => e.Key == "event.work.out_after_dark_own_way");
-        Assert.Equal(sera.Id, breach.Actors[0]);
-        Assert.Contains(oren.Thoughts, x => x.DefId == "saw_rule_broken" && x.AboutId == sera.Id); // he saw her go from the fire
+        Assert.False(Zones.InHome(w, w.Map.WatchPost));
     }
 
     /// <summary>
@@ -655,39 +451,4 @@ public class HomeAreaTests
         return null;
     }
 
-    /// <summary>Design 9.2 (CausalityTests): a defiant breach is a transgression, not a cause; an accident at the work it took them to never cites it.</summary>
-    [Fact]
-    public void ADefiantBreachIsNotOnTheAccidentsChain()
-    {
-        World w = WithHome(2, 23, "sera");
-        FoodOnlyOutside(w);
-        Character sera = Cast(w, "sera");
-        sera.Traits = new List<string> { "independent" };
-        for (int h = 0; h < 24; h++) ScheduleSystem.SetOwn(sera, h, DayBlock.Work);
-        foreach (WorkPriority p in sera.Priorities) p.Priority = p.WorkId == "forage" ? 1 : 0; // the bushes, not the trees
-        Defiant(w, sera);
-        WorkSystem.Assign(w, sera);
-        Assert.Equal(JobKind.Forage, sera.Job?.Kind);
-        SimEvent breach = w.Log.All.Single(e => e.Key == "event.work.out_after_dark_own_way");
-        for (int t = 0; t < 4_000 && !w.Log.All.Any(e => e.Key == "event.work.foraged"); t++)
-        {
-            TravelSystem.Step(w);
-            WorkSystem.Step(w);
-            w.Tick++;
-        }
-        SimEvent picked = w.Log.All.Single(e => e.Key == "event.work.foraged");
-        JobRunner.RollAccident(w, sera, new WorkDef { Id = "test_sure", AccidentPermille = 1000 }, picked.Id);
-        SimEvent hurt = w.Log.All.Last(e => e.Key.StartsWith("event.incident.work_accident", StringComparison.Ordinal));
-        var ancestry = new HashSet<long>();
-        var open = new Stack<long>(hurt.Causes);
-        while (open.Count > 0)
-        {
-            long id = open.Pop();
-            if (!ancestry.Add(id)) continue;
-            foreach (long c in w.Log.Get(id)!.Causes) open.Push(c);
-        }
-        Assert.Contains(picked.Id, ancestry);
-        Assert.DoesNotContain(breach.Id, ancestry);
-        Assert.DoesNotContain(Zones.HomeOf(w)!.MadeEvent, ancestry);
-    }
 }

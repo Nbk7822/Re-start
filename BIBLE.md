@@ -53,7 +53,7 @@ Fixed tick. `content/world.json` sets the calendar (300 ticks per hour, 24 hours
 | Fate (who you are, fate knots, the return; section 7) | needs, combat, incidents (deaths, triggers), social, growth (aging) | the whole world (a return restores a knot), mood and social (memories: thoughts, opinions, grudges), arrivals (re-drawn), the Chronicle (lost futures) |
 | Gifts (your one gift; section 7) | work (forage), incidents and combat (harm meant for you), needs (hunger, starving), fate (returns, echoes) | needs (meals), combat (who is hurt), social (debts, ill luck, resentment, familiarity), growth of the gift |
 | Build (plans, structures, beds; section 4.11) | work, map, items, needs, social | needs (rest, cover from sun and rain), mood (comfort, pride, thanks; envy with slice 1c), social (claims, passing over, roof promises kept and broken), travel (walls), incidents (work accidents), and through felling the dryads and the sacred trees |
-| Zones (stockpiles, meeting places, the home area, the dark; section 8) | work (who carries what), map (cover, the firelight), items, social (opinions, grudges), Schedule (kinds of day, the watch), traits and mood (who goes their own way) | needs and rations (where food lies and is eaten; hunger stayed in), incidents (the damp, what a thief can take, accidents in the dark), combat (where the watch must look; who keeps a post outside the home area), work (where the idle go; what people start after dark; the walk home at dusk), mood (sitting apart, kept in), social (rule-keepers who see a breach) |
+| Zones (stockpiles, meeting places, the home area, the dark; section 8) | work (who carries what), map (cover, the firelight), items, social (opinions, grudges), Schedule (kinds of day, the watch), traits and mood (who goes their own way) | needs and rations (where food lies and is eaten), incidents (the damp, what a thief can take, accidents in the dark), combat (where the watch must look; who keeps a post outside the home area), work (where the idle go), mood (sitting apart) |
 | Schedule (the camp's day, own hours, the watch in turns, overwork; section 9) | needs (rest, food, health), work (priorities, the job in hand), social (grudges, debts, opinion of you), natures (an undead's purpose, a djinn's bargain), culture (festivals) | work (when people work and who keeps watch), needs (sleep, naps, wear, asleep at the post), mood (overwork, woken, refusals, covers, evenings by the fire), social (refusals, covers that repay or open debts, grudges), incidents (thefts at an empty post, accidents when worn out), combat (who stands at the post) |
 
 Every system touches at least two others; that is the cut rule from CLAUDE.md. Danger runs through combat and work: a wound bleeds until someone tends it (section 7). Growth is the one exception for now: by the founder's M0 scope for fixed decision 12 (section 5.3) it reads three systems (traits, social chemistry, incidents) but writes back only beats, and M1's trait changes close the loop.
@@ -233,7 +233,7 @@ Slice 1 of the player design (ADR-0030). Fixed decisions 3, 4, 8 and 9 made play
 
 ## 8. Zones
 
-Slice 1 of the zones design, steps 1 to 3 (ADR-0028). A zone is a painted area on the grid and an intention, never an order: people read it and decide.
+Slice 1 of the zones design, steps 1 to 3, with step 3 cut to the watch's skip and the dark (ADR-0028). A zone is a painted area on the grid and an intention, never an order: people read it and decide.
 
 ### 8.1 Stockpiles
 
@@ -250,14 +250,12 @@ Slice 1 of the zones design, steps 1 to 3 (ADR-0028). A zone is a painted area o
 
 ### 8.3 The home area
 
-The Schedule says when; the home area says where (section 9). The camp starts without one; the player may mark one area (a second marking joins the first), over anything, asking everyone to keep inside it after dark.
+The Schedule says when; the home area says where (section 9). The camp starts without one; the player may mark one area (a second marking joins the first), over anything. In this slice it asks one thing: that after dark nobody but the night folk keep watch outside it.
 
 - **Who it binds:** everyone whose kind of day sleeps in the dark. The night folk (vampires, the undead: their shipped day has no sleep in the dark) are never bound; putting a human on nights does not make them see in the dark.
 - **Tonight's answer:** at dusk everyone it binds but the player decides once, by the one rule (8.5), whether they go their own way tonight.
-- **The walk home at dusk:** whoever is bound, out at work or idling beyond it, leaves the job and comes in, unless excused or going their own way. Marking a home area never pulls anyone off the job in hand.
-- **After dark** they start no food, work, company or wandering outside it: they eat from stores and pick from bushes inside it if any, and sit at a meeting place it reaches or near its nearest tile. Excused: the starving (for food), anyone going to someone hurt (care, rescue), and tonight's defiers. Never kept in: sleep (a home area drawn short of the beds keeps nobody from bed), cover, promised meals, blood, feasts, the needs of a nature, fights, arrivals.
 - **The watch:** with the post outside it, nobody it binds is asked to keep watch (nobody is woken for it). When that leaves nobody: "Oren would not keep watch outside the home area after dark.", which is then why the post stands empty and what a theft that night cites. The night folk and tonight's defiers still take the post.
-- **What it leaves behind:** each breach is said once a night with its reason ("Wren, starving, went out after dark to find food.", "Mira went out after dark to help Wren.", "Never one to be told, Sera went out after dark anyway."). Rule-keepers who see a defiant breach think less of the breaker; an Independent kept in resents you a little; someone hungry who stays in as asked says so, and that is why they go on hungry.
+- **The curfew waits for slice 2.** Keeping people from work, food, company and wandering outside it after dark, with its walk home at dusk and its breach, hunger and kept-in lines, was built and measured: it made a story in 3 of 300 home-area worlds against the design's floor of 15%. By the design's cut rule (section 9.2 of the zones design; fixed decision 1) it moved to slice 2 with keep-out at the merge (ADR-0028), and its commits stay on the zones branch.
 
 ### 8.4 The dark
 
@@ -265,15 +263,15 @@ Zone or no zone: from dusk to dawn, more than 8 tiles in a straight line from th
 
 ### 8.5 One rule for who keeps the camp's rules
 
-How people feel about whoever set a rule decides how far it carries (the founder's answer, ADR-0025). One helper gives the odds that someone goes their own way, from their nature (the Independent), their feeling for whoever set the rule (dislike adds, liking takes away), a black mood and their people's lean on the Oathbound–Free axis; the largest names the reason the Chronicle gives. It never applies to the player. The Oathbound, and those whose ways hold oaths heaviest, think less of a breaker they see. The home area and the Schedule use it: one roll a night for the home area, one per change of hours and per waking for the watch.
+How people feel about whoever set a rule decides how far it carries (the founder's answer, ADR-0025). One helper gives the odds that someone goes their own way, from their nature (the Independent), their feeling for whoever set the rule (dislike adds, liking takes away), a black mood and their people's lean on the Oathbound–Free axis; the largest names the reason the Chronicle gives. It never applies to the player. The Oathbound, and those whose ways hold oaths heaviest, think less of a breaker they see. The home area and the Schedule use it: one roll a night for the home area (whether someone it binds may take a post outside it), one per change of hours and per waking for the watch.
 
 ### 8.6 Where it shows
 
-Zones on the bottom bar opens a short list (the kinds to mark, Unmark, the camp's zones with what each keeps) and a marking tool (drag a box; right-click or Esc stops) whose hint says how many tiles, where, whether a stockpile is dry and whether the watch can see it, and what a home area would leave outside (the watch post, the beds, the stockpile). On the map, stockpiles and meeting places show a dashed edge, the home area after dusk only; while zones are shown, a faint fill, their names and see-through roofs; a choice made while paused is hatched until time moves. The tile tooltip names the zone and what it keeps, goods waiting to be carried, the home area, and after dark the firelight or the dark. The Chronicle folds a run of the same line that differs only in one person, as the story log does.
+Zones on the bottom bar opens a short list (the kinds to mark, Unmark, the camp's zones with what each keeps) and a marking tool (drag a box; right-click or Esc stops) whose hint says how many tiles, where, whether a stockpile is dry and whether the watch can see it, and whether a home area would leave the watch post outside. On the map, stockpiles and meeting places show a dashed edge, the home area after dusk only; while zones are shown, a faint fill, their names and see-through roofs; a choice made while paused is hatched until time moves. The tile tooltip names the zone and what it keeps, goods waiting to be carried, the home area, and after dark the firelight or the dark. The Chronicle folds a run of the same line that differs only in one person, as the story log does.
 
 ### 8.7 Not yet
 
-Keep-out and leave-be ground, the burial ground and thieves who waylay people in the dark (slice 2); growing plots (after the items milestone) and grazing (after animals). The home area makes few stories in this camp (ADR-0028, step 3): by the design's cut rule its curfew would wait for slice 2 unless the founder keeps it.
+Keep-out and leave-be ground, the home area's curfew, the burial ground and thieves who waylay people in the dark (slice 2); growing plots (after the items milestone) and grazing (after animals).
 
 ## 9. Schedule
 

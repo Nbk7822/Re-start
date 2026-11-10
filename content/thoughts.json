@@ -90,7 +90,6 @@
 
   { "id": "saw_rule_broken", "textKey": "thought.saw_rule_broken", "mood": -2, "opinion": -4, "durationHours": 48, "emote": "anger", "stackLimit": 3 },
   { "id": "sat_apart", "textKey": "thought.sat_apart", "mood": -3, "durationHours": 12, "emote": "gloom" },
-  { "id": "kept_in", "textKey": "thought.kept_in", "mood": -2, "opinion": -2, "durationHours": 12 },
 
   { "id": "overworked", "textKey": "thought.overworked", "mood": -6, "durationHours": 1, "emote": "sweat" },
   { "id": "no_time_to_myself", "textKey": "thought.no_time_to_myself", "mood": -4, "durationHours": 1 },

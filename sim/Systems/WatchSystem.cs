@@ -566,7 +566,6 @@ public static class WatchSystem
         if (!Post(w, c, cause)) return false;
         s.IncomingId = c.Id;
         s.IncomingCause = cause;
-        Zones.Started(w, c, c.Job!); // going their own way tonight to a post outside the home area is a breach like any other (zones step 3)
         return true;
     }
 

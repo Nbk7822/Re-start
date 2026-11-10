@@ -47,7 +47,6 @@ public static class WorkSystem
             c.Path.Clear();
         }
         c.Job = job;
-        Zones.Started(w, c, job); // out of the home area after dark: they say why, once a night (zones step 3)
     }
 
     /// <summary>Ends the current job early: wakes the sleeper and drops anything carried where they stand.</summary>

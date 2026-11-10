@@ -52,15 +52,13 @@ public sealed record DaysPlanTally(string Plan, int Worlds, int Stories, int Wat
 /// moved, an unseen theft, someone keeping away, a breach or a stay of the home area) and those that run through a
 /// zone the player laid out, with the worlds that have one; and what the stores went through (thefts, unseen thefts,
 /// spoilage), how often people kept away from the fire, insults and accidents, all as totals over the plan's worlds.
-/// The home area's (zones step 3; design 9.2): stories through a home-area line (out after dark, stayed in) and their
-/// worlds; breaches by excuse (starving, to help, their own way for any reason); hungry stays; nights nobody bound
-/// would keep the watch; walks home at dusk; rule-keepers who saw a breach, by the trait or by their people's ways;
-/// and accidents in the dark and worn out.
+/// The home area's (zones step 3; design 9.2): stories through its line (nobody bound would keep the watch outside it)
+/// and their worlds, and the nights it was said; and accidents in the dark and worn out. The curfew's breaches, hungry
+/// stays, walks home and witnesses went with it to slice 2 (ADR-0028).
 /// </summary>
 public sealed record ZonePlanTally(string Plan, int Worlds, int Stories, int ZoneStories, int ZoneStoryWorlds, int LaidOutStories, int LaidOutWorlds,
     int Thefts, int UnseenThefts, int Spoiled, int KeptAway, int KeptAwayWorlds, int Insults, int Accidents,
-    int HomeStories = 0, int HomeStoryWorlds = 0, int OutStarving = 0, int OutHelp = 0, int OutOwnWay = 0, int StayedInHungry = 0, int StayedInWatch = 0,
-    int WalksHome = 0, int WitnessTrait = 0, int WitnessWays = 0, int AccidentsDark = 0, int AccidentsWorn = 0);
+    int HomeStories = 0, int HomeStoryWorlds = 0, int StayedInWatch = 0, int AccidentsDark = 0, int AccidentsWorn = 0);
 
 /// <summary>A key and how often it came up.</summary>
 public sealed record Tally(string Key, int Count);
@@ -170,20 +168,18 @@ public static class Soak
 
     /// <summary>One world's zone measures, folded into <see cref="ZonePlanTally"/> by plan.</summary>
     internal sealed record ZoneWorld(string Plan, int ZoneStories, int LaidOutStories, int Thefts, int UnseenThefts, int Spoiled, int KeptAway, int Insults, int Accidents,
-        int HomeStories = 0, int OutStarving = 0, int OutHelp = 0, int OutOwnWay = 0, int StayedInHungry = 0, int StayedInWatch = 0,
-        int WalksHome = 0, int WitnessTrait = 0, int WitnessWays = 0, int AccidentsDark = 0, int AccidentsWorn = 0);
+        int HomeStories = 0, int StayedInWatch = 0, int AccidentsDark = 0, int AccidentsWorn = 0);
 
     /// <summary>
     /// An event a zone story runs through: a zone or the home area marked, moved, changed or removed, a theft out of the
-    /// watch's sight, someone keeping away from a meeting place, going out after dark or staying in (zones step 3).
+    /// watch's sight, someone keeping away from a meeting place, or nobody bound keeping the watch outside the home area.
     /// </summary>
     internal static bool IsZoneStoryEvent(string key) =>
         key.StartsWith("event.world.zone_", StringComparison.Ordinal) || key.StartsWith("event.world.home_", StringComparison.Ordinal)
         || key == "event.incident.stolen_unseen" || key.StartsWith("event.mood.kept_away", StringComparison.Ordinal) || IsHomeStoryEvent(key);
 
-    /// <summary>A line of the home area's that the design's acceptance counts stories by (9.2): out after dark, or stayed in (hungry, or off the watch).</summary>
-    internal static bool IsHomeStoryEvent(string key) =>
-        key.StartsWith("event.work.out_after_dark", StringComparison.Ordinal) || key.StartsWith("event.work.stayed_in_", StringComparison.Ordinal);
+    /// <summary>The home area's line the design's acceptance counts stories by (9.2): nobody bound would keep the watch outside it.</summary>
+    internal static bool IsHomeStoryEvent(string key) => key == "event.work.stayed_in_watch";
 
     /// <summary>The family of a Culture event: the custom id in "event.culture.&lt;id&gt;.&lt;moment&gt;", or the generic key's last part (omen_anger, word_spread); "" for any other key.</summary>
     internal static string CultureLink(string key)
@@ -282,9 +278,7 @@ public static class Soak
                 KeptAway = p.KeptAway + z.KeptAway, KeptAwayWorlds = p.KeptAwayWorlds + (z.KeptAway > 0 ? 1 : 0),
                 Insults = p.Insults + z.Insults, Accidents = p.Accidents + z.Accidents,
                 HomeStories = p.HomeStories + z.HomeStories, HomeStoryWorlds = p.HomeStoryWorlds + (z.HomeStories > 0 ? 1 : 0),
-                OutStarving = p.OutStarving + z.OutStarving, OutHelp = p.OutHelp + z.OutHelp, OutOwnWay = p.OutOwnWay + z.OutOwnWay,
-                StayedInHungry = p.StayedInHungry + z.StayedInHungry, StayedInWatch = p.StayedInWatch + z.StayedInWatch, WalksHome = p.WalksHome + z.WalksHome,
-                WitnessTrait = p.WitnessTrait + z.WitnessTrait, WitnessWays = p.WitnessWays + z.WitnessWays,
+                StayedInWatch = p.StayedInWatch + z.StayedInWatch,
                 AccidentsDark = p.AccidentsDark + z.AccidentsDark, AccidentsWorn = p.AccidentsWorn + z.AccidentsWorn,
             };
             if (at >= 0) plans[at] = p;
@@ -479,14 +473,7 @@ public static class Soak
                 json.WriteNumber("accidents", p.Accidents);
                 json.WriteNumber("homeStories", p.HomeStories);
                 json.WriteNumber("homeStoryWorlds", p.HomeStoryWorlds);
-                json.WriteNumber("outStarving", p.OutStarving);
-                json.WriteNumber("outHelp", p.OutHelp);
-                json.WriteNumber("outOwnWay", p.OutOwnWay);
-                json.WriteNumber("stayedInHungry", p.StayedInHungry);
                 json.WriteNumber("stayedInWatch", p.StayedInWatch);
-                json.WriteNumber("walksHome", p.WalksHome);
-                json.WriteNumber("witnessTrait", p.WitnessTrait);
-                json.WriteNumber("witnessWays", p.WitnessWays);
                 json.WriteNumber("accidentsDark", p.AccidentsDark);
                 json.WriteNumber("accidentsWorn", p.AccidentsWorn);
                 json.WriteEndObject();
@@ -605,8 +592,7 @@ public static class Soak
             Line(o, "  " + Format(loc, "log.soak.zone_plan_dark", ("dark", Num(p.AccidentsDark)), ("worn", Num(p.AccidentsWorn)), ("accidents", Num(p.Accidents))));
             if (p.Plan is "home" or "short" or "both")
                 Line(o, "  " + Format(loc, "log.soak.home_plan", ("home", Num(p.HomeStories)), ("home_worlds", Num(p.HomeStoryWorlds)), ("worlds", Num(p.Worlds)),
-                    ("starving", Num(p.OutStarving)), ("help", Num(p.OutHelp)), ("own_way", Num(p.OutOwnWay)), ("hungry", Num(p.StayedInHungry)),
-                    ("watch", Num(p.StayedInWatch)), ("walks", Num(p.WalksHome)), ("witness_trait", Num(p.WitnessTrait)), ("witness_ways", Num(p.WitnessWays))));
+                    ("watch", Num(p.StayedInWatch))));
         }
         foreach (DaysPlanTally p in s.ByDaysPlan)
             Line(o, Format(loc, "log.soak.days_plan", ("plan", p.Plan), ("worlds", Num(p.Worlds)), ("stories", Num(p.Stories)),
@@ -634,14 +620,11 @@ public static class Soak
             sim = Simulation.Create(content, seed, setup.Choice);
             Autoplay.Begin(sim, zones, days);
             var meter = new DaysMeter();
-            var home = new HomeMeter();
-            // The schedule's and the home area's meters read the world every 30 ticks between steps (ADR-0028, ADR-0029),
-            // through the one loop that steps a world, so a return that sends it back is read as it is lived (ADR-0030).
+            // The schedule's meter reads the world every 30 ticks between steps (ADR-0029), through the one loop that steps
+            // a world, so a return that sends it back is read as it is lived (ADR-0030).
             StoryLog.Run(sim, StoryLog.TicksFor(content.World, years), setup, plan, s =>
             {
-                if (s.World.Tick % DaysMeter.EveryTicks != 0) return;
-                meter.Sample(s.World);
-                home.Sample(s.World);
+                if (s.World.Tick % DaysMeter.EveryTicks == 0) meter.Sample(s.World);
             });
             meter.Finish();
             World w = sim.World;
@@ -667,7 +650,7 @@ public static class Soak
                 foreach (Effect f in e.Effects)
                     if (f.Kind is EffectKind.Departure or EffectKind.Death && w.Find(f.A) is { Named: true } who) losses.Add(who.SpeciesId);
             return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses, SoakFates.Tally(w, analysis.Stories), BuildOf(w, plan, analysis.Stories),
-                MeasureZones(w, analysis, Autoplay.ZonePlanFor(zones, seed), home), MeasureDays(w, analysis, Autoplay.DaysPlanFor(days, seed), meter));
+                MeasureZones(w, analysis, Autoplay.ZonePlanFor(zones, seed)), MeasureDays(w, analysis, Autoplay.DaysPlanFor(days, seed), meter));
         }
         catch (Exception ex)
         {
@@ -710,8 +693,8 @@ public static class Soak
         return new BuildResult(plan, flags, trees, promises, kept);
     }
 
-    /// <summary>A world's zone measures: stories through a zone event, a zone the player laid out or a home-area line, and counts of the events zones touch.</summary>
-    private static ZoneWorld MeasureZones(World w, LogAnalysis analysis, string plan, HomeMeter home)
+    /// <summary>A world's zone measures: stories through a zone event, a zone the player laid out or the home area's line, and counts of the events zones touch.</summary>
+    private static ZoneWorld MeasureZones(World w, LogAnalysis analysis, string plan)
     {
         int zoneStories = 0, laidOut = 0, homeStories = 0;
         foreach (Story story in analysis.Stories)
@@ -729,7 +712,7 @@ public static class Soak
             if (atHome) homeStories++;
         }
         int thefts = 0, unseen = 0, spoiled = 0, keptAway = 0, insults = 0, accidents = 0, dark = 0, worn = 0;
-        int starving = 0, help = 0, ownWay = 0, hungry = 0, watch = 0;
+        int watch = 0;
         foreach (SimEvent e in w.Log.All)
         {
             switch (e.Key)
@@ -742,17 +725,12 @@ public static class Soak
                 case "event.incident.work_accident_tired": accidents++; worn++; break;
                 case "event.incident.work_accident_dark": accidents++; dark++; break;
                 case "event.incident.work_accident_tired_dark": accidents++; dark++; worn++; break;
-                case "event.work.out_after_dark_starving": starving++; break;
-                case "event.work.out_after_dark_help": help++; break;
-                case "event.work.out_after_dark_own_way": case "event.work.out_after_dark_dislike":
-                case "event.work.out_after_dark_mood": case "event.work.out_after_dark_ways": ownWay++; break;
-                case "event.work.stayed_in_hungry": hungry++; break;
                 case "event.work.stayed_in_watch": watch++; break;
             }
             if (e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal)) keptAway++;
         }
         return new ZoneWorld(plan, zoneStories, laidOut, thefts, unseen, spoiled, keptAway, insults, accidents,
-            homeStories, starving, help, ownWay, hungry, watch, home.WalksHome, home.WitnessTrait, home.WitnessWays, dark, worn);
+            homeStories, watch, dark, worn);
     }
 
     /// <summary>A world's schedule measures: stories through the watch or overwork, thefts, refusals, covers that repaid a debt, wear, insults.</summary>

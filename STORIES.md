@@ -330,6 +330,8 @@ Day 2, 09:00. Last night Oren kept the watch until 23:00, then woke you; you kep
 
 ## 2026-11-10 — Zones slice 1, step 3: the home area and the dark (ADR-0028 update; soak 100 worlds × 1 year)
 
+*At the merge the curfew moved to slice 2 under the design's cut rule (ADR-0028): "Mira stayed in" below came from it and no longer happens; the watch's skip behind the other stories ships.*
+
 With no home area marked, 1,406 stories (1,412 at the merge base): the dark beyond the firelight doubles the odds of an accident at night, and 91 of the year's 305 accidents happen in it, but none reaches a story. With the stand-in's home plans, 1,388 (`--zones home`, the camp clearing), 1,396 (`short`, the clearing one row short of the watch post) and 1,374 (`both`, with the stores in the ruins). Only 3 of those 300 worlds have a story through a home-area line, all in `short`; the design's floor is 15%, so its cut rule is triggered (ADR-0028). Seeds are from `tools/soak --worlds 100 --years 1 --zones <plan>`.
 
 ### Nobody bound would keep the watch (seed 12, soak `--zones short`; policy "the hungriest eat first")
