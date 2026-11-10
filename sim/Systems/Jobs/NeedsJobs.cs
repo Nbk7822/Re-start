@@ -23,7 +23,7 @@ public static class NeedsJobs
     /// <summary>The demo's Desperate theft: takes the meal set aside for someone else, who will remember.</summary>
     public static SimEvent? TakeReservedMeal(World w, Character thief, Character victim, string food)
     {
-        if (Stock.Take(w, food, 1) == 0) return null;
+        if (Stock.Take(w, food, 1, thief.Pos) == 0) return null;
         Rations.Consume(w, victim.Id);
         ItemDef item = w.Content.ItemById(food);
         thief.Food = Math.Min(1000, thief.Food + item.Nutrition);

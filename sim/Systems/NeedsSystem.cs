@@ -92,7 +92,7 @@ public static class NeedsSystem
     public static SimEvent? Eat(World w, Character c, long cause)
     {
         SpeciesDef sp = w.Content.SpeciesById(c.SpeciesId);
-        if (!sp.EatsItem || Stock.Take(w, sp.FoodSource, 1) == 0) return null;
+        if (!sp.EatsItem || Stock.Take(w, sp.FoodSource, 1, c.Pos) == 0) return null;
         Rations.Consume(w, c.Id);
         ItemDef item = w.Content.ItemById(sp.FoodSource);
         c.Food = Math.Min(1000, c.Food + item.Nutrition);

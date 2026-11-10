@@ -27,7 +27,7 @@ public static class CampJobs
                 SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.foraged", new[] { c.Id }, Array.Empty<long>(),
                     EventArg.Char("a", c.Id), EventArg.Num("n", n), EventArg.Item("item", "berries"));
                 JobRunner.RollAccident(w, c, def, e.Id);
-                JobRunner.Next(w, c, j, Stock.DropTile(w, "berries"));
+                JobRunner.Next(w, c, j, Stock.DropTile(w, "berries", c.Pos));
                 return JobRunner.Failed(j);
             }
             default:
@@ -65,7 +65,7 @@ public static class CampJobs
                 Culture.SacredTrees.Felled(w, c, tree, e);
                 Forest.Felled(w, c, tree, e);
                 JobRunner.RollAccident(w, c, def, e.Id);
-                JobRunner.Next(w, c, j, Stock.DropTile(w, "timber"));
+                JobRunner.Next(w, c, j, Stock.DropTile(w, "timber", c.Pos));
                 return JobRunner.Failed(j);
             }
             default:
@@ -84,7 +84,7 @@ public static class CampJobs
             if (stack == null || stack.Pos != c.Pos) return true;
             c.Carrying = new Carry { DefId = stack.DefId, Count = stack.Count, Stored = stack.Stored };
             w.Items.Remove(stack);
-            JobRunner.Next(w, c, j, Stock.DropTile(w, c.Carrying.DefId));
+            JobRunner.Next(w, c, j, Stock.DropTile(w, c.Carrying.DefId, c.Pos));
             return JobRunner.Failed(j);
         }
         if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
@@ -102,7 +102,7 @@ public static class CampJobs
             {
                 if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
                 if (section.Sound) return true;
-                int taken = Stock.Take(w, "timber", def.TimberCost);
+                int taken = Stock.Take(w, "timber", def.TimberCost, c.Pos);
                 if (taken < def.TimberCost)
                 {
                     if (taken > 0) Stock.Add(w, "timber", taken, c.Pos);
