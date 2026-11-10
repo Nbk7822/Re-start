@@ -205,6 +205,9 @@ public static class StoryLog
         }
         Line(o, Indent + Format(loc, "log.camp.stockpile", ("berries", Num(camp.Berries)), ("timber", Num(camp.Timber))));
         Line(o, Indent + Format(loc, "log.camp.roof", ("sound", Num(camp.RoofSound)), ("total", Num(camp.RoofTotal))));
+        Line(o, Indent + Format(loc, "log.camp.beds", ("beds", Num(camp.Beds)), ("claimed", Num(camp.BedsClaimed))));
+        if (camp.OpenPlans > 0) Line(o, Indent + Format(loc, "log.camp.plans", ("plans", Num(camp.OpenPlans))));
+        Line(o, Indent + Format(loc, "log.camp.trees", ("trees", Num(camp.TreesStanding))));
         Line(o, Indent + Format(loc, "log.camp.rationing", ("policy", camp.RationPolicy)));
         Line(o);
     }
