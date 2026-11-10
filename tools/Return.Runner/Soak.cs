@@ -21,7 +21,19 @@ public sealed class SoakOptions
     public int Parallel { get; init; } = Environment.ProcessorCount;
 
     public ulong FirstSeed { get; init; } = 1;
+
+    /// <summary>The stand-in player's zone plan (Autoplay.ZonePlans): none, dry or mixed (ADR-0028).</summary>
+    public string Zones { get; init; } = "none";
 }
+
+/// <summary>
+/// One zone plan's worlds (ADR-0028): their stories; stories whose chain holds a zone event (a zone marked or
+/// moved, an unseen theft, someone keeping away) and those that run through a zone the player laid out, with
+/// the worlds that have one; and what the stores went through (thefts, unseen thefts, spoilage), how often
+/// people kept away from the fire, insults and accidents, all as totals over the plan's worlds.
+/// </summary>
+public sealed record ZonePlanTally(string Plan, int Worlds, int Stories, int ZoneStories, int ZoneStoryWorlds, int LaidOutStories, int LaidOutWorlds,
+    int Thefts, int UnseenThefts, int Spoiled, int KeptAway, int KeptAwayWorlds, int Insults, int Accidents);
 
 /// <summary>A key and how often it came up.</summary>
 public sealed record Tally(string Key, int Count);
@@ -64,6 +76,10 @@ public sealed class SoakSummary
 
     /// <summary>Named people who left or died, by species id; most first (the vampire guard of ADR-0023 reads it).</summary>
     public IReadOnlyList<Tally> DeparturesAndDeathsBySpecies { get; init; } = Array.Empty<Tally>();
+
+    /// <summary>The zone plan the soak ran (--zones) and its measures per plan a world ran under, plans in ordinal order (ADR-0028).</summary>
+    public string Zones { get; init; } = "none";
+    public IReadOnlyList<ZonePlanTally> ByZonePlan { get; init; } = Array.Empty<ZonePlanTally>();
 }
 
 /// <summary>
@@ -84,7 +100,15 @@ public static class Soak
     /// per story its culture link ("" for none); and the species of each named person who left or died.
     /// </summary>
     internal sealed record WorldResult(ulong Seed, int Events, IReadOnlyList<string> SystemSets, IReadOnlyList<string> TerminalKeys, SoakFailure? Failure,
-        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null);
+        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null, ZoneWorld? Zones = null);
+
+    /// <summary>One world's zone measures, folded into <see cref="ZonePlanTally"/> by plan.</summary>
+    internal sealed record ZoneWorld(string Plan, int ZoneStories, int LaidOutStories, int Thefts, int UnseenThefts, int Spoiled, int KeptAway, int Insults, int Accidents);
+
+    /// <summary>An event a zone story runs through: a zone marked, moved, changed or removed, a theft out of the watch's sight, someone keeping away from a meeting place.</summary>
+    internal static bool IsZoneStoryEvent(string key) =>
+        key.StartsWith("event.world.zone_", StringComparison.Ordinal) || key == "event.incident.stolen_unseen"
+        || key.StartsWith("event.mood.kept_away", StringComparison.Ordinal);
 
     /// <summary>The family of a Culture event: the custom id in "event.culture.&lt;id&gt;.&lt;moment&gt;", or the generic key's last part (omen_anger, word_spread); "" for any other key.</summary>
     internal static string CultureLink(string key)
@@ -107,7 +131,7 @@ public static class Soak
 
         var results = new WorldResult[options.Worlds];
         Parallel.For(0, options.Worlds, new ParallelOptions { MaxDegreeOfParallelism = options.Parallel },
-            i => results[i] = RunWorld(content, options.FirstSeed + (ulong)i, options.Years, outDir));
+            i => results[i] = RunWorld(content, options.FirstSeed + (ulong)i, options.Years, outDir, options.Zones));
         clock.Stop();
 
         SoakSummary summary = Summarize(options, outDir, results, clock.Elapsed);
@@ -167,6 +191,26 @@ public static class Soak
         List<Tally> lost = Tallies(losses);
         lost.Sort(MostFirst);
 
+        var plans = new List<ZonePlanTally>();
+        foreach (WorldResult r in results)
+        {
+            if (r.Zones is not { } z) continue;
+            int at = plans.FindIndex(p => p.Plan == z.Plan);
+            ZonePlanTally p = at >= 0 ? plans[at] : new ZonePlanTally(z.Plan, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            p = p with
+            {
+                Worlds = p.Worlds + 1, Stories = p.Stories + r.SystemSets.Count,
+                ZoneStories = p.ZoneStories + z.ZoneStories, ZoneStoryWorlds = p.ZoneStoryWorlds + (z.ZoneStories > 0 ? 1 : 0),
+                LaidOutStories = p.LaidOutStories + z.LaidOutStories, LaidOutWorlds = p.LaidOutWorlds + (z.LaidOutStories > 0 ? 1 : 0),
+                Thefts = p.Thefts + z.Thefts, UnseenThefts = p.UnseenThefts + z.UnseenThefts, Spoiled = p.Spoiled + z.Spoiled,
+                KeptAway = p.KeptAway + z.KeptAway, KeptAwayWorlds = p.KeptAwayWorlds + (z.KeptAway > 0 ? 1 : 0),
+                Insults = p.Insults + z.Insults, Accidents = p.Accidents + z.Accidents,
+            };
+            if (at >= 0) plans[at] = p;
+            else plans.Add(p);
+        }
+        plans.Sort((a, b) => string.CompareOrdinal(a.Plan, b.Plan));
+
         int worlds = results.Count;
         return new SoakSummary
         {
@@ -188,6 +232,8 @@ public static class Soak
             CultureWorlds = cultureWorlds,
             ByCultureLink = links,
             DeparturesAndDeathsBySpecies = lost,
+            Zones = options.Zones,
+            ByZonePlan = plans,
         };
     }
 
@@ -213,6 +259,28 @@ public static class Soak
             json.WriteNumber("cultureWorlds", s.CultureWorlds);
             WriteTallies(json, "byCultureLink", s.ByCultureLink);
             WriteTallies(json, "departuresAndDeathsBySpecies", s.DeparturesAndDeathsBySpecies);
+            json.WriteString("zones", s.Zones);
+            json.WriteStartArray("byZonePlan");
+            foreach (ZonePlanTally p in s.ByZonePlan)
+            {
+                json.WriteStartObject();
+                json.WriteString("plan", p.Plan);
+                json.WriteNumber("worlds", p.Worlds);
+                json.WriteNumber("stories", p.Stories);
+                json.WriteNumber("zoneStories", p.ZoneStories);
+                json.WriteNumber("zoneStoryWorlds", p.ZoneStoryWorlds);
+                json.WriteNumber("laidOutStories", p.LaidOutStories);
+                json.WriteNumber("laidOutWorlds", p.LaidOutWorlds);
+                json.WriteNumber("thefts", p.Thefts);
+                json.WriteNumber("unseenThefts", p.UnseenThefts);
+                json.WriteNumber("spoiled", p.Spoiled);
+                json.WriteNumber("keptAway", p.KeptAway);
+                json.WriteNumber("keptAwayWorlds", p.KeptAwayWorlds);
+                json.WriteNumber("insults", p.Insults);
+                json.WriteNumber("accidents", p.Accidents);
+                json.WriteEndObject();
+            }
+            json.WriteEndArray();
             json.WriteStartArray("perWorld");
             foreach (WorldTally t in s.PerWorld)
             {
@@ -266,6 +334,11 @@ public static class Soak
             Line(o, loc.Get("log.soak.culture_links"));
             WriteTop(o, loc, s.ByCultureLink);
         }
+        foreach (ZonePlanTally p in s.ByZonePlan)
+            Line(o, Format(loc, "log.soak.zone_plan", ("plan", p.Plan), ("worlds", Num(p.Worlds)), ("stories", Num(p.Stories)),
+                ("zone", Num(p.ZoneStories)), ("zone_worlds", Num(p.ZoneStoryWorlds)), ("laid_out", Num(p.LaidOutStories)), ("laid_out_worlds", Num(p.LaidOutWorlds)),
+                ("thefts", Num(p.Thefts)), ("unseen", Num(p.UnseenThefts)), ("spoiled", Num(p.Spoiled)), ("kept_away", Num(p.KeptAway)),
+                ("kept_away_worlds", Num(p.KeptAwayWorlds)), ("insults", Num(p.Insults)), ("accidents", Num(p.Accidents))));
         if (s.Failures.Count > 0)
             Line(o, Format(loc, "log.soak.crashed_list", ("seeds", List(loc, s.Failures.Select(f => Num(f.Seed))))));
         Line(o, Format(loc, "log.soak.written", ("dir", s.OutDir)));
@@ -275,14 +348,14 @@ public static class Soak
     /// Runs one world on the calling thread and writes its log. A world that throws becomes a failure
     /// in the summary (its file says where it stopped) instead of ending the whole soak.
     /// </summary>
-    private static WorldResult RunWorld(ContentDb content, ulong seed, int years, string outDir)
+    private static WorldResult RunWorld(ContentDb content, ulong seed, int years, string outDir, string zones)
     {
         string path = Path.Combine(outDir, "world-" + Num(seed) + ".txt");
         Simulation? sim = null;
         try
         {
             sim = Simulation.Create(content, seed);
-            Autoplay.Begin(sim);
+            Autoplay.Begin(sim, zones);
             sim.Advance(StoryLog.TicksFor(content.World, years));
             World w = sim.World;
             LogAnalysis analysis = StoryLog.Analyze(w);
@@ -306,7 +379,7 @@ public static class Soak
             foreach (SimEvent e in w.Log.All)
                 foreach (Effect f in e.Effects)
                     if (f.Kind is EffectKind.Departure or EffectKind.Death && w.Find(f.A) is { Named: true } who) losses.Add(who.SpeciesId);
-            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses);
+            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses, MeasureZones(w, analysis, Autoplay.ZonePlanFor(zones, seed)));
         }
         catch (Exception ex)
         {
@@ -321,6 +394,38 @@ public static class Soak
             File.WriteAllText(path, text.ToString(), Cli.Utf8);
             return new WorldResult(seed, sim?.World.Log.All.Count ?? 0, Array.Empty<string>(), Array.Empty<string>(), new SoakFailure(seed, tick, error));
         }
+    }
+
+    /// <summary>A world's zone measures: stories through a zone event or a zone the player laid out, and counts of the events zones touch.</summary>
+    private static ZoneWorld MeasureZones(World w, LogAnalysis analysis, string plan)
+    {
+        int zoneStories = 0, laidOut = 0;
+        foreach (Story story in analysis.Stories)
+        {
+            bool zone = false, laid = false;
+            foreach (long id in story.Chain)
+                if (w.Log.Get(id) is { } e)
+                {
+                    zone |= IsZoneStoryEvent(e.Key);
+                    laid |= StoryLog.IsZoneEvent(e);
+                }
+            if (zone) zoneStories++;
+            if (laid) laidOut++;
+        }
+        int thefts = 0, unseen = 0, spoiled = 0, keptAway = 0, insults = 0, accidents = 0;
+        foreach (SimEvent e in w.Log.All)
+        {
+            switch (e.Key)
+            {
+                case "event.incident.stolen": thefts++; break;
+                case "event.incident.stolen_unseen": thefts++; unseen++; break;
+                case "event.incident.food_spoils": spoiled++; break;
+                case "event.social.insulted": insults++; break;
+                case "event.incident.work_accident": accidents++; break;
+            }
+            if (e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal)) keptAway++;
+        }
+        return new ZoneWorld(plan, zoneStories, laidOut, thefts, unseen, spoiled, keptAway, insults, accidents);
     }
 
     private static void Validate(SoakOptions o)

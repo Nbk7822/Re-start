@@ -28,11 +28,11 @@ public static class StoryLog
         Render(w, Analyze(w), writer);
     }
 
-    /// <summary>Creates the world for a seed, lets the stand-in player set its ration policy, and runs it for whole years. `run` and `soak` both use this.</summary>
-    internal static Simulation Simulate(ContentDb content, ulong seed, int years)
+    /// <summary>Creates the world for a seed, lets the stand-in player set its ration policy and lay out its zones, and runs it for whole years. `run` and `soak` both use this.</summary>
+    internal static Simulation Simulate(ContentDb content, ulong seed, int years, string zones = "none")
     {
         Simulation sim = Simulation.Create(content, seed);
-        Autoplay.Begin(sim);
+        Autoplay.Begin(sim, zones);
         sim.Advance(TicksFor(content.World, years));
         return sim;
     }

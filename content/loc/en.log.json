@@ -65,6 +65,7 @@
   "log.soak.tally": "{key}: {count}",
   "log.soak.culture": "Stories with culture or faith in them: {stories} ({share}% of all), in {worlds} of {total} worlds.",
   "log.soak.culture_links": "How culture entered them:",
+  "log.soak.zone_plan": "Zones '{plan}', {worlds} worlds: {stories} stories, {zone} through a zone ({zone_worlds} worlds), {laid_out} through a zone the player laid out ({laid_out_worlds} worlds); thefts {thefts} ({unseen} unseen), spoiled {spoiled}, kept away {kept_away} ({kept_away_worlds} worlds), insults {insults}, accidents {accidents}.",
   "log.soak.crashed": "This world crashed at tick {tick}: {error}",
   "log.soak.crashed_list": "Worlds that crashed: {seeds}",
   "log.soak.written": "Story logs and summary.json are in {dir}"

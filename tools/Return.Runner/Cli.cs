@@ -13,8 +13,8 @@ namespace Return.Runner;
 public static class Cli
 {
     public const string Usage =
-        "usage: return-runner run --seed <n> --years <y> [--out <file>]\n" +
-        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>]\n";
+        "usage: return-runner run --seed <n> --years <y> [--out <file>] [--zones none|dry|mixed]\n" +
+        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--zones none|dry|mixed]\n";
 
     /// <summary>UTF-8 without a byte-order mark, for every file the runner writes.</summary>
     internal static readonly Encoding Utf8 = new UTF8Encoding(false);
@@ -60,7 +60,7 @@ public static class Cli
     private static int RunWorld(RunArgs a, TextWriter stdout)
     {
         ContentDb content = LoadContent();
-        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years);
+        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years, a.Zones);
         var log = new StringWriter(CultureInfo.InvariantCulture);
         StoryLog.Write(sim, log);
         if (a.OutFile == null)
@@ -94,24 +94,34 @@ public static class Cli
         }
     }
 
-    private sealed record RunArgs(ulong Seed, int Years, string? OutFile);
+    private sealed record RunArgs(ulong Seed, int Years, string? OutFile, string Zones);
 
     private static RunArgs ParseRun(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out");
-        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"));
+        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out", "--zones");
+        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"), ZonePlan(o));
     }
 
     private static SoakOptions ParseSoak(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel");
+        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel", "--zones");
         return new SoakOptions
         {
             Worlds = AtLeastOne(o, "--worlds"),
             Years = AtLeastOne(o, "--years"),
             OutDir = Required(o, "--out"),
             Parallel = o.ContainsKey("--parallel") ? AtLeastOne(o, "--parallel") : Environment.ProcessorCount,
+            Zones = ZonePlan(o),
         };
+    }
+
+    /// <summary>The stand-in player's zone plan (ADR-0028); none when not given.</summary>
+    private static string ZonePlan(Dictionary<string, string> options)
+    {
+        string plan = options.GetValueOrDefault("--zones") ?? "none";
+        return Autoplay.ZonePlans.Contains(plan)
+            ? plan
+            : throw new UsageException($"--zones must be one of {string.Join(", ", Autoplay.ZonePlans)}, not '{plan}'");
     }
 
     /// <summary>Reads the "--name value" pairs after the command. Every name must be allowed and given once.</summary>
