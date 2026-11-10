@@ -33,5 +33,6 @@ public sealed partial class ContentDb
             if (!_zones.ContainsKey(id)) Fail("zones.json", $"the simulation needs a zone kind '{id}'");
         foreach (string id in RequiredContent.ZoneThoughts)
             if (!_thoughts.ContainsKey(id)) Fail("thoughts.json", $"the simulation needs a thought '{id}'");
+        RequireLoc("loc/en.zones.json", "zones", RequiredContent.ZoneText.ToArray());
     }
 }

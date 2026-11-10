@@ -170,10 +170,17 @@ public static class IncidentSystem
         if (c == null || c.Status != CharStatus.Member) return null;
         IncidentDef def = w.Content.IncidentById("work_accident");
         int damage = w.Rng.Dice[DiceSystem.Incident].Range(DiceId.AccidentDamage, def.Param("damageMin"), def.Param("damageMax") + 1);
-        // Worn out from long hours, they were twice as likely to be hurt, and the accident says so (ADR-0029).
-        SimEvent e = c.WornOutEvent != 0
-            ? w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident_tired", new[] { c.Id }, new[] { cause, c.WornOutEvent }, null, EventArg.Char("a", c.Id))
-            : w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
+        // Worn out from long hours (ADR-0029), or working in the dark beyond the firelight (zones design 5.5), they were
+        // likelier to be hurt, and the accident says so; worn out, it also cites the wear.
+        bool tired = c.WornOutEvent != 0, dark = Zones.InTheDark(w, c);
+        string key = (tired, dark) switch
+        {
+            (true, true) => "event.incident.work_accident_tired_dark",
+            (true, false) => "event.incident.work_accident_tired",
+            (false, true) => "event.incident.work_accident_dark",
+            _ => "event.incident.work_accident",
+        };
+        SimEvent e = w.Log.Emit(w, SystemTag.Incident, key, new[] { c.Id }, tired ? new[] { cause, c.WornOutEvent } : new[] { cause }, null, EventArg.Char("a", c.Id));
         Culture.Omens.OnSign(w, "work_accident", e);
         CombatSystem.Hurt(w, c, damage, e.Id, "event.incident.died_accident", SystemTag.Incident);
         return e;

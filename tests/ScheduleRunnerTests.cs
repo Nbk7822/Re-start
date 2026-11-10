@@ -23,7 +23,8 @@ public class ScheduleRunnerTests
     public void TheNightwatcherPlanGivesMiraNightsAndTheLogSaysSo()
     {
         var stdout = new StringWriter();
-        Assert.Equal(0, Cli.Run(new[] { "run", "--seed", "2", "--years", "1", "--days", "nightwatcher" }, stdout, new StringWriter()));
+        // Seed 3: in seed 2 Mira, working nights, is hurt in the dark on Day 35 and leaves, so the cast line is gone by the year's end (ADR-0028, step 3).
+        Assert.Equal(0, Cli.Run(new[] { "run", "--seed", "3", "--years", "1", "--days", "nightwatcher" }, stdout, new StringWriter()));
         string log = stdout.ToString();
         Assert.Contains("Day 1, 00:00 — You changed Mira's day: sleep 8 hours, work 13, free time 3.", log);
         Assert.Contains("Mira keeps their own hours: sleeps 07:00–15:00, works 22:00–06:00.", log);

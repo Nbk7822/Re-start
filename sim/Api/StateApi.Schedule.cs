@@ -312,7 +312,7 @@ public static partial class StateApi
         key is "event.world.camp_day" or "event.world.watch_hours" or "event.world.person_day" or "event.world.person_day_reset"
             or "event.work.took_watch" or "event.work.went_to_wake" or "event.work.covered_watch" or "event.work.stayed_on_watch"
             or "event.work.left_watch_unrelieved" or "event.work.left_watch_hungry" or "event.work.watch_unkept" or "event.work.worked_late"
-            or "event.needs.fell_asleep_on_watch" or "event.needs.worn_out" or "event.incident.work_accident_tired" or "event.incident.stolen_unwatched"
+            or "event.needs.fell_asleep_on_watch" or "event.needs.worn_out" or "event.incident.work_accident_tired" or "event.incident.work_accident_tired_dark" or "event.incident.stolen_unwatched"
             or "event.social.owes_watch" or "event.social.owes_watch_sworn" or "event.social.blood_refused_woken"
             or "event.social.watch_refused_hurt" or "event.social.watch_refused_tired" or "event.social.watch_refused_hungry"
             or "event.social.watch_refused_grudge"

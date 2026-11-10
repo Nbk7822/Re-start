@@ -529,7 +529,8 @@ public static class Soak
                 case "event.incident.stolen_unseen": thefts++; unseen++; break;
                 case "event.incident.food_spoils": spoiled++; break;
                 case "event.social.insulted": insults++; break;
-                case "event.incident.work_accident": case "event.incident.work_accident_tired": accidents++; break;
+                case "event.incident.work_accident": case "event.incident.work_accident_tired":
+                case "event.incident.work_accident_dark": case "event.incident.work_accident_tired_dark": accidents++; break;
             }
             if (e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal)) keptAway++;
         }

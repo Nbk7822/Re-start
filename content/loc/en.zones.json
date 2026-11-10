@@ -40,5 +40,10 @@
   "thought.sat_apart": "Sat apart from the others",
 
   "event.mood.kept_away": "{a} kept away from the meeting place while {b} sat there.",
-  "event.mood.kept_away_fire": "{a} kept away from the fire while {b} sat there."
+  "event.mood.kept_away_fire": "{a} kept away from the fire while {b} sat there.",
+
+  "event.incident.work_accident_dark": "{a} was hurt in an accident while working in the dark.",
+  "event.incident.work_accident_dark_you_a": "{a} were hurt in an accident while working in the dark.",
+  "event.incident.work_accident_tired_dark": "{a}, worn out, was hurt in an accident while working in the dark.",
+  "event.incident.work_accident_tired_dark_you_a": "{a}, worn out, were hurt in an accident while working in the dark."
 }
