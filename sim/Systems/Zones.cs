@@ -166,17 +166,40 @@ public static partial class Zones
 
     private static int[] UseCache(World w)
     {
+        Rebuild(w);
+        return w.Map.UseZone;
+    }
+
+    /// <summary>The home area tile flags (zones step 3), rebuilt with the use-layer cache.</summary>
+    private static byte[] HomeCache(World w)
+    {
+        Rebuild(w);
+        return w.Map.HomeAt;
+    }
+
+    /// <summary>Rebuilds both per-tile caches (the use-layer zone id, the home area flag) when the zones or the map changed.</summary>
+    private static void Rebuild(World w)
+    {
         Map m = w.Map;
-        if (!m.ZonesDirty && m.UseZone.Length == m.Width * m.Height) return m.UseZone;
+        if (!m.ZonesDirty && m.UseZone.Length == m.Width * m.Height && m.HomeAt.Length == m.Width * m.Height) return;
         var cache = new int[m.Width * m.Height];
+        var home = new byte[m.Width * m.Height];
         foreach (Zone z in m.Zones)
         {
-            if (Def(w, z) is not { Layer: UseLayer }) continue;
-            foreach (Point p in Each(z.Tiles))
-                if (m.InBounds(p)) cache[m.Index(p)] = z.Id;
+            ZoneDef? def = Def(w, z);
+            if (def is { Layer: UseLayer })
+            {
+                foreach (Point p in Each(z.Tiles))
+                    if (m.InBounds(p)) cache[m.Index(p)] = z.Id;
+            }
+            else if (def is { Behaviour: HomeArea })
+            {
+                foreach (Point p in Each(z.Tiles))
+                    if (m.InBounds(p)) home[m.Index(p)] = 1;
+            }
         }
         m.UseZone = cache;
+        m.HomeAt = home;
         m.ZonesDirty = false;
-        return cache;
     }
 }

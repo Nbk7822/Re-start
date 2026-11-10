@@ -81,6 +81,19 @@ public sealed class Character
     /// <summary>The calendar day they last said they kept away from a meeting place (once a day at most; ADR-0028); −1 for never.</summary>
     public int LastKeptAwayDay { get; set; } = -1;
 
+    // The home area's night memory (zones step 3, ADR-0028). A night belongs to the day its dusk fell on, so 02:00 on
+    // day 21 is night 20; these hold that number, −1 for never.
+    /// <summary>The night they last rolled whether to go their own way under the home area.</summary>
+    public int NightRollDay { get; set; } = -1;
+    /// <summary>Tonight's answer, valid only while NightRollDay is tonight: the reason they go their own way (Compliance's), or "" if they keep the rule.</summary>
+    public string DefiesTonight { get; set; } = "";
+    /// <summary>The night they last went out after dark (a breach is said once a night).</summary>
+    public int LastBreachDay { get; set; } = -1;
+    /// <summary>The night they last stayed in hungry as asked (said once a night).</summary>
+    public int LastStayedInDay { get; set; } = -1;
+    /// <summary>The night they last felt kept in (an Independent's kept_in, once a night).</summary>
+    public int LastKeptInDay { get; set; } = -1;
+
     // The Schedule (ADR-0029).
     /// <summary>Hours this person keeps instead of their kind's camp day, in hour order; empty means the camp's day.</summary>
     public List<HourBlock> OwnHours { get; set; } = new();

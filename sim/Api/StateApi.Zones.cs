@@ -69,6 +69,17 @@ public static partial class StateApi
         return list;
     }
 
+    /// <summary>
+    /// The tooltip lines zones step 3 adds: "Home area" on its tiles, and after dark whether the tile lies in the fire's
+    /// light or in the dark, where work goes wrong twice as often (ADR-0028).
+    /// </summary>
+    private static IEnumerable<string> HomeAndDarkLines(World w, Point p)
+    {
+        LocTable loc = w.Content.Loc;
+        if (Systems.Zones.InHome(w, p) && Systems.Zones.HomeOf(w) is { } home && w.Content.TryZone(home.Kind) is { } def) yield return loc.Get(def.NameKey);
+        if (Systems.Zones.IsDark(w)) yield return loc.Get(Systems.Zones.Lit(w, p) ? "place.firelit" : "place.in_the_dark");
+    }
+
     /// <summary>The tooltip line for a use zone on a tile: "Stockpile (berries, timber)", or the zone's name.</summary>
     private static string? ZoneLine(World w, Point p)
     {

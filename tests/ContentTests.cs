@@ -198,7 +198,8 @@ public class ContentTests
             ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).Concat(RequiredContent.ZoneThoughts).Concat(RequiredContent.ScheduleThoughts).ToList()),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
             ("need", db.Needs.Select(n => n.Id).ToHashSet(), RequiredContent.Needs.Select(n => n.Id).ToList()),
-            ("zone", db.Zones.Select(z => z.Id).ToHashSet(), RequiredContent.Zones),
+            // A behaviour may share its name with a kind ("home"): code names behaviours, which ZoneBehaviours lists.
+            ("zone", db.Zones.Select(z => z.Id).Where(id => !RequiredContent.ZoneBehaviours.Any(b => b.Behaviour == id)).ToHashSet(), RequiredContent.Zones),
         };
         var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).Concat(RequiredContent.Needs.SelectMany(n => n.Params)).ToHashSet();
         var customArg = new System.Text.RegularExpressions.Regex("Arg\\(\"([A-Za-z]+)\"\\)");

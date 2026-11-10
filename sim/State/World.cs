@@ -51,6 +51,9 @@ public sealed class World
     public long WatchEvent { get; set; }
     public WatchState Watch { get; set; } = new();
 
+    /// <summary>The night "would not keep watch outside the home area" was last said (once a night for the camp; zones step 3, ADR-0028); −1 for never.</summary>
+    public int HomeWatchNight { get; set; } = -1;
+
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;
 

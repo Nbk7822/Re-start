@@ -203,7 +203,15 @@ public static partial class Zones
         Zone z = o.Zone;
         int by = w.PlayerId;
         bool reshaped = o.Created || !SameRuns(o.OldTiles, z.Tiles);
-        if (reshaped)
+        if (reshaped && IsHome(w, z))
+        {
+            // The home area has its own lines, which say what it asks (design 5.2); reshaping it is a change, never a move.
+            SimEvent e = w.Log.Emit(w, SystemTag.World, o.Created ? "event.world.home_marked" : "event.world.home_changed", Actors(w), Array.Empty<long>(), null,
+                EventArg.Char("a", by), EventArg.Num("n", Count(z.Tiles)));
+            z.MadeEvent = e.Id;
+            z.MadeBy = by;
+        }
+        else if (reshaped)
         {
             string key = o.Created ? "event.world.zone_marked" : Moved(o.OldTiles, z.Tiles) ? "event.world.zone_moved" : "event.world.zone_changed";
             SimEvent e = w.Log.Emit(w, SystemTag.World, key, Actors(w), Array.Empty<long>(), null,
@@ -224,9 +232,13 @@ public static partial class Zones
         trial.RemoveAll(x => x.Id == cmd.ZoneId);
         if (!EveryItemKept(w, trial)) return;
         string place = PlacePhraseKey(w, z.Tiles);
+        bool home = IsHome(w, z);
         Commit(w, trial);
-        w.Log.Emit(w, SystemTag.World, "event.world.zone_removed", Actors(w), Array.Empty<long>(), null,
-            EventArg.Char("a", w.PlayerId), EventArg.Key("zone", ArticleKey(z.Kind, indefinite: false)), EventArg.Key("place", place));
+        if (home)
+            w.Log.Emit(w, SystemTag.World, "event.world.home_removed", Actors(w), Array.Empty<long>(), null, EventArg.Char("a", w.PlayerId));
+        else
+            w.Log.Emit(w, SystemTag.World, "event.world.zone_removed", Actors(w), Array.Empty<long>(), null,
+                EventArg.Char("a", w.PlayerId), EventArg.Key("zone", ArticleKey(z.Kind, indefinite: false)), EventArg.Key("place", place));
     }
 
     internal static void ApplySetItems(World w, SetZoneItems cmd)

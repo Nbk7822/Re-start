@@ -7,6 +7,10 @@
   "zone.meeting_place.hint": "Where people gather by the fire",
   "zone.meeting_place.a": "a meeting place",
   "zone.meeting_place.the": "the meeting place",
+  "zone.home.name": "Home area",
+  "zone.home.hint": "Where people stay after dark",
+  "zone.home.a": "a home area",
+  "zone.home.the": "the home area",
 
   "zone_check.outside": "Off the map",
   "zone_check.blocked": "Nothing can be kept here",
@@ -24,6 +28,8 @@
   "place.zone.stores": "{zone} ({items})",
   "place.zone.item_sep": ", ",
   "place.waiting_to_be_carried": "{item} ×{n}, waiting to be carried to a stockpile",
+  "place.in_the_dark": "In the dark",
+  "place.firelit": "By the fire's light",
 
   "event.world.zone_marked": "{a} marked {zone} {place} ({n} tiles).",
   "event.world.zone_marked_one": "{a} marked {zone} {place} (1 tile).",
@@ -33,6 +39,11 @@
   "event.world.zone_removed": "{a} took away {zone} {place}.",
   "event.world.zone_items": "{a} chose to keep {item} in {zone} {place}.",
   "event.world.zone_items_not": "{a} chose to keep no {item} in {zone} {place}.",
+  "event.world.home_marked": "{a} marked out a home area ({n} tiles), asking everyone to keep inside it after dark.",
+  "event.world.home_marked_one": "{a} marked out a home area (1 tile), asking everyone to keep inside it after dark.",
+  "event.world.home_changed": "{a} changed the home area; it now covers {n} tiles.",
+  "event.world.home_changed_one": "{a} changed the home area; it now covers 1 tile.",
+  "event.world.home_removed": "{a} took away the home area; people may go where they like after dark.",
 
   "event.incident.stolen_unseen": "A thief made off with {n} {item} from the stockpile, out of sight of {b} on watch.",
 

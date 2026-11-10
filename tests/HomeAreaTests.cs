@@ -158,4 +158,68 @@ public class HomeAreaTests
         foreach (SystemTag t in new[] { SystemTag.Needs, SystemTag.Work, SystemTag.Incident, SystemTag.Social })
             Assert.Contains(t, story.Systems);
     }
+
+    // ---- The home area as a zone ----
+
+    private static void Apply(Simulation s, Command c)
+    {
+        s.Enqueue(c with { Tick = s.World.Tick });
+        s.Step();
+    }
+
+    /// <summary>The camp clearing, which the stand-in player marks as the home area.</summary>
+    internal static Rect Clearing(World w) => WorldGen.ClearingOf(w.Map.Shelter);
+
+    [Fact]
+    public void TheHomeAreaIsMarkedOutChangedAndTakenAwayInItsOwnWords()
+    {
+        Simulation s = Simulation.Create(TestContent.Db, 1);
+        World w = s.World;
+        Rect clearing = Clearing(w);
+        Assert.Null(Zones.HomeOf(w));
+        Assert.False(Zones.InHome(w, w.Map.Hearth));
+
+        Apply(s, new MarkZone(0, 0, "home", Zones.FromRect(clearing)));
+        Zone home = Zones.HomeOf(w)!;
+        SimEvent marked = w.Log.All.Last(e => e.Key == "event.world.home_marked");
+        Assert.Equal("You marked out a home area (418 tiles), asking everyone to keep inside it after dark.", EventText.Describe(w, marked));
+        Assert.Equal(marked.Id, home.MadeEvent);
+        Assert.Equal(w.PlayerId, home.MadeBy);
+        // An area lies over anything (walls, the hearth, the stockpile, the meeting place) and takes no tiles from them.
+        Assert.True(Zones.InHome(w, w.Map.Hearth) && Zones.InHome(w, w.Map.WatchPost) && Zones.InHome(w, w.Map.StartStockpile.Center));
+        Assert.True(Zones.InHome(w, new Point(w.Map.Shelter.X, w.Map.Shelter.Y)));
+        Assert.Equal(12, Zones.Count(w.Map.Zones.First(z => z.Kind == "stockpile").Tiles));
+        Assert.Equal(24, Zones.Count(w.Map.Zones.First(z => z.Kind == "meeting_place").Tiles));
+
+        // There is only one home area: a second marking joins the first.
+        var beyond = new Rect(clearing.X + clearing.W, clearing.Y, 2, 2);
+        Apply(s, new MarkZone(s.World.Tick, 0, "home", Zones.FromRect(beyond)));
+        Assert.Single(w.Map.Zones, z => z.Kind == "home");
+        Assert.Equal(422, Zones.Count(Zones.HomeOf(w)!.Tiles));
+        SimEvent changed = w.Log.All.Last();
+        Assert.Equal("You changed the home area; it now covers 422 tiles.", EventText.Describe(w, changed));
+        Assert.Equal(changed.Id, Zones.HomeOf(w)!.MadeEvent);
+
+        Apply(s, new RemoveZone(s.World.Tick, home.Id));
+        Assert.Null(Zones.HomeOf(w));
+        Assert.Equal("You took away the home area; people may go where they like after dark.", EventText.Describe(w, w.Log.All.Last()));
+        Assert.False(Zones.InHome(w, w.Map.Hearth));
+    }
+
+    [Fact]
+    public void TheTooltipNamesTheHomeAreaAndAfterDarkWhetherTheFireLightsTheTile()
+    {
+        Simulation s = Simulation.Create(TestContent.Db, 1);
+        World w = s.World;
+        Apply(s, new MarkZone(0, 0, "home", Zones.FromRect(Clearing(w))));
+        w.Tick = Hours(w, 12);
+        Point hearthSide = new(w.Map.Hearth.X + 1, w.Map.Hearth.Y);
+        IReadOnlyList<string> noon = StateApi.Location(w, hearthSide.X, hearthSide.Y).Contents;
+        Assert.Contains("Home area", noon);
+        Assert.DoesNotContain("By the fire's light", noon);
+        w.Tick = Hours(w, 22);
+        Assert.Contains("By the fire's light", StateApi.Location(w, hearthSide.X, hearthSide.Y).Contents);
+        Point far = East(w, 10);
+        Assert.Contains("In the dark", StateApi.Location(w, far.X, far.Y).Contents);
+    }
 }

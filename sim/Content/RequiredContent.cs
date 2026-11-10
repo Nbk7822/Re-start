@@ -99,6 +99,8 @@ public static class RequiredContent
     {
         "event.incident.work_accident_dark", "event.incident.work_accident_dark_you_a",
         "event.incident.work_accident_tired_dark", "event.incident.work_accident_tired_dark_you_a",
+        "event.world.home_marked", "event.world.home_marked_one", "event.world.home_changed", "event.world.home_changed_one", "event.world.home_removed",
+        "place.in_the_dark", "place.firelit",
     };
 
     /// <summary>Every zone behaviour the simulation implements, with the layer it belongs on (ADR-0028).</summary>
@@ -106,6 +108,7 @@ public static class RequiredContent
     {
         ("stores", "use"),
         ("gather", "use"),
+        ("home", "area"),
     };
 
     /// <summary>The kinds of day the code falls back to: diurnal for a species that tires, sleepless for one that does not (ADR-0029).</summary>

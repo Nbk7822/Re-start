@@ -56,6 +56,9 @@ public sealed class Map : IJsonOnDeserialized
     /// <summary>The use-layer zone id on each tile (0 for none), rebuilt by Systems.Zones when <see cref="ZonesDirty"/>.</summary>
     internal int[] UseZone = Array.Empty<int>();
 
+    /// <summary>1 on each tile of the home area (zones step 3), rebuilt with <see cref="UseZone"/>.</summary>
+    internal byte[] HomeAt = Array.Empty<byte>();
+
     /// <summary>Set whenever the zones or the caches change, so the zone cache is rebuilt before its next read.</summary>
     internal bool ZonesDirty = true;
 
@@ -77,7 +80,7 @@ public sealed class Map : IJsonOnDeserialized
     public Point Hearth { get; set; }
     public Point WatchPost { get; set; }
 
-    /// <summary>Painted areas (stockpiles, meeting places), in id order (ADR-0028). Change them only through Systems.Zones.</summary>
+    /// <summary>Painted areas (stockpiles, meeting places, the home area), in id order (ADR-0028). Change them only through Systems.Zones.</summary>
     public List<Zone> Zones { get; set; } = new();
 
     /// <summary>Bumped by every change the view may need to redraw for (a zone marked, moved or removed).</summary>

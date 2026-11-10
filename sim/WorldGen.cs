@@ -44,6 +44,13 @@ public static class WorldGen
         return w;
     }
 
+    /// <summary>
+    /// The camp clearing: the 22 × 19 rectangle round the shelter that world generation clears of rock and water. It holds
+    /// the shelter, the ruins, the hearth, the first stockpile and the watch post; the stand-in player marks it as the home
+    /// area (zones design 9.1). A landmark derived from the shelter, not state.
+    /// </summary>
+    public static Rect ClearingOf(Rect shelter) => new(shelter.X - 7, shelter.Y - 2, 22, 19);
+
     public static CharacterNature NatureOf(ContentDb content, ulong seed, string castKey)
     {
         CastDef cast = content.CastByKey(castKey);
@@ -169,7 +176,7 @@ public static class WorldGen
         // The ruined camp: shelter (8x5, three roof sections), covered ruins, hearth, stockpile, watch post.
         int sx = 16 + t.Range(TruthId.CampPlacement, 0, 0, 0, 6);
         int sy = 9 + t.Range(TruthId.CampPlacement, 0, 1, 0, 4);
-        var clearing = new Rect(sx - 7, sy - 2, 22, 19);
+        Rect clearing = ClearingOf(new Rect(sx, sy, 8, 5));
         for (int y = clearing.Y; y < clearing.Y + clearing.H; y++)
             for (int x = clearing.X; x < clearing.X + clearing.W; x++)
             {
