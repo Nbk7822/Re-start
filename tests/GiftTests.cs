@@ -346,6 +346,50 @@ public class GiftTests
         Assert.Equal(1, w.Gift.Tier);
     }
 
+    /// <summary>
+    /// Familiar faces grows by what follows a recognition, never by the recognition alone: someone already your friend once
+    /// they felt they knew you (before, or by the gift's own warmth) counts only by a kindness; someone who comes to be your
+    /// friend afterwards counts by that.
+    /// </summary>
+    [Fact]
+    public void FamiliarFacesGrowsByWhatFollowsARecognition()
+    {
+        Simulation sim = Camp(Gifts.FamiliarId, 15, "mira", "oren");
+        World w = sim.World;
+        Character you = You(w), mira = Cast(w, "mira"), oren = Cast(w, "oren");
+        Return.Sim.Content.GiftDef g = Gifts.Held(w)!;
+        w.Fate.Returns = 1;
+        w.Fate.Echoes.Add(new Echo { PersonId = mira.Id, Opinion = 60 });
+        w.Fate.Echoes.Add(new Echo { PersonId = oren.Id, Opinion = 60 });
+        Relations.ChangeOpinion(w, mira, you.Id, 40 - Relations.Opinion(w, mira.Id, you.Id), 0); // already a friend
+        Relations.ChangeOpinion(w, oren, you.Id, -Relations.Opinion(w, oren.Id, you.Id), 0);
+        Relations.ChangeOpinion(w, you, mira.Id, 10 - Relations.Opinion(w, you.Id, mira.Id), 0);
+        Relations.ChangeOpinion(w, you, oren.Id, 10 - Relations.Opinion(w, you.Id, oren.Id), 0);
+        SimEvent back = w.Log.Emit(w, SystemTag.Fate, Fate.ReturnedKey, new[] { you.Id }, Array.Empty<long>(), null,
+            EventArg.Char("a", you.Id), EventArg.Num("future", 0));
+        w.Gift.ReturnedTick = w.Tick;
+        w.Gift.ReturnedEvent = back.Id;
+
+        FamiliarFaces.Returned(w, back);
+        Assert.Equal(new[] { mira.Id, oren.Id }.OrderBy(x => x), w.Gift.Familiar.OrderBy(x => x)); // both knew you
+        Assert.Equal(new[] { mira.Id }, w.Gift.FamiliarFriends); // Mira was your friend already; Oren, at 15, not yet
+        FamiliarFaces.Hourly(w, you, g);
+        Assert.Equal(0, w.Gift.Progress); // nothing has followed yet
+
+        Relations.ChangeOpinion(w, oren, you.Id, 20, 0); // Oren comes to be your friend
+        FamiliarFaces.Hourly(w, you, g);
+        Assert.Equal(1, w.Gift.Progress);
+
+        SimEvent tended = w.Log.Emit(w, SystemTag.Work, "event.work.cared_for", new[] { mira.Id, you.Id }, Array.Empty<long>(), null,
+            EventArg.Char("a", mira.Id), EventArg.Char("b", you.Id));
+        Relations.FormDebt(w, you, mira, DebtKind.Care, 1, tended.Id); // Mira does you a kindness
+        FamiliarFaces.Hourly(w, you, g);
+        Assert.Equal(2, w.Gift.Progress);
+        Assert.Equal(1, w.Gift.Tier); // the second stage comes at two
+        FamiliarFaces.Hourly(w, you, g);
+        Assert.Equal(2, w.Gift.Progress); // each familiar face counts once
+    }
+
     [Fact]
     public void AGiftThatHasNotWokenByItsDayArrivesInADream()
     {

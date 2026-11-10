@@ -55,12 +55,20 @@ public static class FamiliarFaces
         w.Gift.FamiliarEvents.Add(e.Id);
         MoodSystem.AddThought(w, x, warm ? "familiar" : "uneasy_familiar", you.Id, e.Id);
         Relations.ChangeOpinion(w, x, you.Id, echo.Opinion * g.Num("echoPct", w.Gift.Tier) / 100, e.Id);
+        // Already your friend, before or by the gift's own warmth: that friendship is not one they come to, so it cannot grow the gift.
+        if (IsFriend(w, x, you)) w.Gift.FamiliarFriends.Insert(~w.Gift.FamiliarFriends.BinarySearch(x.Id), x.Id);
         if (warm) Gifts.Awaken(w, e.Id, dream: false);
     }
 
+    /// <summary>A friend, as the gift counts one: their regard for you at the friend line, and yours for them above nothing.</summary>
+    private static bool IsFriend(World w, Character x, Character you) =>
+        Relations.Opinion(w, x.Id, you.Id) >= Memories.FriendAt && Relations.Opinion(w, you.Id, x.Id) > 0;
+
     /// <summary>
-    /// Within days of a return, each familiar face who becomes your friend (their regard for you at the friend line) or
-    /// does you a kindness (you come to owe them) counts once toward the gift's growth, citing the kindness or the recognition.
+    /// Within days of a return, each familiar face who becomes your friend (their regard for you comes to the friend line
+    /// after they felt they knew you, not before nor by the gift's own warmth) or does you a kindness (you come to owe
+    /// them) counts once toward the gift's growth, citing the kindness or the recognition. Growth comes of what follows a
+    /// recognition, never of the recognition alone.
     /// </summary>
     public static void Hourly(World w, Character you, GiftDef g)
     {
@@ -74,7 +82,7 @@ public static class FamiliarFaces
             long cause = 0;
             foreach (Debt d in w.Debts)
                 if (d.DebtorId == you.Id && d.CreditorId == id && d.FormedTick >= s.ReturnedTick) { cause = d.FormedEvent; break; }
-            if (cause == 0 && Relations.Opinion(w, x.Id, you.Id) >= Memories.FriendAt && Relations.Opinion(w, you.Id, x.Id) > 0) cause = s.FamiliarEvents[i];
+            if (cause == 0 && s.FamiliarFriends.BinarySearch(id) < 0 && IsFriend(w, x, you)) cause = s.FamiliarEvents[i];
             if (cause == 0) continue;
             s.Counted.Insert(~s.Counted.BinarySearch(id), id);
             Gifts.Count(w, cause);

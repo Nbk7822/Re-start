@@ -628,7 +628,7 @@ public class FateTests
         // The gift's state is the knot's but for when you came back.
         System.Text.Json.Nodes.JsonObject ga = Node(knot.Gift), gb = Node(back.Gift);
         foreach (KeyValuePair<string, System.Text.Json.Nodes.JsonNode?> p in ga)
-            if (p.Key is not ("ReturnedTick" or "ReturnedEvent" or "Familiar" or "FamiliarEvents")) Assert.True(Same(p.Value, gb[p.Key]), $"the gift's {p.Key} changed");
+            if (p.Key is not ("ReturnedTick" or "ReturnedEvent" or "Familiar" or "FamiliarEvents" or "FamiliarFriends")) Assert.True(Same(p.Value, gb[p.Key]), $"the gift's {p.Key} changed");
         Assert.Equal(back.Tick, back.Gift.ReturnedTick);
 
         // Arrivals still to come: the same people within the same windows, never in the past; those done are the knot's.

@@ -256,6 +256,12 @@ public sealed class GiftState
     /// <summary>Familiar faces: the line that said so, for each of <see cref="Familiar"/> (parallel).</summary>
     public List<long> FamiliarEvents { get; set; } = new();
 
+    /// <summary>
+    /// Familiar faces: those who were already your friend once they had felt it (ascending ids). Their friendship was
+    /// there before, or is the gift's own doing, so it cannot count toward the gift's growth; a kindness of theirs still can.
+    /// </summary>
+    public List<int> FamiliarFriends { get; set; } = new();
+
     /// <summary>Familiar faces: those whose friendship or kindness has already counted toward the gift's growth (ascending ids).</summary>
     public List<int> Counted { get; set; } = new();
 

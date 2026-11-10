@@ -141,6 +141,7 @@ public sealed partial class Simulation
         restored.Gift.ReturnedTick = restored.Tick;
         restored.Gift.Familiar.Clear();
         restored.Gift.FamiliarEvents.Clear();
+        restored.Gift.FamiliarFriends.Clear();
 
         restored.Hooks.AddRange(dying.Hooks);
         World = restored;
