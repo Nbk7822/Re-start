@@ -11,23 +11,15 @@ namespace Return.Sim.Systems.Jobs;
 /// </summary>
 public static class BloodJobs
 {
-    /// <summary>
-    /// The human a thirsty vampire asks: the one it thinks best of, then the nearest. While the sun is a danger to it
-    /// (<paramref name="sunBlocked"/>), only someone it can reach without leaving cover: from the hut to the shelter is
-    /// open ground, and a vampire that crossed it burned (ADR-0027 review).
-    /// </summary>
-    public static Character? PickDonor(World w, Character vampire, bool sunBlocked = false)
+    public static Character? PickDonor(World w, Character vampire)
     {
         Character? best = null;
         int bestOpinion = int.MinValue, bestDist = int.MaxValue;
-        bool[]? covered = sunBlocked ? Places.CoveredReach(w, vampire.Pos) : null;
-        if (sunBlocked && covered == null) return null;
         foreach (Character h in w.Characters)
         {
             if (h.Status != CharStatus.Member || h.Id == vampire.Id || h.Downed) continue;
             if (!Places.Species(w, h).CanDonateBlood || RefusedRecently(vampire, h.Id)) continue;
             if (Places.Targeted(w, JobKind.RequestBlood, h.Id, vampire.Id)) continue;
-            if (covered != null && !(w.Map.InBounds(h.Pos) && covered[w.Map.Index(h.Pos)])) continue;
             int op = Relations.Opinion(w, vampire.Id, h.Id), d = vampire.Pos.ChebyshevTo(h.Pos);
             if (op > bestOpinion || (op == bestOpinion && d < bestDist))
             {

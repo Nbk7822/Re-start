@@ -131,19 +131,12 @@ public static class Places
     }
 
     /// <summary>Can one walk from one tile to another without leaving cover (8 ways, never cutting a corner)?</summary>
-    private static bool CoveredWay(World w, Point from, Point to) => CoveredReach(w, from) is { } reach && w.Map.InBounds(to) && reach[w.Map.Index(to)];
-
-    /// <summary>
-    /// Every tile one can walk to from <paramref name="from"/> without leaving cover (8 ways, never cutting a corner),
-    /// by tile index; null if <paramref name="from"/> is not a covered, passable tile. One walk answers for every
-    /// destination (a vampire choosing whom it can reach by day, ADR-0027 review).
-    /// </summary>
-    internal static bool[]? CoveredReach(World w, Point from)
+    private static bool CoveredWay(World w, Point from, Point to)
     {
         Map m = w.Map;
         bool[] cover = CoverArray(w);
         bool Open(Point p) => m.Passable(p) && cover[m.Index(p)];
-        if (!Open(from)) return null;
+        if (!Open(from) || !Open(to)) return false;
         var seen = new bool[m.Width * m.Height];
         var queue = new Queue<Point>();
         seen[m.Index(from)] = true;
@@ -151,6 +144,7 @@ public static class Places
         while (queue.Count > 0)
         {
             Point p = queue.Dequeue();
+            if (p == to) return true;
             for (int dy = -1; dy <= 1; dy++)
                 for (int dx = -1; dx <= 1; dx++)
                 {
@@ -161,7 +155,7 @@ public static class Places
                     queue.Enqueue(q);
                 }
         }
-        return seen;
+        return false;
     }
 
     /// <summary>The tile itself, unless it is someone else's bed (or a free bed someone is in or heading for); then its first passable neighbour that is not.</summary>

@@ -47,8 +47,8 @@ public static class JobPicker
         {
             if (sp.DrinksBlood && !BloodJobs.RecentlyRebuffed(w, c))
             {
-                Character? donor = BloodJobs.PickDonor(w, c, sunBlocked); // by day, only someone reachable under cover (ADR-0027 review)
-                if (donor != null)
+                Character? donor = BloodJobs.PickDonor(w, c);
+                if (donor != null && !(sunBlocked && !w.Map.Covered(donor.Pos)))
                     return new Job { Kind = JobKind.RequestBlood, TargetId = donor.Id, Target = donor.Pos, CauseEvent = c.LastFoodEvent };
             }
             else if (!sp.EatsNothing) // a rebuffed vampire falls through to here too, and forages for the camp
