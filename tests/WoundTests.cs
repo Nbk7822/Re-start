@@ -36,9 +36,9 @@ public class WoundTests
         return sim;
     }
 
-    private static SimEvent Wound(World w, Character c, int damage)
+    private static SimEvent Wound(World w, Character c, int damage, long cause = 0)
     {
-        SimEvent accident = w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
+        SimEvent accident = w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
         CombatSystem.Hurt(w, c, damage, accident.Id, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
         return accident;
     }
@@ -49,18 +49,44 @@ public class WoundTests
         Simulation sim = Camp(1, null, "mira");
         World w = sim.World;
         Character mira = Cast(w, "mira");
-        SimEvent wound = Wound(w, mira, 200);
+        SimEvent forage = w.Log.Emit(w, SystemTag.Work, "event.work.foraged", new[] { mira.Id }, Array.Empty<long>(), null,
+            EventArg.Char("a", mira.Id), EventArg.Num("n", 2), EventArg.Item("item", "berries"));
+        SimEvent wound = Wound(w, mira, 200, forage.Id);
         Assert.Equal(200 * CombatSystem.BleedSharePct / 100, mira.Bleed);
         Assert.Equal(wound.Id, mira.BleedCause);
-        long draws = w.Rng.Dice.Streams.Sum(s => s.Draws);
         for (int i = 0; i < Day && mira.Status == CharStatus.Member; i++) sim.Step();
         Assert.Equal(CharStatus.Dead, mira.Status);
         SimEvent death = w.Log.All.Single(e => e.Effects.Any(f => f.Kind == EffectKind.Death && f.A == mira.Id));
         Assert.Equal("event.incident.died_accident", death.Key); // the wound's own line
         Assert.Equal("Mira died of their injuries.", EventText.Describe(w, death));
-        Assert.Contains(wound.Id, death.Causes);
-        Assert.True(StoryAnalyzer.Find(w.Log.All, id => w.Find(id)?.Named == true).Any(s => s.TerminalEventId == death.Id) || death.Causes.Count == 1);
-        Assert.True(w.Rng.Dice.Streams.Sum(s => s.Draws) >= draws); // bleeding itself draws nothing (no stream is named for it)
+        Assert.Equal(new[] { wound.Id }, death.Causes); // the wound, not the collapse on the way
+        // The work that hurt her, the wound and the death are one story across three systems.
+        Story story = StoryAnalyzer.Find(w.Log.All, id => w.Find(id)?.Named == true).Single(s => s.TerminalEventId == death.Id);
+        Assert.Equal(new[] { forage.Id, wound.Id, death.Id }, story.Chain.OrderBy(id => id));
+        Assert.Equal(new[] { SystemTag.Work, SystemTag.Incident, SystemTag.Needs }.OrderBy(s => s), story.Systems.OrderBy(s => s));
+    }
+
+    /// <summary>
+    /// A wound that bleeds adds no draw (§8.5): the same blow with and without the bleed, and the hours it bleeds through,
+    /// draw the same from every stream, so the only change to determinism is who lives.
+    /// </summary>
+    [Fact]
+    public void BleedingDrawsNothing()
+    {
+        Simulation bleeding = Camp(1, null, "mira", "bram"), dry = Camp(1, null, "mira", "bram");
+        Character a = Cast(bleeding.World, "mira"), b = Cast(dry.World, "mira");
+        long[] Draws(World w) => w.Rng.Dice.Streams.Select(s => s.Draws).ToArray();
+        CombatSystem.Hurt(bleeding.World, a, 200, 0, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
+        CombatSystem.Hurt(dry.World, b, 200, 0, "event.incident.died_accident", SystemTag.Incident, bleeds: false);
+        Assert.True(a.Bleed > 0);
+        Assert.Equal(0, b.Bleed);
+        for (int hour = 0; hour < 3; hour++)
+        {
+            NeedsSystem.Hourly(bleeding.World);
+            NeedsSystem.Hourly(dry.World);
+        }
+        Assert.True(a.Health < b.Health, "the bleed cost her health");
+        Assert.Equal(Draws(dry.World), Draws(bleeding.World));
     }
 
     [Fact]
