@@ -30,8 +30,13 @@ public sealed class FateBook
     /// <summary>The dawn after which your soul's thread runs out, whatever the body.</summary>
     public long SoulEndTick { get; set; }
 
-    /// <summary>Your people or gift were chosen for testing (--people, --gift), not rolled.</summary>
-    public bool Chosen { get; set; }
+    /// <summary>Your people, and your gift, chosen for testing (--people, --gift) rather than rolled.</summary>
+    public bool ChosenPeople { get; set; }
+    public bool ChosenGift { get; set; }
+
+    /// <summary>Anything about you was chosen for testing.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool Chosen => ChosenPeople || ChosenGift;
 
     /// <summary>You have found your gift; once found it is known in every timeline.</summary>
     public bool GiftAwakened { get; set; }

@@ -48,8 +48,10 @@ Fixed tick. `content/world.json` sets the calendar (300 ticks per hour, 24 hours
 | Combat (simple melee) | traits, social, travel | needs (health), mood, social (rescue debts, abandonment grudges) |
 | Growth (wants, arcs, trait origins; section 5) | traits, species, roles, social (chemistry), incidents (arrivals) | in M0 only the story log, the inspector and the text-state API; from M1, traits (and through them needs, mood, social, work, combat) |
 | Culture and faith (customs, gods, omens; section 6) | social, needs, incidents, work, map | mood, social (warmth, consent, grudges ended), work (feasts, guest-bread, repayments), rations (who goes without) |
+| Fate (who you are, fate knots, the return; section 7) | needs, combat, incidents (deaths, triggers), social, growth (aging) | the whole world (a return restores a knot), mood and social (memories: thoughts, opinions, grudges), arrivals (re-drawn), the Chronicle (lost futures) |
+| Gifts (your one gift; section 7) | work (forage), incidents and combat (harm meant for you), needs (hunger, starving), fate (returns, echoes) | needs (meals), combat (who is hurt), social (debts, ill luck, resentment, familiarity), growth of the gift |
 
-Every system touches at least two others; that is the cut rule from CLAUDE.md. Growth is the one exception for now: by the founder's M0 scope for fixed decision 12 (section 5.3) it reads three systems (traits, social chemistry, incidents) but writes back only beats, and M1's trait changes close the loop.
+Every system touches at least two others; that is the cut rule from CLAUDE.md. Danger runs through combat and work: a wound bleeds until someone tends it (section 7). Growth is the one exception for now: by the founder's M0 scope for fixed decision 12 (section 5.3) it reads three systems (traits, social chemistry, incidents) but writes back only beats, and M1's trait changes close the loop.
 
 ### 4.3 Lineage: Return grows out of the first-camp demo
 
@@ -195,3 +197,22 @@ Gods are believed in, not proven: in slice 1 they act only through the people wh
 ### 6.5 Not yet
 
 Death rites, holy days and fasting, kin following kin, devotion that drifts and conversion, gods who stir, shrines, food taboos, the four peoples' customs and stances (a content follow-up once they merge), and any player lever of culture's own (the culture-and-faith design, sections 5 and 9).
+
+## 7. Who you are and Return by Death
+
+Slice 1 of the player design (ADR-0030). Fixed decisions 3, 4, 8 and 9 made playable: you are reborn as a rolled people with one rolled gift, and any death but the end of your lifetime sends the world back.
+
+### 7.1 Who you are
+
+- **Your people** is drawn once per world from Truths (`content/rebirth.json`: human 30, each other people 14), so no death changes it and across deaths you learn what you are. Its needs become your early game: a vampire lives on blood given with consent and hides from the sun; the undead fade without the work they came back for; a dryad never fells a tree; a djinn burns restless until someone strikes its bargain; one of the fae cannot lie and every broken word stings. You never leave the camp, so a need that would drive anyone else away (a bargain, courtesy) harms you once its clock has run, and can kill you.
+- **Your gift** is one of a content-defined catalogue (`content/gifts.json`), also a Truth. It wakes at its trigger or, by its day, in a dream; grows by its own events, never grind (a stage reached in any timeline before needs half the count); is seen; and takes nobody's choice away. Slice 1 has three. *Bottomless satchel*: a store only you can reach that fills as you forage, feeds you first when hungry, never spoils and is never stolen; the hungry who see you eat from nowhere resent it; your order decides whether you keep a reserve, share with the starving (who then owe you) or keep nothing back. *Fortune's favourite*: harm meant for you finds the nearest person in reach, who holds it against you; at its last stage, once a season, death passes you by. *Familiar faces*: after a return, those who were close to you in the lost future feel they have known you for years, and the cold are uneasy.
+- **Your lifetime** is your soul's span, 40 to 50 years from arrival whatever the body (a Truth); everyone ages, from Truths, by their people's figures. Old age, or your soul's span running out, is the only death with no return, and ends the run.
+- **Danger.** An accident or a blow bleeds until someone tends it; anyone bleeding counts as injured, so carers come, and the wounded wait where they are for them. Who lives turns on who is near and awake. You die by the world's own dangers about once every three years.
+
+### 7.2 Return by Death
+
+- **Fate knots** are snapshots the director ties: on your first tick, after a turn in the story (an arrival, a joining promise, someone starving or weak with thirst, a thief spotted, a grudge formed, winter), and at a quiet dawn; never while you are downed, bleeding, low, at a critical need, fighting, fleeing or in the sun. The snapshots live in an archive outside the world; you never see or choose a knot.
+- **The pick.** A death goes back to a knot at least two hours earlier: usually one of the last three days, the latest weighing most; one time in seven or so, an older one, all weighing the same. Each use halves a knot's weight, so a knot that leads straight back to death frays.
+- **The return.** The world is the knot's again; the Dice are reseeded and the arrivals still to come re-drawn; the lost timeline is frozen into the Chronicle of Lost Futures. You keep only your Truths, what you know of your gift, every lost future, the customs you learned, whom you met, Familiar faces' echoes, and your memories: for each person, the strongest thing between you in the lost future (a grudge, a friend's death, a feeling it moved by at least ten), at half strength and fading. A remembered grudge is held again at half its intensity, so you can be cold to Hollis for a theft he never committed, and he leaves.
+- **How it shows.** The opening card names what you woke as. A return plays in three frames: the map darkens over how you died, folds back in a colourless pale, and returns paused under "You came back. You remember everything." The Chronicle's Lost futures tab lists each future that never came, headed by its span and your death; your inspector shows your people and age, your clock, your gift, the lives you have lost and what you remember.
+

@@ -70,7 +70,8 @@ public static class Rebirth
             fate.GiftId = gift is "" or RebirthChoice.NoGift ? "" : content.GiftById(gift).Id;
         }
         else fate.GiftId = GiftOf(content, w.Seed, you.CastKey, you.SpeciesId);
-        fate.Chosen = choice != null && (choice.People != null || choice.Gift != null);
+        fate.ChosenPeople = choice?.People != null;
+        fate.ChosenGift = choice?.Gift != null;
         fate.SoulEndTick = (long)SoulSpanDays(content, w.Seed, you.CastKey) * content.World.TicksPerDay;
     }
 

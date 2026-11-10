@@ -140,3 +140,60 @@ Winter came on Day 31 and the frost took the berries from the bushes. Varrow, bo
 
 The earlier playtest entries describe the build before this review, and the histories have moved. Seed 10's Varrow no longer meets the thief; their grave dust beside the thief's blood now shows in seed 11, on Day 33 at 19:00, near (20, 28). Seed 13's bound tree falls on Day 25, to Oren. The djinn now reads as living flame: a low warmth and wavering flame-light, with no smoke.
 
+
+## 2026-11-09 — Who you are and Return by Death, slice 1 (ADR-0030; soaks of 100 worlds × 1 year)
+
+You are now reborn as a rolled people with one rolled gift, wounds bleed until someone tends them, and any death but the end of your lifetime sends the world back to a fate knot. Ordinary soak: 1,803 stories (18.03 per world-year; 14.26 at the merge base); you died on your own and came back in 23 of 100 worlds (76 of 300 on seeds 1 to 300). Under `--fates` every world returns and 63% of lost futures hold a story. Lines below are from the soak logs (`tools/soak`, the flags given) and from the game.
+
+### The refusals that came back (seed 3, ordinary soak; policy "the hungriest eat first")
+You woke here as a vampire, with a bottomless satchel. In a future that never came, from Day 7 to Day 35, the humans of the camp turned you away again and again: Nia, Oren, Mira, and Bram, whose Old Roots forbid it. You came to hold grudges against Nia, Oren and Mira; on Day 14 you insulted Oren, and on Day 17 he left. At two in the morning of Day 35 you died of your wounds. The world went back twenty-eight days, to six in the morning of Day 7, and you came back remembering every refusal:
+```
+  ~~ You died on Day 35, 02:00, and the world went back to Day 7, 06:00 ~~
+  Day 7, 06:00 — You came back, remembering how you died.
+  Day 7, 06:00 — You remembered a wrong from a future that never came: Nia refused to give you blood.
+  Day 7, 06:00 — You now hold a grudge against Nia.
+  Day 7, 06:00 — You remembered a wrong from a future that never came: Mira refused to give you blood.
+  Day 7, 06:00 — You now hold a grudge against Mira.
+  Day 7, 06:00 — You remembered a wrong from a future that never came: Oren refused to give you blood.
+  Day 7, 06:00 — You now hold a grudge against Oren.
+  Day 7, 06:00 — You remembered a wrong from a future that never came: Bram insulted you.
+```
+Three days later you insulted Oren. Oren now held a grudge against you, and on Day 14 he left the camp, three days sooner than he had in the future you lost. You did the same to Mira on Day 19 and to Nia on Day 22, and each of them left too, Mira four days and Nia fifteen hours sooner than before.
+- Chains (final log, Stories 7, 8 and 9, one each for Oren, Mira and Nia): returned (Fate) → remembered a wrong (Mood) → your grudge (Social) → you insulted them → their grudge against you → they left (Social). 6 steps each.
+- Why it matters: the design's "theft that never happened", with refusals in place of a theft, three times over. The world forgot and you did not: grudges from a lost future, at half their strength, drove away the people you blamed before they had refused you in this timeline, and the camp emptied faster than it had the first time.
+
+### A future that never came (the same seed's Lost futures section)
+The log ends with what was lost: 28 days, eleven stories, every line frozen as it happened. A few of them:
+```
+  A future that never came (Day 7, 06:00 to Day 35, 02:00). Stories that ended in it: 11.
+    Day 8, 19:10 — You now hold a grudge against Nia.
+    Day 10, 03:04 — Cindral tended your wounds.
+    Day 11, 05:00 — Ilex left the camp.
+    Day 14, 20:06 — You insulted Oren.
+    Day 17, 16:00 — Oren left the camp.
+    Day 23, 06:20 — Sennet tended your wounds.
+    Day 23, 06:20 — Sennet kept their word to you.
+    Day 24, 01:00 — Nia left the camp.
+    Day 35, 02:00 — You died of your wounds.
+```
+- Why it matters: fixed decision 9's Chronicle of Lost Futures, read in second person in any later world. Set beside the final log it shows what changed and what did not: Vale, Ilex, Oren, Mira and Nia leave in both timelines, but in the one you came back to the last three go because of what you remembered, and sooner.
+
+### Nia saw you eat from nowhere (seed 18, `--gift satchel`; you human; policy "the hungriest eat first"; satchel order "keep")
+On the last night of the year, at the midnight share-out, you went without so others could eat. By six in the morning you were hungry, and you ate berries from your satchel. Nia, going hungry herself, saw you eat from nowhere. She now held a grudge against you, and within the hour she had left the camp.
+- Chain: went without → hungry → ate from your satchel (Needs) → seen eating from nowhere → grudge → left (Social).
+- Why it matters: the design's satchel story, arriving on its own on the year's last day: the gift feeds you when the policy will not, and the camp sees it.
+
+### The blow meant for you (seed 4, `--gift fortunes_favourite`; you a vampire; policy "promised meals come first")
+A thief crept toward the camp at seven in the evening of Day 13. Thessil spotted them and Mira fought. The thief's blow, meant for you, fell on Varrow. An hour later you tended Varrow's wounds, and Varrow owes you for it.
+- Chain: night thief (Incident) → spotted, fought (Combat) → the blow turned (Gift) → tended (Work) → owes care (Social). Five systems.
+- Why it matters: your luck hurts the people beside you, and here you are the one who has to make it right; Varrow, bleeding, waited where they stood for you to come.
+
+### Oren knew you (seed 2, `--gift familiar_faces --fates`; you a dryad; policy "you eat first")
+At three in the morning of Day 29 a thief crept toward the camp and Cindral spotted them; the director tied a knot at that turn. You fell dead at dawn the next day (the soak's forced death), and the world went back to the moment the thief was seen. Oren looked at you as if he had known you for years, and within the hour your gift grew: Familiar faces now keeps two fifths of what people felt for you.
+- Chain (Story 13): night thief (Incident) → spotted (Combat) → you came back (Fate) → Oren knew you (Social) → your gift grew (Gift). Five systems, across the return.
+- Why it matters: a knot tied at a turn lets a return land on the turn; what Oren had come to feel for you survived only in you, and the gift is how it reaches him.
+
+### Bled out while the camp slept (seed 23, playtest)
+In the game (no stand-in player), you wake as a vampire with Familiar faces. At two in the morning of Day 10 you die of your wounds in the shelter while the camp sleeps around you and Vale keeps the watch: nobody came to tend them in time. The screen darkens over your body ("You died of your wounds."), folds into a colourless pale, and comes back paused at three in the afternoon of Day 8: "Day 8, 15:00. You came back. You remember everything." You are in the shelter beside Vale, out of the sun; the others are at work.
+- Chain on screen: a thief's blow (Combat) → a wound that bleeds (Needs) → nobody near and awake → death → the return (Fate). Screenshots: `return-1-death.png`, `return-2-fold.png`, `return-3-back.png`.
+- Why it matters: the founder asked to die through the world's own dangers; this is one, and it reads at a glance.

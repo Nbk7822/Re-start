@@ -171,6 +171,8 @@
   "log.header.rebirth": "You were reborn here as {people}, with a gift: {gift}.",
   "log.header.rebirth_giftless": "You were reborn here as {people}, with no gift.",
   "log.header.chosen": "Your people and gift were chosen for testing, not rolled.",
+  "log.header.chosen_people": "Your people were chosen for testing, not rolled; your gift was rolled.",
+  "log.header.chosen_gift": "Your gift was chosen for testing, not rolled; your people were rolled.",
   "log.header.lives_lost": "Lives lost: {n}.",
   "log.cast.reborn": "reborn here",
   "log.cast.reborn_gift": "reborn here; gift: {gift}",

@@ -178,7 +178,8 @@ public static class StoryLog
         Line(o, f.GiftId.Length == 0
             ? Format(loc, "log.header.rebirth_giftless", ("people", people))
             : Format(loc, "log.header.rebirth", ("people", people), ("gift", loc.Get(w.Content.GiftById(f.GiftId).NameKey))));
-        if (f.Chosen) Line(o, loc.Get("log.header.chosen"));
+        if (f.Chosen)
+            Line(o, loc.Get(f.ChosenPeople && f.ChosenGift ? "log.header.chosen" : f.ChosenPeople ? "log.header.chosen_people" : "log.header.chosen_gift"));
         if (f.Returns > 0) Line(o, Format(loc, "log.header.lives_lost", ("n", Num(f.Returns))));
     }
 
