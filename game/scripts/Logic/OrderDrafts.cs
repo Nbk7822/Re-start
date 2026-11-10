@@ -16,6 +16,9 @@ public sealed class OrderDrafts
 
     public int Count => _drafts.Count;
 
+    /// <summary>Forgets every draft: after a return they were choices made in a world that is gone (ADR-0030).</summary>
+    public void Clear() => _drafts.Clear();
+
     /// <summary>Keeps a choice as a draft, replacing any earlier draft for the same thing.</summary>
     public void Add(Command command)
     {

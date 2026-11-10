@@ -6,7 +6,7 @@ namespace Return.Sim.Systems;
 /// <summary>
 /// What you carry back about people (the player design §5.3, lead's call): for each cast member, the strongest thing
 /// between you after the knot becomes a memory at half the feeling the lost future built (rebirth.json's strengthPct),
-/// at most four per return. In order: a grudge you formed against them; else their death while you were friends; else
+/// at most four per return. In order: a grudge you formed against them (which you hold again, at half its intensity); else their death while you were friends; else
 /// a feeling the lost future moved by at least minFeeling, a wrong if it fell (a refusal, an insult, a felled tree) or a
 /// kindness if it rose (tending, blood, a rescue, a kept promise), quoting the thought about them that moved it most.
 /// Memories gather across returns, one per person, the newest winning. In the new timeline each acts as a thought and a
@@ -15,8 +15,8 @@ namespace Return.Sim.Systems;
 /// </summary>
 public static class Memories
 {
-    /// <summary>A memory found in a lost future: whom it is about, what kind, the change it makes to your opinion, and the event it quotes.</summary>
-    public readonly record struct Found(int PersonId, MemoryKind Kind, int Opinion, long Event);
+    /// <summary>A memory found in a lost future: whom it is about, what kind, the change it makes to your opinion, the event it quotes, and the grudge it brings back (0 for none).</summary>
+    public readonly record struct Found(int PersonId, MemoryKind Kind, int Opinion, long Event, int Grudge = 0);
 
     /// <summary>A death counts as a friend's when your regard for them stood at least this high (the friend_died line in Lifecycle).</summary>
     public const int FriendAt = 30;
@@ -42,7 +42,8 @@ public static class Memories
                 if (g.HolderId == you.Id && g.TargetId == x.Id && g.FormedEvent > cut) wrong = g;
             if (wrong != null)
             {
-                list.Add(new Found(x.Id, MemoryKind.Wrong, Math.Min(-1, (now - then) * pct / 100), wrong.CauseEvent > cut ? wrong.CauseEvent : wrong.FormedEvent));
+                list.Add(new Found(x.Id, MemoryKind.Wrong, Math.Min(-1, (now - then) * pct / 100), wrong.CauseEvent > cut ? wrong.CauseEvent : wrong.FormedEvent,
+                    Math.Max(1, wrong.Intensity * pct / 100)));
                 continue;
             }
 
@@ -135,6 +136,8 @@ public static class Memories
                 EventArg.Char("a", you.Id), EventArg.Char("b", x.Id), new EventArg { Name = "what", Value = "e:" + m.Future + ":" + m.Line });
             MoodSystem.AddThought(w, you, ThoughtOf(m.Kind), x.Id, e.Id);
             Relations.ChangeOpinion(w, you, x.Id, m.Opinion - (had?.Opinion ?? 0), e.Id);
+            // A grudge you held there you hold again, at half its intensity, fading a point a day as grudges do.
+            if (m.Grudge > 0 && x.Status != CharStatus.Dead && Relations.ActiveGrudge(w, you.Id, x.Id) == null) Relations.FormGrudge(w, you, x, m.Grudge, e.Id);
             if (had == null) w.Remembered.Add(new AppliedMemory { PersonId = m.PersonId, Key = m.Key, Opinion = m.Opinion });
             else
             {

@@ -80,7 +80,8 @@ public static class SoakFates
             foreach (long id in s.Chain)
                 if (w.Log.Get(id) is { } e)
                 {
-                    if (e.System is SystemTag.Fate or SystemTag.Gift || e.Key.StartsWith("event.fate.", StringComparison.Ordinal)) fate = true;
+                    if (e.System is SystemTag.Fate or SystemTag.Gift || e.Key.StartsWith("event.fate.", StringComparison.Ordinal)
+                        || e.Key.StartsWith("event.gift.", StringComparison.Ordinal)) fate = true;
                     if (e.System == SystemTag.Gift || e.Key.StartsWith("event.gift.", StringComparison.Ordinal)) gift = true;
                     if (e.Key.StartsWith("event.gift.satchel.", StringComparison.Ordinal)) satchelChain = true;
                 }

@@ -115,7 +115,7 @@ public sealed partial class Simulation
         foreach (Memories.Found m in found)
         {
             f.Memories.RemoveAll(x => x.PersonId == m.PersonId);
-            f.Memories.Add(new Memory { PersonId = m.PersonId, Kind = m.Kind, Opinion = m.Opinion, Future = futureIndex, Line = lineOf[m.Event] });
+            f.Memories.Add(new Memory { PersonId = m.PersonId, Kind = m.Kind, Opinion = m.Opinion, Grudge = m.Grudge, Future = futureIndex, Line = lineOf[m.Event] });
         }
         Gifts.KeepEchoes(dying, f);
         Character dyingYou = dying.Get(dying.PlayerId);

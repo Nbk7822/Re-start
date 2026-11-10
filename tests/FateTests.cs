@@ -418,8 +418,13 @@ public class FateTests
         SimEvent remembered = w.Log.All.Last(e => e.Key == "event.fate.remembered_wrong");
         Assert.Equal("You remembered a wrong from a future that never came: Mira insulted you.", EventText.Describe(w, remembered));
 
-        // And nothing else: the grudge, the others, the stores and the camp are the knot's.
-        Assert.DoesNotContain(w.Grudges, g => g.HolderId == back.Id && g.TargetId == mira.Id && g.Active);
+        // Your grudge comes back at half its intensity, formed by the memory (your feelings at half strength, fading as grudges do).
+        Grudge again = w.Grudges.Single(g => g.HolderId == back.Id && g.TargetId == mira.Id && g.Active);
+        Assert.Equal(15, again.Intensity);
+        Assert.Equal(remembered.Id, again.CauseEvent);
+        Assert.Equal(w.Tick, again.FormedTick);
+
+        // And nothing else: the others, the stores and the camp are the knot's.
         string Json<T>(T x) => System.Text.Json.JsonSerializer.Serialize(x, SnapshotSerializer.Options);
         foreach (Character c in w.Characters.Where(c => c.Id != back.Id))
             Assert.Equal(Json(atKnot.Get(c.Id)), Json(c));

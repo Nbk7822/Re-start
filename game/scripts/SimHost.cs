@@ -19,13 +19,16 @@ namespace Return.Game;
 ///   RETURN_SEED=n        world seed (default 1)
 ///   RETURN_TICKS=n       advance n ticks before the first frame
 ///   RETURN_SELECT=key    open the inspector for that cast key (e.g. "you")
-///   RETURN_OPEN=name     open a bar list at start: orders, work, people or chronicle
+///   RETURN_OPEN=name     open a bar list at start: orders, work, people or chronicle; "lost" opens
+///                        the Chronicle on its Lost futures tab (ADR-0030)
 ///   RETURN_PAUSE=1       start paused
 ///   RETURN_PRESS=list    after 1 s, press buttons as a player would, comma-separated:
 ///                        "policy:N" presses ration policy N in Orders (0-based: 0 = the hungriest
 ///                        eat first); "priority:R:V" picks value V (1–4, or 0 for never) in work
 ///                        row R of the open inspector (0-based: 0 = the first kind of work)
 ///   RETURN_SCREENSHOT=p  save the window to PNG file p about 3 s after start, then quit
+///   RETURN_SCREENSHOT_DELAY=s  seconds before that screenshot (default 3; a return's frames
+///                        play over about 3 s from the moment it happens, ADR-0030)
 /// </summary>
 public partial class SimHost : Node
 {
@@ -36,12 +39,22 @@ public partial class SimHost : Node
     private BottomBar _bar = null!;
     private InspectorPanel _inspector = null!;
     private TileTooltip _tooltip = null!;
+    private FateOverlay? _fate;
     private Action<World>? _witness;
     private bool _running;
+    private bool _endShown;
+
+    /// <summary>While a return plays, the world that was lost stays on screen until the fold (ADR-0030).</summary>
+    private World? _lost;
+    private FateReturn? _pendingReturn;
+
+    /// <summary>The seed "A new world" starts next (kept across the scene reload); 0 = none chosen.</summary>
+    private static ulong _nextSeed;
 
     public Simulation Sim { get; private set; } = null!;
 
-    public World World => Sim.World;
+    /// <summary>The world the view shows: the simulation's, or, while a return plays, the one that was lost.</summary>
+    public World World => _lost ?? Sim.World;
 
     public ContentDb Content { get; private set; } = null!;
 
@@ -91,11 +104,22 @@ public partial class SimHost : Node
         MatchScreenScale();
         Ui.Init(Content.Loc);
         Sim = Simulation.Create(Content, ReadSeed());
+        Sim.Returned += OnReturned;
         Clock = new TickClock(Content.World.TicksPerSecond, Content.World.SpeedMultipliers);
         _map = GetNode<MapView>("MapView");
         // Every tick the view runs, warm-up or live, is witnessed by the map, so blood lands where it fell.
         _witness = _map.Witness;
-        ViewStepper.Run(Sim, ReadTicks(), _witness);
+        for (long warm = ReadTicks(); warm > 0;)
+        {
+            long ran = ViewStepper.Run(Sim, warm, _witness);
+            warm -= ran;
+            if (warm == 0 || ran == 0 || _pendingReturn == null) break;
+            // A return the warm-up runs on past plays no frames: the view moves on to the world gone back to (ADR-0030).
+            _lost = null;
+            _pendingReturn = null;
+            _map.ResetFor(Sim.World);
+            Clock.SetSpeed(1);
+        }
 
         _camera = GetNode<CameraRig>("Camera");
         _bar = GetNode<BottomBar>("Ui/BottomBar");
@@ -106,8 +130,22 @@ public partial class SimHost : Node
         _camera.Bind(this);
         _inspector.Bind(this);
         _tooltip.Bind(this, _map);
+        _fate = new FateOverlay();
+        GetNode("Ui").AddChild(_fate);
+        _fate.Bind(this);
         _tooltip.GetParent().MoveChild(_tooltip, -1);
         _running = true;
+        if (_pendingReturn != null) // you died during the warm-up
+        {
+            FocusOnYou(_pendingReturn.Lost);
+            _fate.ShowReturn(_pendingReturn);
+        }
+        else if (Sim.World.Tick == 0)
+        {
+            Clock.SetSpeed(0);
+            SpeedChanged?.Invoke();
+            _fate.ShowOpening(Sim.World);
+        }
 
         string? select = Env("RETURN_SELECT");
         if (select != null)
@@ -119,6 +157,7 @@ public partial class SimHost : Node
 
         string? open = Env("RETURN_OPEN");
         if (open != null && !_bar.Open(open)) GD.PushWarning("Return: RETURN_OPEN names no bar list '" + open + "'.");
+        if (open != null && _fate.Showing && _pendingReturn == null) _fate.Visible = false; // a check that opens a list wants the list, not the opening card
         if (Env("RETURN_PAUSE") == "1") { Clock.SetSpeed(0); SpeedChanged?.Invoke(); }
         string? press = Env("RETURN_PRESS");
         if (press != null) GetTree().CreateTimer(1.0).Timeout += () => PressForCheck(press);
@@ -132,6 +171,66 @@ public partial class SimHost : Node
         if (!_running) return;
         if (Drafts.Count > 0 && !Clock.Paused) Drafts.Flush(Sim);
         ViewStepper.Run(Sim, Clock.Advance(delta), _witness);
+        if (Sim.World.Fate.Ended && !_endShown && _fate != null && !_fate.Showing)
+        {
+            _endShown = true;
+            Clock.SetSpeed(0);
+            SpeedChanged?.Invoke();
+            _fate.ShowEnded(Sim.World);
+        }
+    }
+
+    /// <summary>
+    /// You died and the world went back (ADR-0030): time stops, choices drafted in the lost world are dropped, and the
+    /// return plays over the lost world until the fold. A return during the warm-up plays once the view is up.
+    /// </summary>
+    private void OnReturned(FateReturn r)
+    {
+        Drafts.Clear();
+        Clock.SetSpeed(0);
+        SpeedChanged?.Invoke();
+        _lost = r.Lost;
+        if (_fate == null)
+        {
+            _pendingReturn = r;
+            return;
+        }
+        FocusOnYou(r.Lost);
+        _fate.ShowReturn(r);
+    }
+
+    /// <summary>The camera goes to you: to where you fell, as a return begins, and to where you stand when it folds back.</summary>
+    private void FocusOnYou(World w)
+    {
+        if (w.Find(w.PlayerId) is { } you && you.Pos != SimPoint.None) FocusCamera(you.Pos);
+    }
+
+    /// <summary>The fold of a return: the map shows the world gone back to, with its own blood, trees and places.</summary>
+    public void CompleteReturn()
+    {
+        if (_lost == null) return;
+        _lost = null;
+        _pendingReturn = null;
+        _map.ResetFor(Sim.World);
+        FocusOnYou(Sim.World);
+        SelectionChanged?.Invoke();
+    }
+
+    /// <summary>Time moves again at the speed it last ran.</summary>
+    public void Resume()
+    {
+        if (Clock.Paused) Clock.TogglePause();
+        SpeedChanged?.Invoke();
+    }
+
+    /// <summary>Opens the Chronicle, on its Lost futures tab if asked.</summary>
+    public void OpenChronicle(bool lost) => _bar.Open(lost ? "lost" : "chronicle");
+
+    /// <summary>Your lifetime ended: start a new world on the next seed.</summary>
+    public void NewWorld()
+    {
+        _nextSeed = Sim.World.Seed + 1;
+        GetTree().ReloadCurrentScene();
     }
 
     public override void _UnhandledKeyInput(InputEvent e)
@@ -140,6 +239,7 @@ public partial class SimHost : Node
         switch (key.Keycode)
         {
             case Key.Space:
+                if (_lost != null) break; // a return is playing: time waits for its last card
                 Clock.TogglePause();
                 SpeedChanged?.Invoke();
                 break;
@@ -167,7 +267,7 @@ public partial class SimHost : Node
 
     public void SetSpeed(int speed)
     {
-        Clock.SetSpeed(speed);
+        if (_lost == null) Clock.SetSpeed(speed); // while a return plays, time waits for its last card
         SpeedChanged?.Invoke();
     }
 
@@ -234,7 +334,10 @@ public partial class SimHost : Node
     {
         try
         {
-            await ToSignal(GetTree().CreateTimer(ScreenshotDelaySeconds), SceneTreeTimer.SignalName.Timeout);
+            double delay = ScreenshotDelaySeconds;
+            if (Env("RETURN_SCREENSHOT_DELAY") is { } d && double.TryParse(d, NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds) && seconds >= 0)
+                delay = seconds;
+            await ToSignal(GetTree().CreateTimer(delay), SceneTreeTimer.SignalName.Timeout);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             Image? image = GetViewport().GetTexture()?.GetImage();
             if (image == null || image.IsEmpty())
@@ -265,6 +368,7 @@ public partial class SimHost : Node
 
     private static ulong ReadSeed()
     {
+        if (_nextSeed != 0) return _nextSeed;
         string? s = Env("RETURN_SEED");
         if (s == null) return 1;
         if (ulong.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out ulong seed)) return seed;

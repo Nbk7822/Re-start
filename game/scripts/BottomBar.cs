@@ -33,6 +33,13 @@ public partial class BottomBar : PanelContainer
     private readonly List<int> _workIds = new();
     private readonly List<(RationPolicy Policy, Button Button)> _policyButtons = new();
     private Label? _ordersPending;
+    // Your gift's standing order in Orders, and the Chronicle's two tabs (ADR-0030).
+    private VBoxContainer? _giftOrder;
+    private string _giftOrderId = "";
+    private readonly List<(string Choice, Button Button)> _giftButtons = new();
+    private Button _lifeTab = null!;
+    private Button _lostTab = null!;
+    private bool _showLost;
     private long _clockTick = -1;
     private double _refresh;
 
@@ -60,6 +67,21 @@ public partial class BottomBar : PanelContainer
         _work = new ListPopup(layer, Ui.T("ui.work.title"), 380f);
         _people = new ListPopup(layer, Ui.T("ui.people.title"), 300f);
         _chronicle = new ListPopup(layer, Ui.T("ui.chronicle.title"), 540f);
+        var tabs = new HBoxContainer();
+        tabs.AddThemeConstantOverride("separation", 4);
+        var tabGroup = new ButtonGroup();
+        _lifeTab = Ui.MakeButton(Ui.T("ui.chronicle.tab.life"));
+        _lostTab = Ui.MakeButton(Ui.T("ui.chronicle.tab.lost"));
+        foreach (Button tab in new[] { _lifeTab, _lostTab })
+        {
+            tab.ToggleMode = true;
+            tab.ButtonGroup = tabGroup;
+            tabs.AddChild(tab);
+        }
+        _lifeTab.SetPressedNoSignal(true);
+        _lifeTab.Pressed += () => ShowChronicleTab(false);
+        _lostTab.Pressed += () => ShowChronicleTab(true);
+        _chronicle.AddHeader(tabs);
 
         row.AddChild(NotYet("ui.bar.build"));
         row.AddChild(Toggle(_orders, Ui.T("ui.bar.orders"), Ui.T("ui.bar.orders_hint")));
@@ -98,13 +120,24 @@ public partial class BottomBar : PanelContainer
         UpdateClock();
     }
 
-    /// <summary>Opens a list by name (orders, work, people, chronicle); false if there is no such list.</summary>
+    /// <summary>Opens a list by name (orders, work, people, chronicle, or lost: the Chronicle on its Lost futures tab); false if there is no such list.</summary>
     public bool Open(string name)
     {
-        ListPopup? popup = name switch { "orders" => _orders, "work" => _work, "people" => _people, "chronicle" => _chronicle, _ => null };
+        ListPopup? popup = name switch { "orders" => _orders, "work" => _work, "people" => _people, "chronicle" or "lost" => _chronicle, _ => null };
         if (popup == null) return false;
+        if (popup == _chronicle) ShowChronicleTab(name == "lost");
         SetOpen(popup);
         return true;
+    }
+
+    /// <summary>The Chronicle's tabs: what happened in this life, or the futures you lost (ADR-0030).</summary>
+    private void ShowChronicleTab(bool lost)
+    {
+        _showLost = lost;
+        _lifeTab.SetPressedNoSignal(!lost);
+        _lostTab.SetPressedNoSignal(lost);
+        _refresh = 0;
+        if (_open == _chronicle) RefreshChronicle();
     }
 
     /// <summary>Closes the open list, if any; true when something was closed.</summary>
@@ -234,6 +267,55 @@ public partial class BottomBar : PanelContainer
         RationPolicy shown = _host.Drafts.Policy ?? s.Effective;
         foreach ((RationPolicy policy, Button button) in _policyButtons) button.SetPressedNoSignal(policy == shown);
         _ordersPending!.Visible = s.Pending || shown != w.Policy;
+        RefreshGiftOrder();
+    }
+
+    /// <summary>Your gift's standing order (the satchel's), only while you hold a gift that has one and have found it (ADR-0030).</summary>
+    private void RefreshGiftOrder()
+    {
+        FateText.GiftOrder? order = FateText.Order(_host!.World, _host.Drafts);
+        if (_giftOrder == null)
+        {
+            _giftOrder = new VBoxContainer();
+            _giftOrder.AddThemeConstantOverride("separation", 2);
+            _orders.Rows.AddChild(_giftOrder);
+        }
+        _giftOrder.Visible = order != null;
+        if (order == null) return;
+        if (order.OrderId != _giftOrderId)
+        {
+            foreach (Node n in _giftOrder.GetChildren()) n.QueueFree();
+            _giftButtons.Clear();
+            _giftOrderId = order.OrderId;
+            _giftOrder.AddChild(new HSeparator());
+            var title = new HBoxContainer();
+            Label name = Ui.MakeLabel(order.Title, Ui.FontSize, Ui.Accent);
+            name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            title.AddChild(name);
+            title.AddChild(Ui.MakeLabel(Ui.T("ui.order.gift_note"), Ui.SmallFontSize, Ui.Dim));
+            _giftOrder.AddChild(title);
+            var group = new ButtonGroup();
+            foreach ((string choice, string text, string hint) in order.Choices)
+            {
+                string c = choice, id = order.OrderId;
+                Button b = Ui.MakeButton(text, hint);
+                b.ToggleMode = true;
+                b.ButtonGroup = group;
+                b.Alignment = HorizontalAlignment.Left;
+                b.Pressed += () => ChooseStandingOrder(id, c);
+                _giftOrder.AddChild(b);
+                _giftButtons.Add((c, b));
+            }
+        }
+        foreach ((string choice, Button button) in _giftButtons) button.SetPressedNoSignal(choice == order.Current);
+    }
+
+    private void ChooseStandingOrder(string orderId, string choice)
+    {
+        if (_host == null) return;
+        if (FateText.Order(_host.World, _host.Drafts) is { } order && order.Current != choice)
+            _host.Order(new SetStandingOrder(_host.World.Tick, orderId, choice));
+        RefreshOrders();
     }
 
     /// <summary>Presses the nth ration policy button through its signal (RETURN_PRESS checks).</summary>
@@ -298,7 +380,23 @@ public partial class BottomBar : PanelContainer
 
     private void RefreshChronicle()
     {
-        IReadOnlyList<string> lines = ViewText.Chronicle(_host!.World);
+        var lines = new List<(string Text, Color Tint)>();
+        if (_showLost)
+        {
+            foreach (FateText.LostLine l in FateText.LostFutures(_host!.World))
+                lines.Add((l.Text, l.Kind switch
+                {
+                    FateText.LineKind.Heading => Ui.Accent,
+                    FateText.LineKind.Death => new Color(0.86f, 0.55f, 0.48f),
+                    FateText.LineKind.Growth or FateText.LineKind.Note => Ui.Dim,
+                    _ => Colors.White,
+                }));
+        }
+        else
+        {
+            foreach (string l in ViewText.Chronicle(_host!.World)) lines.Add((l, Colors.White));
+            if (lines.Count == 0) lines.Add((Ui.T("ui.chronicle.empty"), Ui.Dim));
+        }
         int rows = Math.Max(1, lines.Count);
         while (_chronicle.Rows.GetChildCount() < rows)
         {
@@ -310,8 +408,8 @@ public partial class BottomBar : PanelContainer
         {
             var label = _chronicle.Rows.GetChild<Label>(i);
             label.Visible = i < rows;
-            label.Text = lines.Count == 0 ? Ui.T("ui.chronicle.empty") : i < lines.Count ? lines[i] : "";
-            label.Modulate = lines.Count == 0 ? Ui.Dim : Colors.White;
+            label.Text = i < lines.Count ? lines[i].Text : "";
+            label.Modulate = i < lines.Count ? lines[i].Tint : Colors.White;
         }
     }
 
@@ -337,6 +435,7 @@ public partial class BottomBar : PanelContainer
             Width = width;
             Panel = new PanelContainer { Theme = Ui.Theme, Visible = false };
             var box = new VBoxContainer();
+            _box = box;
             box.AddThemeConstantOverride("separation", 6);
             box.AddChild(Ui.MakeLabel(title, Ui.FontSize, Ui.Accent));
             box.AddChild(new HSeparator());
@@ -347,6 +446,15 @@ public partial class BottomBar : PanelContainer
             box.AddChild(Scroll);
             Panel.AddChild(box);
             layer.AddChild(Panel);
+        }
+
+        private readonly VBoxContainer _box;
+
+        /// <summary>Puts a row (the Chronicle's tabs) between the title and the scrolling list.</summary>
+        public void AddHeader(Control header)
+        {
+            _box.AddChild(header);
+            _box.MoveChild(header, _box.GetChildCount() - 2);
         }
 
         public float Width { get; }

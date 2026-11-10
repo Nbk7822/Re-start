@@ -188,6 +188,9 @@ public sealed class Memory
     /// <summary>The change it makes to your opinion of them (half what the lost future made it).</summary>
     public int Opinion { get; set; }
 
+    /// <summary>A grudge you held against them in the lost future comes back at half its intensity, and fades as grudges do; 0 for none.</summary>
+    public int Grudge { get; set; }
+
     /// <summary>The lost future (index in FateBook.LostFutures) and the line in it the memory quotes.</summary>
     public int Future { get; set; }
     public int Line { get; set; }
