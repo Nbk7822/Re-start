@@ -26,7 +26,7 @@
   "event.fate.soul_spent": "The thread of {a}'s soul ran out.",
   "event.fate.soul_spent_you_a": "Your soul's thread ran out.",
   "event.fate.forced_death": "(soak) {a} fell dead.",
-  "event.fate.forced_death_you_a": "(soak) {a} fell dead.",
+  "event.fate.forced_death_you_a": "(soak) You fell dead.",
   "event.growth.died_old_age": "{a} died of old age.",
   "event.growth.died_old_age_you_a": "{a} died of old age.",
 

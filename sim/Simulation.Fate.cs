@@ -39,6 +39,10 @@ public sealed partial class Simulation
     /// <summary>The gzipped bytes the archive holds for a knot (tests read them to price a knot).</summary>
     internal byte[]? ArchivedSnapshot(int id) => _archive.Find(a => a.Id == id).Snapshot;
 
+    /// <summary>A knot's world as the archive holds it (tests compare a return against it).</summary>
+    internal World? KnotWorld(int id) =>
+        _archive.Find(a => a.Id == id).Snapshot is { } snap ? SnapshotSerializer.Load(Unzip(snap), World.Content) : null;
+
     /// <summary>
     /// Between ticks: the end of your lifetime, then a return if you died, then a knot if the director ties one.
     /// </summary>
