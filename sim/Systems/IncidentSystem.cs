@@ -47,6 +47,7 @@ public static class IncidentSystem
         string key = sp.ArrivalKey.Length > 0 ? sp.ArrivalKey : "event.incident.wanderer_arrives";
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, key, new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
         c.LastFoodEvent = e.Id;
+        ScheduleSystem.Arrived(w, c); // their lived strip starts as their planned day (ADR-0029)
         Growth.EnterWorld(w, c, e.Id);
         Point near = Zones.ArrivalSpot(w, c.Pos); // received at the meeting place (ADR-0028)
         c.Job = new Job { Kind = JobKind.Arrive, Target = near, StartedTick = w.Tick, CauseEvent = e.Id };
@@ -169,7 +170,10 @@ public static class IncidentSystem
         if (c == null || c.Status != CharStatus.Member) return null;
         IncidentDef def = w.Content.IncidentById("work_accident");
         int damage = w.Rng.Dice[DiceSystem.Incident].Range(DiceId.AccidentDamage, def.Param("damageMin"), def.Param("damageMax") + 1);
-        SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
+        // Worn out from long hours, they were twice as likely to be hurt, and the accident says so (ADR-0029).
+        SimEvent e = c.WornOutEvent != 0
+            ? w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident_tired", new[] { c.Id }, new[] { cause, c.WornOutEvent }, null, EventArg.Char("a", c.Id))
+            : w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
         Culture.Omens.OnSign(w, "work_accident", e);
         CombatSystem.Hurt(w, c, damage, e.Id, "event.incident.died_accident", SystemTag.Incident);
         return e;

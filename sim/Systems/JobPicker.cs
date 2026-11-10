@@ -80,7 +80,11 @@ public static class JobPicker
         if (natural != null) return natural;
 
         Job? promise = PromiseJob(w, c);
-        if (promise != null) return promise;
+        if (promise != null)
+        {
+            ScheduleSystem.WorkedLate(w, c, promise); // past their working hours, they say so once a day (ADR-0029)
+            return promise;
+        }
 
         if (Traits.Sum(w, c, t => t.CareUrgency) > 0 || PriorityOf(c, "care") == 1)
         {

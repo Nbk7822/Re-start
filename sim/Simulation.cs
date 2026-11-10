@@ -53,11 +53,13 @@ public sealed class Simulation
         CombatSystem.Step(w);
         if (w.Tick % WatchSystem.StepEveryTicks == 0) WatchSystem.Step(w); // turns and handovers, before work (ADR-0029)
         WorkSystem.Step(w);
+        if (w.Tick % ScheduleSystem.SampleEveryTicks == ScheduleSystem.SampleOffset) ScheduleSystem.Sample(w); // hours as lived (ADR-0029)
         if (w.Tick % def.SocialEveryTicks == 0) SocialSystem.Step(w);
         if (w.Tick % def.TicksPerHour == 0)
         {
             NeedsSystem.Hourly(w);
             Bargains.Hourly(w); // a bargain's price is paid at dawn, before food is shared out (ADR-0022)
+            ScheduleSystem.Hourly(w); // the hour as lived, and overwork's costs: after needs, before mood (ADR-0029)
             Rations.Assign(w);
             MoodSystem.Hourly(w);
             SocialSystem.Hourly(w);

@@ -92,9 +92,12 @@ public static class JobRunner
         Rations.AfterDeposit(w, put);
     }
 
+    /// <summary>One draw for an accident at risky work; worn out, the odds are tiredAccidentPct of the usual (ADR-0029), and the accident says so.</summary>
     public static void RollAccident(World w, Character c, WorkDef def, long cause)
     {
-        if (def.AccidentPermille > 0 && w.Rng.Dice[DiceSystem.Work].Chance(DiceId.AccidentRoll, def.AccidentPermille))
+        int permille = def.AccidentPermille;
+        if (c.WornOutEvent != 0) permille = permille * w.Content.World.Schedule.TiredAccidentPct / 100;
+        if (permille > 0 && w.Rng.Dice[DiceSystem.Work].Chance(DiceId.AccidentRoll, Math.Min(1000, permille)))
             IncidentSystem.Fire(w, "work_accident", cause, c.Id);
     }
 

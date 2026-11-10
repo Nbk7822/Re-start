@@ -417,11 +417,11 @@ public static class Soak
         {
             switch (e.Key)
             {
-                case "event.incident.stolen": thefts++; break;
+                case "event.incident.stolen": case "event.incident.stolen_unwatched": thefts++; break;
                 case "event.incident.stolen_unseen": thefts++; unseen++; break;
                 case "event.incident.food_spoils": spoiled++; break;
                 case "event.social.insulted": insults++; break;
-                case "event.incident.work_accident": accidents++; break;
+                case "event.incident.work_accident": case "event.incident.work_accident_tired": accidents++; break;
             }
             if (e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal)) keptAway++;
         }
