@@ -69,3 +69,15 @@ Ketil walked in out of the barrows, cold and sleepless, bound by their nature to
 From Day 8 Qamar kept the night watch for a share of the berries, in bargains Mira struck for the camp, and both kept their word at the turn of two seasons. On Day 36 the camp had no berries at dawn and the bargain broke. Restless, Qamar came to you; you would not strike an unsafe bargain. Burning with nothing to bind it, and wronged, Qamar let the fire loose: 2 timber burned in the stockpile. An hour later Bram struck a new bargain; at the next dawn there were no berries again, and Qamar now holds a grudge against Bram.
 - Chain: restless (Needs) → offered, refused, struck, kept, struck again, kept, struck again → broken → refused as unsafe (Social) → unbound (Needs) → fire loosed → struck → broken → grudge (Social). 25 steps.
 - Why it matters: the djinn's bargains are a year-long relationship that winter breaks, and the Proud trait's "refuses an unsafe bargain" finally does something.
+
+## 2026-11-09 — The four peoples' look (view only; ADR-0022 update)
+
+No new stories. This track changes only the view, and all 100 soak logs are byte-identical to the build before it (1,213 stories, 12.13 per world). What it adds is that the peoples' stories now show on the map. Two playtest views follow; the game sets no ration policy, so its histories differ from the soak's.
+
+### Ketil's dust (seed 10, playtest)
+At 02:00 on Day 25 Ketil, bound by their nature to keep watch, meets the night thief near the watch post. Where Ketil is struck, the ground takes a pale drift of grave dust, a step from the thief's red blood.
+- Chain on the map: night thief (Incident) → spotted, fought (Combat) → a blow to Ketil, shown as dust, not blood (view). Scenario test: `TheUndeadOnWatchGiveDustWhereTheThiefStrikesThem`.
+
+### Dryope by the lone pine (seed 13, playtest)
+Dryope's bound tree comes down early on Day 28. By 10:00 she stands by a lone pine among the stumps, with a stain of amber sap on her dress where the fall wounded her, and her autumn crown browning as the forest she needs runs low.
+- Chain on the map: felled bound tree (Work) → cried out, wounded (Needs) → forest low (Needs), shown as a sap stain and a wilting crown (view).
