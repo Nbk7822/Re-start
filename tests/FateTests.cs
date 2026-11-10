@@ -784,6 +784,45 @@ public class FateTests
         Assert.Equal(straight.StateHash(), restored.StateHash());
     }
 
+    /// <summary>
+    /// The new state round-trips and counts (§10): a world after a return, mid-bleed, with berries in the satchel, a standing
+    /// order, an applied memory, re-drawn arrival windows and a run memory holding a lost future, memories, an echo, every
+    /// timeline's commands and its knots, saves and loads to the same bytes; a restore keeps the wound's bleed, its cause and
+    /// its death line, and continues to the same future as the straight run.
+    /// </summary>
+    [Fact]
+    public void TheNewStateRoundTripsAndARestoreMidBleedKeepsBleeding()
+    {
+        var sim = Simulation.Create(TestContent.Rolled, 2, new RebirthChoice("human", Gifts.SatchelId));
+        sim.Advance(Day + 4 * Hour);
+        World w = sim.World;
+        Relations.ChangeOpinion(w, You(w), Cast(w, "mira").Id, -40, 0);
+        Relations.FormGrudge(w, You(w), Cast(w, "mira"), 30, 0);
+        DieAndReturn(sim);
+        w = sim.World;
+        w.Fate.GiftAwakened = true;
+        w.Gift.Held = 2;
+        w.Fate.Echoes.Add(new Echo { PersonId = Cast(w, "oren").Id, Opinion = 44 });
+        sim.Enqueue(new SetStandingOrder(w.Tick, "gift.satchel", Satchel.Share));
+        sim.Advance(Hour);
+        w = sim.World;
+        Character mira = Cast(w, "mira");
+        CombatSystem.Hurt(w, mira, 150, 0, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
+        Assert.True(mira.Bleed > 0 && w.Fate.LostFutures.Count > 0 && w.Fate.Timelines.Count > 0 && w.Remembered.Count > 0 && w.StandingOrders.Count == 1);
+
+        byte[] bytes = SnapshotSerializer.Save(w);
+        Assert.Equal(bytes, SnapshotSerializer.Save(SnapshotSerializer.Load(bytes, TestContent.Rolled)));
+        Simulation restored = Simulation.Restore(TestContent.Rolled, sim.Snapshot());
+        Assert.Equal(sim.StateHash(), restored.StateHash());
+        Character again = Cast(restored.World, "mira");
+        Assert.Equal((mira.Bleed, mira.BleedCause, mira.BleedDeath), (again.Bleed, again.BleedCause, again.BleedDeath));
+        // The next hour bleeds in both alike (the hash covers health, bleed and who came to tend her).
+        sim.Advance(Hour);
+        restored.Advance(Hour);
+        Assert.Equal(sim.StateHash(), restored.StateHash());
+        Assert.Equal(Cast(sim.World, "mira").Health, Cast(restored.World, "mira").Health);
+    }
+
     [Fact]
     public void ReturnUnderOneSecondAt200Characters()
     {
