@@ -43,6 +43,20 @@ public class BuildApiTests
     }
 
     [Fact]
+    public void CanPlaceAlsoChecksPiecesAskedForButNotYetOnTheMap()
+    {
+        World w = WorldGen.Create(TestContent.Db, 1);
+        Point yard = BuildPlanTests.Yard(w);
+        Assert.True(StateApi.CanPlace(w, "bed", new[] { Tile(yard) }).Ok);
+        // A view's drafts (or placements queued this tick) are passed in; the check stays a function of its arguments.
+        CanPlaceState clash = StateApi.CanPlace(w, "bed", new[] { Tile(yard) }, new[] { new PlannedPiece("wall", Tile(yard)) });
+        Assert.False(clash.Ok);
+        Assert.Equal(Building.ReasonPlanned, clash.Pieces.Single().Tiles.Single().ReasonKey);
+        Assert.True(StateApi.CanPlace(w, "roof", new[] { new Rect(yard.X, yard.Y + 1, 2, 2) }, new[] { new PlannedPiece("wall", Tile(yard)) }).Ok);
+        Assert.Empty(w.Blueprints);
+    }
+
+    [Fact]
     public void BlueprintsSayHowEachPlanStandsAndShowQueuedPlacements()
     {
         var s = Simulation.Create(TestContent.Db, 1);

@@ -60,14 +60,18 @@ public static partial class StateApi
         return loc.Format(b.Kind == Building.Wall ? "build.cost.each" : "build.cost.flat", args);
     }
 
-    /// <summary>The placement check the commands make (Building.Check), with each tile's reason in words, the cost of what can go, and the stock.</summary>
-    public static CanPlaceState CanPlace(World w, string buildingId, IReadOnlyList<Rect> pieces)
+    /// <summary>
+    /// The placement check the commands make (Building.Check), with each tile's reason in words, the cost of what can go, and the
+    /// stock. <paramref name="alsoPlanned"/>: pieces asked for but not yet on the map (a view's drafts, placements queued this tick)
+    /// that the plan must not clash with either.
+    /// </summary>
+    public static CanPlaceState CanPlace(World w, string buildingId, IReadOnlyList<Rect> pieces, IReadOnlyList<PlannedPiece>? alsoPlanned = null)
     {
         LocTable loc = w.Content.Loc;
         var states = new List<PieceState>();
         int cost = 0;
         bool ok = pieces.Count > 0;
-        foreach (PieceVerdict v in Building.Check(w, buildingId, pieces))
+        foreach (PieceVerdict v in Building.Check(w, buildingId, pieces, alsoPlanned))
         {
             var tiles = new List<TileVerdictState>(v.Tiles.Count);
             foreach (TileVerdict t in v.Tiles) tiles.Add(new TileVerdictState(t.Tile.X, t.Tile.Y, t.Ok, t.Reason, t.Ok ? "" : loc.Get(t.Reason)));

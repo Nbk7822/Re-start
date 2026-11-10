@@ -42,7 +42,8 @@ public readonly record struct PoseInput(
 
 /// <summary>
 /// Chooses a pose, a facing and a held tool from sim state (ADR-0009): walking while moving; a
-/// crouch to forage, tend the hurt or feed; a swinging arm to fell timber, mend the roof or fight;
+/// crouch to forage, tend the hurt or feed; a swinging arm to fell timber, mend the roof, build,
+/// take something down or fight;
 /// sitting to eat, to give blood, or idle by the hearth; lying when asleep, downed or dead. People
 /// turn to face where they go (Character.Facing) or whom they are talking to.
 /// </summary>
@@ -70,6 +71,8 @@ public static class Poses
                 return Pose.Crouch;
             case JobKind.GatherTimber when p.Stage == 1:
             case JobKind.RepairRoof when p.Stage >= 2:
+            case JobKind.Build when p.Stage >= 2: // at work on a plan (ADR-0027)
+            case JobKind.TakeDown when p.Stage >= 1:
             case JobKind.Fight:
                 return Pose.Swing;
             case JobKind.Eat:
@@ -105,7 +108,7 @@ public static class Poses
         return 0;
     }
 
-    /// <summary>The tool in hand for a pose: an axe to fell, a hammer to mend, a club against thieves (a thief carries a knife).</summary>
+    /// <summary>The tool in hand for a pose: an axe to fell, a hammer to mend, build or take down, a club against thieves (a thief carries a knife).</summary>
     public static HeldTool ToolFor(Character c, Pose pose)
     {
         if (c.Status == CharStatus.Hostile) return pose is Pose.Dead or Pose.Downed ? HeldTool.None : HeldTool.Knife;
@@ -113,7 +116,7 @@ public static class Poses
         return c.Job?.Kind switch
         {
             JobKind.GatherTimber => HeldTool.Axe,
-            JobKind.RepairRoof => HeldTool.Hammer,
+            JobKind.RepairRoof or JobKind.Build or JobKind.TakeDown => HeldTool.Hammer,
             JobKind.Fight => HeldTool.Club,
             _ => HeldTool.None,
         };

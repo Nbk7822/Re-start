@@ -21,6 +21,9 @@ public static partial class Ui
     /// <summary>The string for a key.</summary>
     public static string T(string key) => _loc.Get(key);
 
+    /// <summary>Is there a string for this key (for optional, more specific wording)?</summary>
+    public static bool Has(string key) => _loc.Has(key);
+
     /// <summary>The template for a key with its {name} placeholders filled.</summary>
     public static string F(string key, params (string Name, string Value)[] args)
     {
