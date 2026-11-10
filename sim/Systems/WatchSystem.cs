@@ -306,7 +306,8 @@ public static class WatchSystem
     private static void AskNext(World w, WatchState s, Character asker)
     {
         List<Character> candidates = Candidates(w, s, asker, awakeOnly: false, out Character? keptIn);
-        if (candidates.Count == 0 && keptIn != null) StayedIn(w, s, keptIn);
+        bool keptAll = candidates.Count == 0 && keptIn != null; // the home area left nobody to ask (zones step 3)
+        if (keptAll) StayedIn(w, s, keptIn!);
         foreach (Character next in candidates)
         {
             if (!next.Asleep)
@@ -325,7 +326,7 @@ public static class WatchSystem
             WalkToWake(w, s, asker, next);
             return;
         }
-        NobodyLeft(w, s, asker);
+        NobodyLeft(w, s, asker, keptAll ? KeptInTonight(w) : 0);
     }
 
     private static void WalkToWake(World w, WatchState s, Character asker, Character sleeper)
@@ -358,9 +359,14 @@ public static class WatchSystem
         s.Refusals.Add(new WatchRefusal { RefuserId = refuser.Id, Event = e.Id, Sympathetic = no.Sympathetic });
     }
 
-    /// <summary>Nobody left to ask: the Oathbound stay on, and the Protective keep a hurt or weary refuser's turn, once; anyone else leaves.</summary>
-    private static void NobodyLeft(World w, WatchState s, Character asker)
+    /// <summary>
+    /// Nobody left to ask: the Oathbound stay on, and the Protective keep a hurt or weary refuser's turn, once; anyone else leaves.
+    /// Either line cites why nobody came: tonight's last refusal, and the home area's "would not keep watch outside" when it kept
+    /// the rest in (<paramref name="keptIn"/>, zones step 3); only with neither, the turn that ended.
+    /// </summary>
+    private static void NobodyLeft(World w, WatchState s, Character asker, long keptIn = 0)
     {
+        long why = s.Refusals.Count > 0 ? s.Refusals[^1].Event : keptIn != 0 ? 0 : s.TurnEvent;
         WatchRefusal? owed = Owed(w, s);
         bool stays = !s.Extended && (Oathbound(w, asker) || (owed != null && Traits.Any(w, asker, t => t.FightsThieves)));
         s.WakerId = 0;
@@ -368,7 +374,7 @@ public static class WatchSystem
         if (!stays)
         {
             SimEvent left = w.Log.Emit(w, SystemTag.Work, "event.work.left_watch_unrelieved", new[] { asker.Id },
-                new[] { s.Refusals.Count > 0 ? s.Refusals[^1].Event : s.TurnEvent, KeptInTonight(w) }, null, EventArg.Char("a", asker.Id));
+                new[] { why, keptIn }, null, EventArg.Char("a", asker.Id));
             s.GapEvent = left.Id;
             OffDuty(w, asker);
             if (s.WatcherId == asker.Id) Vacate(w, s);
@@ -377,7 +383,7 @@ public static class WatchSystem
         SimEvent e = owed != null
             ? Cover(w, asker, owed, 0)
             : w.Log.Emit(w, SystemTag.Work, "event.work.stayed_on_watch", new[] { asker.Id },
-                new[] { s.Refusals.Count > 0 ? s.Refusals[^1].Event : s.TurnEvent, KeptInTonight(w) }, null, EventArg.Char("a", asker.Id));
+                new[] { why, keptIn }, null, EventArg.Char("a", asker.Id));
         CoveredFor(w, s, asker);
         // An extra turn, not a new one: those who refused tonight are not woken twice.
         s.Extended = true;

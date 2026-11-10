@@ -586,8 +586,8 @@ public class HomeAreaTests
 
         SimEvent left = RunUntilKey(s, "event.work.left_watch_unrelieved", (int)Hours(w, 1))!;
         SimEvent stayed = w.Log.All.Single(e => e.Key == "event.work.stayed_in_watch");
-        Assert.Contains(stayed.Id, left.Causes);
-        Assert.Contains(began.Id, left.Causes);
+        Assert.Equal(new[] { stayed.Id }, left.Causes); // why nobody came is the home area, not the turn that ended
+        Assert.DoesNotContain(began.Id, left.Causes);
         Assert.Equal(left.Id, w.Watch.GapEvent);
         Assert.DoesNotContain(w.Log.All, e => e.Key == "event.work.went_to_wake");
         Assert.True(mira.Asleep && oren.Asleep);

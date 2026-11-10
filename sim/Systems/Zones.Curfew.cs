@@ -48,7 +48,9 @@ public static partial class Zones
         kind is JobKind.Forage or JobKind.GatherTimber or JobKind.Haul or JobKind.RepairRoof or JobKind.Wander or JobKind.Socialize or JobKind.Eat;
 
     /// <summary>
-    /// Runs every hour right after the mood system. At the dusk hour, when the camp has a home area: everyone bound by it
+    /// Runs at the start of every hour, before the watch and work (lead's call: the design rolled after mood, which left the
+    /// watch's first turn at dusk deciding before anyone could be defiant; the mood read is the last hour's). At the dusk
+    /// hour, when the camp has a home area: everyone bound by it
     /// but the player rolls once whether they go their own way tonight (the home area's own tag, drawn only when the odds are
     /// above 0), and then each bound person out at work or idling outside the home area chooses: excused or going their
     /// own way, they stay out (and say so); otherwise they leave the job and their next choice takes them home.
