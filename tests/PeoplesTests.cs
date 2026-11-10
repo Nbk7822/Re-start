@@ -842,4 +842,34 @@ public class PeoplesTests
         Assert.Contains(wren.Thoughts, t => t.DefId == "uneasy_near_dead" && t.AboutId == ketil.Id);
         Assert.True(Relations.Opinion(w, wren.Id, ketil.Id) < 0);
     }
+
+    /// <summary>
+    /// What one chat with the newly dead does to the living's regard, day by day: it costs them at first,
+    /// costs less as they get used to them, and warms like any chat once the days are out. (The unease
+    /// used to cost two points on every chat to the last day while the warmth stayed at nothing, so the
+    /// living stood at about -14 toward the undead on their twelfth day, against +1 to +3 for anyone else.)
+    /// </summary>
+    [Fact]
+    public void TheUneaseFadesAsTheLivingGetUsedToTheDead()
+    {
+        World w = WorkTests.Only(1, "ketil", "wren");
+        Character ketil = Cast(w, "ketil"), wren = Cast(w, "wren");
+        int chemistry = Relations.Chemistry(w, wren, ketil);
+        int days = w.Content.SpeciesById(ketil.SpeciesId).UnsettlesForDays;
+        int ChatOnDay(int day)
+        {
+            ketil.ArrivedTick = 1;
+            w.Tick = 1 + (long)day * w.Content.World.TicksPerDay;
+            wren.Opinions.Clear();
+            int fromWren = Unease.WarmthPct(w, wren, ketil);
+            MoodSystem.AddThought(w, wren, "chatted", ketil.Id, 0, (100 + 50 * chemistry) * fromWren / 100);
+            Unease.Feel(w, wren, ketil, fromWren);
+            return Relations.Opinion(w, wren.Id, ketil.Id);
+        }
+        int first = ChatOnDay(0), week = ChatOnDay(days / 2 + 1), known = ChatOnDay(days);
+        Assert.True(first < 0, $"day 0: {first}");
+        Assert.True(first < week && week <= known, $"day 0: {first}, day {days / 2 + 1}: {week}, day {days}: {known}");
+        Assert.Equal(Math.Max(0, (100 + 50 * chemistry) / 100), known); // a chat's usual warmth
+        Assert.DoesNotContain(wren.Thoughts, t => t.DefId == "uneasy_near_dead" && t.ExpiresTick > w.Tick); // no unease once the days are out
+    }
 }
