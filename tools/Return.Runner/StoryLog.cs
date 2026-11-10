@@ -178,7 +178,10 @@ public static class StoryLog
             var gods = new List<string>(f.Gods.Count);
             foreach (GodState g in f.Gods)
                 gods.Add(Format(loc, "log.peoples.god", ("god", g.Name), ("epithet", g.Epithet), ("temperament", g.Temperament)));
-            Line(o, Indent + Format(loc, "log.peoples.faith", ("faith", f.Name), ("gods", string.Join(loc.Get("log.peoples.god_sep"), gods))));
+            string godList = string.Join(loc.Get("log.peoples.god_sep"), gods);
+            Line(o, Indent + (f.Ways.Count == 0
+                ? Format(loc, "log.peoples.faith", ("faith", f.Name), ("gods", godList))
+                : Format(loc, "log.peoples.faith_ways", ("faith", f.Name), ("gods", godList), ("customs", List(loc, f.Ways)))));
         }
         Line(o);
     }

@@ -15,6 +15,7 @@
   "log.peoples.culture": "Among {culture}: {customs}. Most follow {faith}.",
   "log.peoples.stances": "They {stances}.",
   "log.peoples.faith": "Followers of {faith} honour {gods}.",
+  "log.peoples.faith_ways": "Followers of {faith} honour {gods}. The faithful keep {customs}.",
   "log.peoples.god": "{god}, {epithet} ({temperament})",
   "log.peoples.god_sep": ", and ",
 
