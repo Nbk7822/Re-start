@@ -25,6 +25,10 @@ public enum JobKind
     Leave,
     Arrive,
     Raid,
+    /// <summary>At a festival by the hearth (ADR-0023).</summary>
+    Feast,
+    /// <summary>Bringing a hungry creditor food to settle a debt of honour (ADR-0023).</summary>
+    RepayDebt,
 }
 
 /// <summary>What a character is doing right now. Stage and Progress are job-specific counters.</summary>

@@ -28,6 +28,7 @@ public static class JobRunner
         JobKind.Fight => IncidentJobs.Fight(w, c, j),
         JobKind.Flee => IncidentJobs.Flee(w, c, j),
         JobKind.Rescue => IncidentJobs.Rescue(w, c, j),
+        JobKind.Feast => CultureJobs.Feast(w, c, j),
         _ => true,
     };
 

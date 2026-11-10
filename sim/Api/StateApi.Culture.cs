@@ -151,7 +151,7 @@ public static partial class StateApi
         {
             Tree? tree = w.Map.Trees.Find(t => t.Id == s.TreeId);
             if (tree == null || tree.Pos != p) continue;
-            string? holder = HolderNameKey(w, s.HolderId, s.HolderIsFaith);
+            string? holder = Ways.HolderNameKey(w, s.HolderId, s.HolderIsFaith);
             if (holder == null) continue;
             return w.Content.Loc.Format(tree.Felled ? "place.stump_sacred" : "place.tree_sacred", Args(("ways", w.Content.Loc.Get(holder))));
         }
@@ -165,9 +165,6 @@ public static partial class StateApi
         FestivalRun run = w.Culture.Festivals[0];
         return w.Content.Loc.Format("place.hearth_festival", Args(("festival", w.Content.Loc.Get(w.Content.CustomById(run.CustomId).NameKey))));
     }
-
-    internal static string? HolderNameKey(World w, string holderId, bool holderIsFaith) =>
-        holderIsFaith ? Ways.FaithById(w, holderId)?.NameKey : Ways.CultureById(w, holderId)?.NameKey;
 
     private static KeyValuePair<string, string>[] Args(params (string Name, string Value)[] args)
     {

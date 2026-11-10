@@ -508,34 +508,38 @@ public class GameViewTests
     }
 
     /// <summary>
-    /// Seed 34's first blow in a thief fight: the tick a member fighting a thief loses 40 or more health
-    /// at once, and where they stand. Found by running the sim rather than pinned, because culture
-    /// (ADR-0023) and other content change who fights when and where.
+    /// The first blow in a thief fight, in seed 34 or the first seed after it that has one: the tick a
+    /// member fighting a thief loses 40 or more health at once, and where they stand. Found by running
+    /// the sim rather than pinned (it was seed 34, tick 188,700), because culture (ADR-0023) and other
+    /// content change who fights when and where.
     /// </summary>
-    private static readonly Lazy<(long Tick, Return.Sim.Core.Point At)> Seed34Blow = new(() =>
+    private static readonly Lazy<(ulong Seed, long Tick, Return.Sim.Core.Point At)> FirstBlow = new(() =>
     {
-        Simulation probe = Simulation.Create(Content, 34);
-        var health = new Dictionary<int, int>();
-        while (probe.World.Tick < probe.World.Content.World.TicksPerYear)
+        for (ulong seed = 34; seed < 64; seed++)
         {
-            probe.Step();
-            foreach (Character c in probe.World.Characters)
+            Simulation probe = Simulation.Create(Content, seed);
+            var health = new Dictionary<int, int>();
+            while (probe.World.Tick < probe.World.Content.World.TicksPerYear)
             {
-                bool fighting = c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight };
-                if (fighting && health.TryGetValue(c.Id, out int was) && was - c.Health >= 40) return (probe.World.Tick, c.Pos);
-                health[c.Id] = c.Health;
+                probe.Step();
+                foreach (Character c in probe.World.Characters)
+                {
+                    bool fighting = c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight };
+                    if (fighting && health.TryGetValue(c.Id, out int was) && was - c.Health >= 40) return (seed, probe.World.Tick, c.Pos);
+                    health[c.Id] = c.Health;
+                }
             }
         }
-        throw new InvalidOperationException("seed 34 has no blow struck in a thief fight in its first year");
+        throw new InvalidOperationException("no blow struck in a thief fight in the first year of seeds 34 to 63");
     });
 
     [Fact]
     public void GoreFollowsTheThiefFightWithoutTouchingTheSim()
     {
-        // Seed 34: a night thief reaches the camp and someone fights them; the first blow lands at Seed34Blow.
-        (long blowTick, Return.Sim.Core.Point at) = Seed34Blow.Value;
+        // A night thief reaches the camp and someone fights them; the first blow lands at FirstBlow.
+        (ulong seed, long blowTick, Return.Sim.Core.Point at) = FirstBlow.Value;
         long start = blowTick - 200;
-        Simulation watched = Simulation.Create(Content, 34), plain = Simulation.Create(Content, 34);
+        Simulation watched = Simulation.Create(Content, seed), plain = Simulation.Create(Content, seed);
         watched.Advance(start);
         plain.Advance(start);
         var gore = new GoreLog();
@@ -553,7 +557,7 @@ public class GameViewTests
 
         // The same history always leaves the same marks.
         var again = new GoreLog();
-        Simulation replay = Simulation.Create(Content, 34);
+        Simulation replay = Simulation.Create(Content, seed);
         replay.Advance(start);
         for (int t = 0; t < 500; t++)
         {
@@ -566,11 +570,12 @@ public class GameViewTests
     [Fact]
     public void GoreDoesNotDependOnHowManyTicksAFrameRuns()
     {
-        // Seed 34's thief fight: blows are health drops between looks, so a gore log that looked only
+        // A thief fight (FirstBlow): blows are health drops between looks, so a gore log that looked only
         // once a frame would merge blows, thin the drip trail and misplace marks on a long frame.
-        long Start = Seed34Blow.Value.Tick - 400;
+        (ulong seed, long blowTick, _) = FirstBlow.Value;
+        long Start = blowTick - 400;
         const long Span = 1_500;
-        Simulation perTick = Simulation.Create(Content, 34), perFrame = Simulation.Create(Content, 34);
+        Simulation perTick = Simulation.Create(Content, seed), perFrame = Simulation.Create(Content, seed);
         perTick.Advance(Start);
         perFrame.Advance(Start);
         var everyTick = new GoreLog();

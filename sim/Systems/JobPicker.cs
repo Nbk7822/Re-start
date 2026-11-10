@@ -81,6 +81,9 @@ public static class JobPicker
             if (eat != null) return eat;
         }
 
+        Job? feast = Culture.Festivals.FeastJob(w, c, sunBlocked); // a festival comes before ordinary work (ADR-0023)
+        if (feast != null) return feast;
+
         Job? work = WorkJob(w, c, sunBlocked);
         if (work != null) return work;
 

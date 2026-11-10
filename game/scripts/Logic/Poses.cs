@@ -72,6 +72,7 @@ public static class Poses
                 return Pose.Swing;
             case JobKind.Eat:
             case JobKind.GiveBlood when p.Stage >= 1:
+            case JobKind.Feast when p.Stage >= 1:
                 return Pose.Sit;
             case JobKind.Socialize when p.Stage >= 1:
                 return Pose.Talk;

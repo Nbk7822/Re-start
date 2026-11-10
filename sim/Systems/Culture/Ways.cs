@@ -41,6 +41,10 @@ public static class Ways
 
     public static SeededCulture? Culture(World w, Character c) => CultureById(w, c.CultureId);
 
+    /// <summary>The name key of the culture or faith holding a custom, or null if this world has no such holder.</summary>
+    public static string? HolderNameKey(World w, string holderId, bool holderIsFaith) =>
+        holderIsFaith ? FaithById(w, holderId)?.NameKey : CultureById(w, holderId)?.NameKey;
+
     public static SeededFaith? Faith(World w, Character c) => FaithById(w, c.FaithId);
 
     /// <summary>Faith customs bind only the faithful and the devout.</summary>
