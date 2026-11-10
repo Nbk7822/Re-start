@@ -630,4 +630,40 @@ public class HomeAreaTests
         }
         return null;
     }
+
+    /// <summary>Design 9.2 (CausalityTests): a defiant breach is a transgression, not a cause; an accident at the work it took them to never cites it.</summary>
+    [Fact]
+    public void ADefiantBreachIsNotOnTheAccidentsChain()
+    {
+        World w = WithHome(2, 23, "sera");
+        FoodOnlyOutside(w);
+        Character sera = Cast(w, "sera");
+        sera.Traits = new List<string> { "independent" };
+        for (int h = 0; h < 24; h++) ScheduleSystem.SetOwn(sera, h, DayBlock.Work);
+        foreach (WorkPriority p in sera.Priorities) p.Priority = p.WorkId == "forage" ? 1 : 0; // the bushes, not the trees
+        Defiant(w, sera);
+        WorkSystem.Assign(w, sera);
+        Assert.Equal(JobKind.Forage, sera.Job?.Kind);
+        SimEvent breach = w.Log.All.Single(e => e.Key == "event.work.out_after_dark_own_way");
+        for (int t = 0; t < 4_000 && !w.Log.All.Any(e => e.Key == "event.work.foraged"); t++)
+        {
+            TravelSystem.Step(w);
+            WorkSystem.Step(w);
+            w.Tick++;
+        }
+        SimEvent picked = w.Log.All.Single(e => e.Key == "event.work.foraged");
+        JobRunner.RollAccident(w, sera, new WorkDef { Id = "test_sure", AccidentPermille = 1000 }, picked.Id);
+        SimEvent hurt = w.Log.All.Last(e => e.Key.StartsWith("event.incident.work_accident", StringComparison.Ordinal));
+        var ancestry = new HashSet<long>();
+        var open = new Stack<long>(hurt.Causes);
+        while (open.Count > 0)
+        {
+            long id = open.Pop();
+            if (!ancestry.Add(id)) continue;
+            foreach (long c in w.Log.Get(id)!.Causes) open.Push(c);
+        }
+        Assert.Contains(picked.Id, ancestry);
+        Assert.DoesNotContain(breach.Id, ancestry);
+        Assert.DoesNotContain(Zones.HomeOf(w)!.MadeEvent, ancestry);
+    }
 }

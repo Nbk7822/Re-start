@@ -209,7 +209,7 @@ Your home area left the watch post just outside it. On Day 33 at 23:12 nobody bo
 - Chain: home area marked (World) → would not keep watch outside → left the watch (Work) → theft (Incident) → hungry, starving, went without (Needs) → took the meal → grudge (Social). 9 steps.
 
 ### Mira stayed in (seed 82, soak `--zones home --days nightwatcher`; policy "promised meals come first")
-You put Mira on nights and marked out a home area round the camp. Winter came on Day 31 and the frost took the berries from the bushes. At midnight on Day 37, at work in her night hours, Mira was getting hungry, and the berries left were on bushes beyond the home area: "Mira, hungry, stayed in camp after dark as you asked." At the 02:29 share-out she went without, and at 03:22 she took the meal set aside for Hollis. Hollis now holds a grudge against Mira.
+You put Mira on nights and marked out a home area round the camp. Winter came on Day 31 and the frost took the berries from the bushes. At midnight on Day 37, at work in her night hours, Mira was getting hungry, and the food she would have gone for lay beyond the home area (that is the only time the line is said): "Mira, hungry, stayed in camp after dark as you asked." At the 02:29 share-out she went without, and at 03:22 she took the meal set aside for Hollis. Hollis now holds a grudge against Mira.
 - Chain: winter (World) → hungry (Needs) → stayed in as asked (Work) → went without (Needs) → took the meal → grudge (Social).
 - Why it matters: obeying at a cost, as the design wanted: the line that she stayed in is the cause of the hunger that follows. It happens almost only to people on nights (5 of 100 nightwatcher worlds), because under the camp's day nobody else is out and hungry after dark.
 
