@@ -193,7 +193,10 @@ public class CultureSeedTests
         Assert.Equal(new[] { "fear vampires" }, reed.Stances);
         Assert.StartsWith("the ", reed.Name, StringComparison.Ordinal);
         Assert.Equal(3, reed.Ways.Count);
-        foreach (string f in reed.Festivals) Assert.Matches("\\(day [1-9] of (Winter|Autumn)\\)$", f);
+        // A festival's date sits mid-sentence, so the season is in lower case ("the Longest Night (day 8 of winter)").
+        var festivals = cultures.SelectMany(c => c.Festivals).Concat(StateApi.Faiths(w).SelectMany(f => f.Ways.Where(x => x.Contains("(day ", StringComparison.Ordinal)))).ToList();
+        Assert.NotEmpty(festivals);
+        foreach (string f in festivals) Assert.Matches("\\(day [1-9] of (winter|autumn)\\)$", f);
 
         IReadOnlyList<FaithState> faiths = StateApi.Faiths(w);
         Assert.Equal(new[] { "sworn", "roots", "ember" }, faiths.Select(f => f.Id));

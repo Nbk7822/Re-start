@@ -120,7 +120,10 @@ public static partial class StateApi
         return new GodState(loc.Get(g.NameKey), loc.Get(g.EpithetKey), loc.Get(Ways.TemperamentKey(g)), loc.Get(w.Content.DomainById(g.DomainId).CaresKey));
     }
 
-    /// <summary>Custom names in held order, a festival with its day ("the harvest fire (day 4 of Autumn)"); and the festivals alone.</summary>
+    /// <summary>
+    /// Custom names in held order, a festival with its day ("the harvest fire (day 4 of autumn)": the
+    /// season's mid-sentence form, "season.&lt;id&gt;_mid", when the table has one); and the festivals alone.
+    /// </summary>
     private static (List<string> Ways, List<string> Festivals) CustomNames(World w, List<string> customIds, string holderId, bool holderIsFaith)
     {
         LocTable loc = w.Content.Loc;
@@ -135,7 +138,12 @@ public static partial class StateApi
                 if (f.CustomId == id && f.HolderId == holderId && f.HolderIsFaith == holderIsFaith) { date = f; break; }
             if (date != null)
             {
-                string season = date.Season < def.SeasonKeys.Length ? loc.Get(def.SeasonKeys[date.Season]) : "";
+                string season = "";
+                if (date.Season < def.SeasonKeys.Length)
+                {
+                    string key = def.SeasonKeys[date.Season];
+                    season = loc.Get(loc.Has(key + "_mid") ? key + "_mid" : key);
+                }
                 name = loc.Format("belong.dated", Args(("custom", name), ("day", (date.Day + 1).ToString(CultureInfo.InvariantCulture)), ("season", season)));
                 festivals.Add(name);
             }
