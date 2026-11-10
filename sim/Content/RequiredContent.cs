@@ -92,7 +92,7 @@ public static class RequiredContent
     public static readonly IReadOnlyList<string> Zones = new[] { "stockpile", "meeting_place" };
 
     /// <summary>The thoughts zones and the shared compliance rule give (ADR-0028), checked like <see cref="Thoughts"/>.</summary>
-    public static readonly IReadOnlyList<string> ZoneThoughts = new[] { "saw_rule_broken", "sat_apart" };
+    public static readonly IReadOnlyList<string> ZoneThoughts = new[] { "saw_rule_broken", "sat_apart", "kept_in" };
 
     /// <summary>Every line zones step 3 writes (ADR-0028: the dark and the home area), checked at load like <see cref="ScheduleText"/>.</summary>
     public static readonly IReadOnlyList<string> ZoneText = new[]
@@ -101,6 +101,9 @@ public static class RequiredContent
         "event.incident.work_accident_tired_dark", "event.incident.work_accident_tired_dark_you_a",
         "event.world.home_marked", "event.world.home_marked_one", "event.world.home_changed", "event.world.home_changed_one", "event.world.home_removed",
         "place.in_the_dark", "place.firelit",
+        "event.work.out_after_dark_starving", "event.work.out_after_dark_help",
+        "event.work.out_after_dark_own_way", "event.work.out_after_dark_dislike", "event.work.out_after_dark_mood", "event.work.out_after_dark_ways",
+        "event.work.stayed_in_hungry", "event.work.stayed_in_hungry_you_a", "event.work.stayed_in_watch",
     };
 
     /// <summary>Every zone behaviour the simulation implements, with the layer it belongs on (ADR-0028).</summary>

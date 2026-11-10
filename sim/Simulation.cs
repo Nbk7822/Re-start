@@ -62,6 +62,7 @@ public sealed class Simulation
             ScheduleSystem.Hourly(w); // the hour as lived, and overwork's costs: after needs, before mood (ADR-0029)
             Rations.Assign(w);
             MoodSystem.Hourly(w);
+            Zones.Hourly(w); // the home area's nightly roll and the walk home at dusk, after mood (zones step 3)
             SocialSystem.Hourly(w);
             Systems.Culture.CultureSystem.Hourly(w);
             IncidentSystem.Hourly(w);

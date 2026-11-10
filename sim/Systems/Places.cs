@@ -47,13 +47,14 @@ public static class Places
         return best;
     }
 
-    public static Bush? BushWithBerries(World w, Point from)
+    /// <summary>The nearest bush with berries nobody else is picking (only where <paramref name="where"/> allows, if given: inside the home area after dark).</summary>
+    public static Bush? BushWithBerries(World w, Point from, Func<Point, bool>? where = null)
     {
         Bush? best = null;
         int bestDist = int.MaxValue;
         foreach (Bush b in w.Map.Bushes)
         {
-            if (b.Berries <= 0 || Targeted(w, JobKind.Forage, b.Id)) continue;
+            if (b.Berries <= 0 || Targeted(w, JobKind.Forage, b.Id) || (where != null && !where(b.Pos))) continue;
             int d = b.Pos.ChebyshevTo(from);
             if (d < bestDist) { best = b; bestDist = d; }
         }
@@ -149,13 +150,16 @@ public static class Places
         return false;
     }
 
-    /// <summary>Where the oldest stored stack of this item lies (in a stockpile, or waiting to be carried to one), or Point.None.</summary>
-    public static Point FoodTile(World w, string defId)
+    /// <summary>
+    /// Where the oldest stored stack of this item lies (in a stockpile, or waiting to be carried to one), or Point.None;
+    /// only where <paramref name="where"/> allows, if given (inside the home area after dark).
+    /// </summary>
+    public static Point FoodTile(World w, string defId, Func<Point, bool>? where = null)
     {
         ItemStack? best = null;
         foreach (ItemStack s in w.Items)
         {
-            if (s.DefId != defId || s.Count <= 0 || !s.Stored) continue;
+            if (s.DefId != defId || s.Count <= 0 || !s.Stored || (where != null && !where(s.Pos))) continue;
             if (best == null || (s.SpoilTick != 0 && (best.SpoilTick == 0 || s.SpoilTick < best.SpoilTick))) best = s;
         }
         return best?.Pos ?? Point.None;

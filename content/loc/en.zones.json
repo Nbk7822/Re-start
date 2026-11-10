@@ -49,6 +49,17 @@
 
   "thought.saw_rule_broken": "Saw someone break the camp's rules",
   "thought.sat_apart": "Sat apart from the others",
+  "thought.kept_in": "Kept in after dark",
+
+  "event.work.out_after_dark_starving": "{a}, starving, went out after dark to find food.",
+  "event.work.out_after_dark_help": "{a} went out after dark to help {b}.",
+  "event.work.out_after_dark_own_way": "Never one to be told, {a} went out after dark anyway.",
+  "event.work.out_after_dark_dislike": "{a} went out after dark anyway, caring little for what you want.",
+  "event.work.out_after_dark_mood": "{a}, in a black mood, went out after dark anyway.",
+  "event.work.out_after_dark_ways": "{a}, raised to go their own way, went out after dark anyway.",
+  "event.work.stayed_in_hungry": "{a}, hungry, stayed in camp after dark as you asked.",
+  "event.work.stayed_in_hungry_you_a": "{a}, hungry, kept to your own rule and stayed in camp after dark.",
+  "event.work.stayed_in_watch": "{a} would not keep watch outside the home area after dark.",
 
   "event.mood.kept_away": "{a} kept away from the meeting place while {b} sat there.",
   "event.mood.kept_away_fire": "{a} kept away from the fire while {b} sat there.",

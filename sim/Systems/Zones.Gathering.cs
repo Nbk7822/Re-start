@@ -37,9 +37,10 @@ public static partial class Zones
         Character? shunning = null;
         Grudge? grudge = null;
         int bestScore = int.MinValue;
+        bool keptIn = CurfewBinds(w, c); // after dark, those the home area binds sit only where it reaches (zones step 3)
         foreach (Zone z in w.Map.Zones)
         {
-            if (z.Tiles.Count == 0 || !IsGathering(w, z)) continue;
+            if (z.Tiles.Count == 0 || !IsGathering(w, z) || (keptIn && !Reaches(w, z))) continue;
             int score = 0;
             Character? enemy = null;
             Grudge? held = null;
@@ -63,8 +64,11 @@ public static partial class Zones
         return best != null ? new Gathering(best, null, null, null) : new Gathering(null, shunned, shunning, grudge);
     }
 
-    /// <summary>A tile of a zone to stand on, drawn as wandering draws (DiceId.WanderTarget on the Work stream); Point.None if none is free to stand on.</summary>
-    public static Point TileIn(World w, Zone z)
+    /// <summary>
+    /// A tile of a zone to stand on, drawn as wandering draws (DiceId.WanderTarget on the Work stream), inside the home
+    /// area when <paramref name="insideHome"/>; Point.None if none is free to stand on.
+    /// </summary>
+    public static Point TileIn(World w, Zone z, bool insideHome = false)
     {
         int n = Count(z.Tiles);
         if (n == 0) return Point.None;
@@ -76,11 +80,19 @@ public static partial class Zones
             {
                 if (k >= r.Length) { k -= r.Length; continue; }
                 var p = new Point(r.X + k, r.Y);
-                if (w.Map.Passable(p)) return p;
+                if (w.Map.Passable(p) && (!insideHome || InHome(w, p))) return p;
                 break;
             }
         }
         return Point.None;
+    }
+
+    /// <summary>Does the home area reach a zone (any of its tiles a passable home tile)?</summary>
+    public static bool Reaches(World w, Zone z)
+    {
+        foreach (Point p in Each(z.Tiles))
+            if (InHome(w, p) && w.Map.Passable(p)) return true;
+        return false;
     }
 
     /// <summary>
