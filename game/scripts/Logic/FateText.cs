@@ -74,8 +74,11 @@ public static class FateText
         Ui.T("ui.fate.remember"),
     };
 
-    /// <summary>The card when your lifetime ends: how, and at what age; there is no return from this.</summary>
-    public static string EndCard(World w) => StateApi.Player(w).EndText;
+    /// <summary>
+    /// The card when your lifetime ends, and the lines the Chronicle closes on (§6.3): how, and at what age, there being no
+    /// return from this; who you were reborn as and your gift; the years you lived; the lives you lost; who outlived you.
+    /// </summary>
+    public static IReadOnlyList<string> EndCard(World w) => StateApi.Player(w).EndLines;
 
     /// <summary>The Lost futures tab: each timeline you lost, newest first, headed by its span and your death, then its lines.</summary>
     public static IReadOnlyList<LostLine> LostFutures(World w)

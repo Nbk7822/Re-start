@@ -94,7 +94,7 @@ public partial class FateOverlay : Control
     /// <summary>Your lifetime ended: the last card.</summary>
     public void ShowEnded(World w)
     {
-        Show(Phase.Ended, DarkShade, new[] { FateText.EndCard(w) }, true);
+        Show(Phase.Ended, DarkShade, FateText.EndCard(w), true);
         AddButton(Ui.T("ui.fate.read_chronicle"), () => { Close(); _host.OpenChronicle(lost: false); });
         AddButton(Ui.T("ui.fate.new_world"), () => _host.NewWorld());
     }

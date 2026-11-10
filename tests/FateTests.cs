@@ -186,6 +186,36 @@ public class FateTests
         long tick = w.Tick;
         sim.Advance(1_000);
         Assert.Equal(tick, sim.World.Tick); // nothing steps after the end
+
+        // The Chronicle closes on lines from stored state (§6.3): how and when, who you were, how long, the lives lost, who outlived you.
+        PlayerState p = StateApi.Player(w);
+        Assert.Equal(p.EndText, p.EndLines[0]);
+        Assert.Matches(@"^You died of old age, at \d+\. There is no return from this\.$", p.EndLines[0]);
+        Assert.Equal("You were reborn here as a human, with no gift.", p.EndLines[1]);
+        long lived = w.Fate.EndTick / db.World.TicksPerYear; // from arrival; a year here is forty days
+        Assert.Equal(lived == 0 ? "You lived less than a year here." : lived == 1 ? "You lived a year here." : $"You lived {lived} years here.", p.EndLines[2]);
+        Assert.Equal(w.Fate.Returns == 0 ? "You never died before this." : w.Fate.Returns == 1 ? "You died once before this, and came back."
+            : $"You died {w.Fate.Returns} times before this, and came back each time.", p.EndLines[3]);
+        var alive = w.Characters.Where(c => c.Id != w.PlayerId && c.Named && c.Status is CharStatus.Member or CharStatus.Left).Select(c => EventText.Name(w, c.Id)).ToList();
+        Assert.Equal(alive.Count == 0 ? "Nobody you knew outlived you."
+            : (alive.Count == 1 ? alive[0] : string.Join(", ", alive.Take(alive.Count - 1)) + " and " + alive[^1]) + " outlived you.", p.EndLines[4]);
+        Assert.Equal(5, p.EndLines.Count);
+        var log = new StringWriter();
+        StoryLog.Write(sim, log);
+        Assert.Contains("The end of a life\n-----------------\n  " + p.EndLines[0] + "\n", log.ToString());
+    }
+
+    [Fact]
+    public void ADeathWithNowhereToGoBackToSaysSo()
+    {
+        var sim = Simulation.Create(TestContent.Db, 5);
+        Assert.True(sim.ForceDeath()); // before the first tick: no knot is tied yet
+        sim.Step();
+        World w = sim.World;
+        Assert.True(w.Fate.Ended);
+        Assert.Equal("no_return", w.Fate.EndKind);
+        Assert.Equal("You died at 0, with nowhere in your past to go back to. There is no return from this.".Replace("at 0", "at " + Rebirth.AgeYears(w, You(w), w.Fate.EndTick)),
+            StateApi.Player(w).EndText);
     }
 
     [Fact]

@@ -16,10 +16,11 @@ public sealed record PlayerGiftState(string Id, string Name, string Summary, str
 
 /// <summary>
 /// You (the player design §10): your people, your age line and what clock you keep, your gift, the lives you have lost,
-/// which timeline this is, the feelings you carry back, whether this run was chosen for testing, and how it ended.
+/// which timeline this is, the feelings you carry back, whether this run was chosen for testing, and how it ended:
+/// <see cref="EndText"/> says how, and <see cref="EndLines"/> are the lines the Chronicle closes on (§6.3), that line first.
 /// </summary>
 public sealed record PlayerState(int Id, string PeopleId, string People, int Age, string AgeLine, string LifeLine, PlayerGiftState? Gift,
-    int LivesLost, int Timeline, IReadOnlyList<MemoryState> Memories, bool Chosen, bool Ended, string EndText);
+    int LivesLost, int Timeline, IReadOnlyList<MemoryState> Memories, bool Chosen, bool Ended, string EndText, IReadOnlyList<string> EndLines);
 
 /// <summary>A line of a lost future, read in the world as it is now.</summary>
 public sealed record LostLineState(long Tick, string When, string Text, bool Growth, bool Death);
@@ -64,12 +65,47 @@ public static partial class StateApi
             memories.Add(new MemoryState(m.PersonId, name, m.Kind, m.Opinion, loc.Format(key, Args(("name", name), ("value", value)))));
         }
 
+        string ageText = age.ToString(CultureInfo.InvariantCulture);
         string end = !f.Ended ? ""
-            : f.EndKind == "soul_spent" ? loc.Format("life.end.soul_spent", Args(("age", age.ToString(CultureInfo.InvariantCulture))))
-            : loc.Format("life.end.old_age", Args(("age", age.ToString(CultureInfo.InvariantCulture))));
+            : f.EndKind == "soul_spent" ? loc.Format("life.end.soul_spent", Args(("age", ageText)))
+            : f.EndKind == "no_return" ? loc.Format("life.end.no_return", Args(("age", ageText)))
+            : loc.Format("life.end.old_age", Args(("age", ageText)));
         return new PlayerState(you.Id, you.SpeciesId, people, age,
-            loc.Format("life.subtitle", Args(("people", people), ("age", age.ToString(CultureInfo.InvariantCulture)))), lifeLine, gift,
-            f.Returns, f.Timeline, memories, f.Chosen, f.Ended, end);
+            loc.Format("life.subtitle", Args(("people", people), ("age", ageText))), lifeLine, gift,
+            f.Returns, f.Timeline, memories, f.Chosen, f.Ended, end, f.Ended ? EndLines(w, you, end) : Array.Empty<string>());
+    }
+
+    /// <summary>
+    /// The lines the Chronicle closes on when your lifetime ends (§6.3), all from stored state: how it ended and at what
+    /// age; who you were reborn as, and your gift; the years you lived here; the lives you lost; and who outlived you
+    /// (everyone you knew who is still alive, in the camp or gone from it). How far you rose waits for the world design.
+    /// </summary>
+    private static IReadOnlyList<string> EndLines(World w, Character you, string end)
+    {
+        LocTable loc = w.Content.Loc;
+        FateBook f = w.Fate;
+        string people = loc.Get(w.Content.Rebirth.People(f.PeopleId)?.AsKey ?? "rebirth.as." + f.PeopleId);
+        var lines = new List<string> { end };
+        lines.Add(f.GiftId.Length == 0 ? loc.Format("life.end.reborn_giftless", Args(("people", people)))
+            : loc.Format("life.end.reborn", Args(("people", people), ("gift", loc.Get(w.Content.GiftById(f.GiftId).NameKey)))));
+        int years = (int)(f.EndTick / w.Content.World.TicksPerYear);
+        lines.Add(years == 0 ? loc.Get("life.end.years_zero") : years == 1 ? loc.Get("life.end.years_one")
+            : loc.Format("life.end.years", Args(("n", years.ToString(CultureInfo.InvariantCulture)))));
+        lines.Add(f.Returns == 0 ? loc.Get("life.end.lives_lost_zero") : f.Returns == 1 ? loc.Get("life.end.lives_lost_one")
+            : loc.Format("life.end.lives_lost", Args(("n", f.Returns.ToString(CultureInfo.InvariantCulture)))));
+        var outlived = new List<string>();
+        foreach (Character c in w.Characters)
+            if (c.Id != you.Id && c.Named && c.Status is CharStatus.Member or CharStatus.Left) outlived.Add(EventText.Name(w, c.Id));
+        lines.Add(outlived.Count == 0 ? loc.Get("life.end.outlived_zero") : loc.Format("life.end.outlived", Args(("names", JoinNames(loc, outlived)))));
+        return lines;
+    }
+
+    /// <summary>"Mira", "Mira and Oren", "Mira, Oren and Nia".</summary>
+    private static string JoinNames(LocTable loc, IReadOnlyList<string> names)
+    {
+        if (names.Count == 1) return names[0];
+        string head = string.Join(loc.Get("life.list_sep"), names.Take(names.Count - 1));
+        return loc.Format("life.list_and", Args(("a", head), ("b", names[^1])));
     }
 
     /// <summary>Every timeline you lost, newest first, its lines read in the world as it is now.</summary>

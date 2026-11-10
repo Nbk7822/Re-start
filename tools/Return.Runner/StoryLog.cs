@@ -93,6 +93,7 @@ public static class StoryLog
         WriteCamp(w, loc, writer);
         WriteEvents(w, loc, analysis.Notable, writer);
         WriteStories(w, loc, analysis.Stories, writer);
+        WriteLifeEnd(w, loc, writer);
         WriteLostFutures(w, loc, writer);
         Line(writer, Format(loc, "log.counts",
             ("events", Num(w.Log.All.Count)), ("notable", Num(analysis.Notable.Count)), ("stories", Num(analysis.Stories.Count))));
@@ -283,6 +284,15 @@ public static class StoryLog
             }
             k += unit * repeats;
         }
+        Line(o);
+    }
+
+    /// <summary>When your lifetime ended (old age, your soul's span), the lines the Chronicle closes on (§6.3, ADR-0030).</summary>
+    private static void WriteLifeEnd(World w, LocTable loc, TextWriter o)
+    {
+        if (!w.Fate.Ended || w.Find(w.PlayerId) == null) return;
+        Heading(o, loc.Get("log.end.heading"), '-');
+        foreach (string line in StateApi.Player(w).EndLines) Line(o, Indent + line);
         Line(o);
     }
 

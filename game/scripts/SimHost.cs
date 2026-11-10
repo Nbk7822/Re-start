@@ -17,7 +17,8 @@ namespace Return.Game;
 ///
 /// Environment hooks for checks and debugging:
 ///   RETURN_SEED=n        world seed (default 1)
-///   RETURN_TICKS=n       advance n ticks before the first frame
+///   RETURN_TICKS=n       step n ticks before the first frame (a return sends the clock back, so the
+///                        world may then stand earlier than tick n; ADR-0030)
 ///   RETURN_SELECT=key    open the inspector for that cast key (e.g. "you")
 ///   RETURN_OPEN=name     open a bar list at start: orders, work, people or chronicle; "lost" opens
 ///                        the Chronicle on its Lost futures tab (ADR-0030)
@@ -29,6 +30,8 @@ namespace Return.Game;
 ///   RETURN_SCREENSHOT=p  save the window to PNG file p about 3 s after start, then quit
 ///   RETURN_SCREENSHOT_DELAY=s  seconds before that screenshot (default 3; a return's frames
 ///                        play over about 3 s from the moment it happens, ADR-0030)
+///   RETURN_MODS=a,b      content mod folders loaded over content/, comma-separated (for checks, such as
+///                        a short soul's span to see a life end)
 /// </summary>
 public partial class SimHost : Node
 {
@@ -92,7 +95,9 @@ public partial class SimHost : Node
         string contentDir = Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), "..", "content"));
         try
         {
-            Content = ContentDb.Load(contentDir);
+            string[] mods = (Env("RETURN_MODS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            for (int i = 0; i < mods.Length; i++) mods[i] = ResolvePath(mods[i]);
+            Content = ContentDb.Load(contentDir, mods);
         }
         catch (Exception ex) when (ex is ContentException or IOException)
         {
