@@ -394,10 +394,10 @@ public partial class BottomBar : PanelContainer
         }
         else
         {
-            foreach (string l in ViewText.Chronicle(_host!.World)) lines.Add((l, Colors.White));
+            // A life that has ended closes on its own lines (§6.3, ADR-0030), above the newest of what happened.
+            foreach (string l in FateText.EndCard(_host!.World)) lines.Add((l, Ui.Accent));
+            foreach (string l in ViewText.Chronicle(_host.World)) lines.Add((l, Colors.White));
             if (lines.Count == 0) lines.Add((Ui.T("ui.chronicle.empty"), Ui.Dim));
-            // A life that has ended closes on its own lines (§6.3, ADR-0030).
-            foreach (string l in FateText.EndCard(_host.World)) lines.Add((l, Ui.Accent));
         }
         int rows = Math.Max(1, lines.Count);
         while (_chronicle.Rows.GetChildCount() < rows)
