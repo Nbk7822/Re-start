@@ -289,9 +289,7 @@ public static partial class StateApi
         for (int i = all.Count - 1; i >= 0 && all[i].Id > c.OwnHoursEvent; i--)
         {
             SimEvent e = all[i];
-            if (e.Actors.Count > 0 && e.Actors[0] == c.Id
-                && (e.Key.StartsWith("event.social.declined_day_", StringComparison.Ordinal) || e.Key.StartsWith("event.social.kept_old_hours_", StringComparison.Ordinal)))
-                return true;
+            if (e.Actors.Count > 0 && e.Actors[0] == c.Id && IsDecline(e.Key)) return true;
         }
         return false;
     }
@@ -316,9 +314,15 @@ public static partial class StateApi
             or "event.work.left_watch_unrelieved" or "event.work.left_watch_hungry" or "event.work.watch_unkept" or "event.work.worked_late"
             or "event.needs.fell_asleep_on_watch" or "event.needs.worn_out" or "event.incident.work_accident_tired" or "event.incident.stolen_unwatched"
             or "event.social.owes_watch" or "event.social.owes_watch_sworn" or "event.social.blood_refused_woken"
-        || key.StartsWith("event.social.watch_refused_", StringComparison.Ordinal)
-        || key.StartsWith("event.social.declined_day_", StringComparison.Ordinal)
-        || key.StartsWith("event.social.kept_old_hours_", StringComparison.Ordinal);
+            or "event.social.watch_refused_hurt" or "event.social.watch_refused_tired" or "event.social.watch_refused_hungry"
+            or "event.social.watch_refused_grudge"
+        || IsDecline(key) || Array.Exists(Reasons, why => key == WatchSystem.OwnWayKey(why));
+
+    private static readonly string[] Reasons = { Compliance.OwnWay, Compliance.Dislike, Compliance.Mood, Compliance.Ways };
+
+    /// <summary>Going one's own way over a change of day: declining one's own, or keeping the old hours of the camp's.</summary>
+    private static bool IsDecline(string key) =>
+        Array.Exists(Reasons, why => key == ScheduleSystem.DeclinedDayKey(why) || key == ScheduleSystem.KeptOldHoursKey(why));
 
     private static KeyValuePair<string, string>[] Kv(params (string Name, string Value)[] args)
     {
