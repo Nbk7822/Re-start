@@ -204,3 +204,17 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
   - "Domination" needs a measurable definition.
   - Lifespans need to differ by people. Ageless peoples (vampires, undead, perhaps fae) need some other clock, or the lifetime limit means nothing when the player rolls one. This is an open design point.
   - The death-to-fate-knot rewind loop, which today exists only as Truths, Dice and snapshots, must become real gameplay.
+
+## ADR-0025 — Founder sign-off of the Build, Zones, Schedule, Peoples and Culture-and-faith designs
+- **Status:** accepted (2026-11-09), the founder's answers. The documents' other recommended answers stand unless the founder objects.
+- **Context:** The five designs in docs/superpowers/specs asked 36 questions for the founder between them. The four that only the founder could answer went to him; every other question carries a recommended answer at the end of its document.
+- **Decision:**
+  1. **Peoples are our own derivatives.** Beyond the archetypes fixed decision 5 names (vampire, dryad, djinn, fae, undead), each people is an original creation inspired by Earth folklore, with its own name, look and twist, and never a reproduction of a tradition's being. There are no paid tradition readers. The content rules stay: no derivative of anything sacred or venerated, or of a belief still used to harm real people, and no caricature. The exclusions in the peoples design apply to derivatives too. An Earth-born player may notice a resemblance ("Earth folklore tells of something like them").
+  2. **How people feel about you decides how far your rules carry.** One compliance rule covers zones and schedules. Dislike for whoever set the rule raises the odds of someone going their own way, more so for Independent people. It never applies to the player, and it always leaves a Chronicle line.
+  3. **The player starts as a cultural outsider**, with no culture and no faith. They make faux pas until they learn each people's customs, and they keep what they have learned across rewinds.
+  4. **Invented faiths may be dark, within limits.** Blood-gifts, taboos, curses, grim rites and feared gods are welcome. For now there are no human sacrifice or torture rites, and nothing mirrors an Earth religion.
+  5. **Every other question in the five documents** takes the document's recommended answer.
+- **Consequences:**
+  - The peoples design is being revised so that batch 2 onward are derivatives with original names.
+  - Cast names should come from the world's invented cultures, not real-language name lists (peoples design, question 6), so batch 1's names are reviewed when that branch merges.
+  - Build, Zones and Schedule slice 1 start after the peoples and culture branches merge, in the order the designs set.
