@@ -89,9 +89,10 @@ public static class Gifts
     /// <summary>
     /// Harm meant for <paramref name="target"/> is about to land: under Fortune's favourite, harm meant for you lands on
     /// someone near you instead. Returns who is hurt and the event to cite (the target and <paramref name="cause"/> when nothing turns).
+    /// <paramref name="wornOut"/>: the wear that made an accident likelier (ADR-0029), which the turned line cites beside the cause.
     /// </summary>
-    public static (Character Hurt, long Cause) TurnHarm(World w, Character target, int damage, long cause, bool blow) =>
-        target.Id == w.PlayerId && Holds(w, LuckId) ? Luck.Turn(w, target, damage, cause, blow) : (target, cause);
+    public static (Character Hurt, long Cause) TurnHarm(World w, Character target, int damage, long cause, bool blow, long wornOut = 0) =>
+        target.Id == w.PlayerId && Holds(w, LuckId) ? Luck.Turn(w, target, damage, cause, blow, wornOut) : (target, cause);
 
     /// <summary>What you do about your gift before ordinary work (the satchel's share, under its order), or null.</summary>
     public static Job? Job(World w, Character c, bool sunBlocked) =>

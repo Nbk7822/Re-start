@@ -171,7 +171,11 @@ public static class IncidentSystem
         if (c == null || c.Status != CharStatus.Member) return null;
         IncidentDef def = w.Content.IncidentById("work_accident");
         int damage = w.Rng.Dice[DiceSystem.Incident].Range(DiceId.AccidentDamage, def.Param("damageMin"), def.Param("damageMax") + 1);
-        (Character hurt, long turned) = Gifts.TurnHarm(w, c, damage, cause, blow: false); // Fortune's favourite (ADR-0030)
+        // Worn out from long hours (ADR-0029), or working in the dark beyond the firelight (zones design 5.5), they were
+        // likelier to be hurt, and the accident says so; worn out, it also cites the wear, even when your luck turns it onto
+        // someone near you (the dark names no event of its own to cite).
+        bool tired = c.WornOutEvent != 0, dark = Zones.InTheDark(w, c);
+        (Character hurt, long turned) = Gifts.TurnHarm(w, c, damage, cause, blow: false, c.WornOutEvent); // Fortune's favourite (ADR-0030)
         if (hurt != c)
         {
             SimEvent turn = w.Log.Get(turned)!;
@@ -179,9 +183,6 @@ public static class IncidentSystem
             CombatSystem.Hurt(w, hurt, damage, turn.Id, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
             return turn;
         }
-        // Worn out from long hours (ADR-0029), or working in the dark beyond the firelight (zones design 5.5), they were
-        // likelier to be hurt, and the accident says so; worn out, it also cites the wear.
-        bool tired = c.WornOutEvent != 0, dark = Zones.InTheDark(w, c);
         string key = (tired, dark) switch
         {
             (true, true) => "event.incident.work_accident_tired_dark",

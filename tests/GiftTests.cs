@@ -270,6 +270,35 @@ public class GiftTests
         Assert.True(story.Chain.Count >= 3);
     }
 
+    /// <summary>
+    /// Worn out by long duty, you were likelier to be hurt; when your luck turns the accident onto someone near you, the turned
+    /// line still cites the wear (merge review: the turn returned before the wear was read), so the long watch, the wear, the
+    /// accident and the harm that found Mira stay one chain, as far as the grudge it leaves.
+    /// </summary>
+    [Fact]
+    public void ATurnedAccidentStillCitesTheWearThatMadeItLikelier()
+    {
+        Simulation sim = Camp(Gifts.LuckId, 7, "mira");
+        World w = sim.World;
+        Character you = You(w), mira = Cast(w, "mira");
+        mira.Pos = new Point(you.Pos.X + 1, you.Pos.Y);
+        SimEvent watch = w.Log.Emit(w, SystemTag.Work, "event.work.took_watch", new[] { you.Id }, Array.Empty<long>(), null, EventArg.Char("a", you.Id));
+        SimEvent worn = w.Log.Emit(w, SystemTag.Needs, "event.needs.worn_out", new[] { you.Id }, new[] { watch.Id }, null, EventArg.Char("a", you.Id));
+        you.WornOutEvent = worn.Id;
+        SimEvent forage = w.Log.Emit(w, SystemTag.Work, "event.work.foraged", new[] { you.Id }, Array.Empty<long>(), null,
+            EventArg.Char("a", you.Id), EventArg.Num("n", 2), EventArg.Item("item", "berries"));
+
+        SimEvent turned = IncidentSystem.Fire(w, "work_accident", forage.Id, you.Id)!;
+        Assert.Equal("event.gift.luck.turned_accident", turned.Key);
+        Assert.Equal(new[] { forage.Id, worn.Id }, turned.Causes);
+        Assert.Equal(turned.Id, mira.LastHealthEvent);
+
+        Relations.ChangeOpinion(w, you, mira.Id, -38 - Relations.Opinion(w, you.Id, mira.Id), 0);
+        SocialSystem.Insult(w, mira, you);
+        SimEvent grudge = w.Log.All.Last(e => e.Key == "event.social.grudge_formed");
+        Assert.Contains(worn.Id, StoryEndingAt(w, grudge.Id).Chain);
+    }
+
     [Fact]
     public void DeathPassesYouByOnceASeason()
     {

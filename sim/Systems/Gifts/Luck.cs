@@ -15,7 +15,8 @@ namespace Return.Sim.Systems;
 /// </summary>
 public static class Luck
 {
-    public static (Character Hurt, long Cause) Turn(World w, Character you, int damage, long cause, bool blow)
+    /// <param name="wornOut">The wear that made an accident likelier, cited beside the cause (merge review); 0 when none.</param>
+    public static (Character Hurt, long Cause) Turn(World w, Character you, int damage, long cause, bool blow, long wornOut = 0)
     {
         GiftDef g = Gifts.Held(w)!;
         int tier = w.Gift.Tier, reach = g.Num("reach", tier);
@@ -40,7 +41,7 @@ public static class Luck
         Character victim = tied.Count == 1 ? tied[0] : tied[w.Rng.Dice[DiceSystem.Fate].Range(DiceId.LuckVictim, 0, tied.Count)];
 
         string key = passes ? "event.gift.luck.death_passed" : blow ? "event.gift.luck.turned_blow" : "event.gift.luck.turned_accident";
-        SimEvent turned = w.Log.Emit(w, SystemTag.Gift, key, new[] { you.Id, victim.Id }, new[] { cause }, null,
+        SimEvent turned = w.Log.Emit(w, SystemTag.Gift, key, new[] { you.Id, victim.Id }, new[] { cause, wornOut }, null,
             EventArg.Char("a", you.Id), EventArg.Char("b", victim.Id));
         Gifts.Awaken(w, turned.Id, dream: false);
         MoodSystem.AddThought(w, victim, "ill_luck", you.Id, turned.Id);
