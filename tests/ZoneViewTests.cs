@@ -142,4 +142,55 @@ public class ZoneViewTests
         IReadOnlyList<string> lines = ViewText.TileLines(w, StateApi.Location(w, pile.X, pile.Y));
         Assert.Contains("Stockpile (berries, timber)", lines);
     }
+
+    /// <summary>The home area's hint names what a drawn area would leave outside: the watch post, a bed, a stockpile tile, reading the one area a drag joins.</summary>
+    [Fact]
+    public void TheHomeAreasHintSaysWhatItWouldLeaveOutside()
+    {
+        World w = WorldGen.Create(Content, 1);
+        var tool = new ZoneTool();
+        tool.Start("home");
+        Rect clearing = WorldGen.ClearingOf(w.Map.Shelter);
+        void Box(Rect r)
+        {
+            tool.Move(new Point(r.X, r.Y));
+            tool.Press(new Point(r.X, r.Y));
+            tool.Move(new Point(r.X + r.W - 1, r.Y + r.H - 1));
+        }
+        Box(clearing);
+        Assert.Equal("Home area · 418 tiles · by the hearth", ZoneText.Cursor(w, tool));
+        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+        var shortBox = new Rect(clearing.X, clearing.Y, clearing.W, w.Map.WatchPost.Y - clearing.Y);
+        Box(shortBox);
+        Assert.EndsWith("· leaves the watch post outside", ZoneText.Cursor(w, tool));
+        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+        Point h = w.Map.Hearth;
+        Box(new Rect(h.X - 2, h.Y - 2, 5, 5));
+        Assert.Equal("Home area · 25 tiles · by the hearth · leaves the watch post outside · leaves the beds outside · leaves the stockpile outside", ZoneText.Cursor(w, tool));
+        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+
+        // With a home area already drawn round the camp, a small box joins it, so nothing is left outside.
+        new MarkZone(w.Tick, 0, "home", Zones.FromRect(clearing)).Apply(w);
+        Box(new Rect(h.X - 2, h.Y - 2, 5, 5));
+        Assert.Equal("Home area · 25 tiles · by the hearth", ZoneText.Cursor(w, tool));
+        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+
+        // Unmarking counts the home area's tiles too.
+        tool.StartUnmark();
+        Box(new Rect(clearing.X, clearing.Y, 2, 1));
+        Assert.Equal("Unmark · 2 tiles", ZoneText.Cursor(w, tool));
+    }
+
+    [Fact]
+    public void TheListOffersTheHomeAreaAndRowsIt()
+    {
+        World w = WorldGen.Create(Content, 1);
+        Assert.Contains(StateApi.ZoneKinds(w), k => k.Id == "home" && k.Name == "Home area" && k.Hint == "Where people stay after dark" && k.Single);
+        new MarkZone(w.Tick, 0, "home", Zones.FromRect(WorldGen.ClearingOf(w.Map.Shelter))).Apply(w);
+        ZoneState home = StateApi.Zones(w).Single(z => z.Kind == "home");
+        Assert.Equal("Home area by the hearth · 418 tiles", ZoneText.Row(home));
+        Assert.True(Zones.CanRemove(w, w.Map.Zones, home.Id));
+        Assert.Equal("Take this zone away", ZoneText.RemoveHint(w, home, allowed: true));
+    }
 }
+

@@ -29,20 +29,28 @@ public static class ZoneText
     /// <summary>An item toggle's tooltip when it cannot be unticked.</summary>
     public static string NeedsAnother(World w, string itemId) => Ui.F("ui.zones.needs_another", ("item", Ui.T(w.Content.ItemById(itemId).NameKey)));
 
-    /// <summary>The hint by the cursor while marking or unmarking: the zone, its tiles and place, and the facts that matter for its kind.</summary>
-    public static string Cursor(World w, ZoneTool tool)
+    /// <summary>
+    /// The hint by the cursor while marking or unmarking: the zone, its tiles and place, and the facts that matter for its kind.
+    /// <paramref name="zones"/> is what the player sees (applied, queued and drafted); the world's zones if null.
+    /// </summary>
+    public static string Cursor(World w, ZoneTool tool, IReadOnlyList<Zone>? zones = null)
     {
         if (!tool.Active || (!tool.Dragging && tool.Hover == Point.None)) return "";
         Rect box = tool.Dragging ? tool.Box : new Rect(tool.Hover.X, tool.Hover.Y, 1, 1);
         if (tool.Unmarking)
         {
+            IReadOnlyList<Zone> shown = zones ?? w.Map.Zones;
             int n = 0;
             foreach (Point p in ZoneTool.Tiles(box))
-                if (Zones.UseZoneAt(w, p) != null) n++;
+            {
+                bool any = false;
+                foreach (Zone z in shown) any |= Zones.Contains(z.Tiles, p);
+                if (any) n++;
+            }
             return Ui.F(n == 1 ? "ui.zones.cursor.unmark_one" : "ui.zones.cursor.unmark", ("n", Ui.N(n)));
         }
         ZoneDef def = w.Content.ZoneById(tool.Kind!);
-        ZoneTool.Facts facts = ZoneTool.FactsFor(w, def.Id, box);
+        ZoneTool.Facts facts = ZoneTool.FactsFor(w, def.Id, box, zones);
         if (facts.Tiles == 0) return Ui.T("ui.zones.cursor.none");
         var parts = new List<string>
         {
@@ -54,6 +62,9 @@ public static class ZoneText
             parts.Add(Ui.T(facts.Dry ? "ui.zones.cursor.dry" : "ui.zones.cursor.open"));
             if (facts.OutOfSight) parts.Add(Ui.T("ui.zones.cursor.out_of_sight"));
         }
+        if (facts.PostOutside) parts.Add(Ui.T("ui.zones.cursor.post_outside"));
+        if (facts.BedsOutside) parts.Add(Ui.T("ui.zones.cursor.beds_outside"));
+        if (facts.StockpileOutside) parts.Add(Ui.T("ui.zones.cursor.stockpile_outside"));
         return string.Join(Ui.T("ui.zones.cursor.sep"), parts);
     }
 

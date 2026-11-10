@@ -14,9 +14,10 @@ namespace Return.Game;
 /// <summary>
 /// Zones on the map (ADR-0028), drawn every frame from the sim's zones as they will be once queued and
 /// drafted choices apply. The rest of the time a stockpile or meeting place shows only its dashed edge,
-/// as the stockpile always did; while the Zones list is open or a marking tool is in hand every zone
-/// shows a faint fill, its edge and its name. A zone drafted while paused is hatched. The box being
-/// dragged shows the tiles it can take, and a ✕ on those it cannot. Muted colours, thin lines (ADR-0019).
+/// as the stockpile always did, and the home area its edge after dusk; while the Zones list is open or a
+/// marking tool is in hand every zone shows a faint fill, its edge and its name. A zone drafted while
+/// paused is hatched. The box being dragged shows the tiles it can take, and a ✕ on those it cannot.
+/// Muted colours, thin lines (ADR-0019).
 /// </summary>
 public partial class MapView
 {
@@ -55,43 +56,54 @@ public partial class MapView
         }
     }
 
-    /// <summary>Zones in the lit world pass, under everything that stands, so night tints them like the ground.</summary>
+    /// <summary>
+    /// Zones in the lit world pass, under everything that stands, so night tints them like the ground. Areas (the home area)
+    /// go first, under the stockpiles and meeting places, with a fainter fill; while zones are not shown the home area's
+    /// dashed edge shows only after dusk, when it matters (zones design 4.3).
+    /// </summary>
     private void DrawZones(World w)
     {
+        bool full = _host!.ZonesShown, dark = Zones.IsDark(w);
+        List<Zone> shown = Zones.Preview(w, _host.Drafts.All);
+        foreach (Zone z in shown)
+            if (w.Content.TryZone(z.Kind) is { } def && def.Layer != Zones.UseLayer) DrawZone(w, z, def, full, dark);
+        foreach (Zone z in shown)
+            if (w.Content.TryZone(z.Kind) is { Layer: Zones.UseLayer } def) DrawZone(w, z, def, full, dark);
+        DrawDrag(w);
+    }
+
+    /// <summary>One zone: its faint fill while zones are shown, hatching while drafted, and its dashed edge.</summary>
+    private void DrawZone(World w, Zone z, ZoneDef def, bool full, bool dark)
+    {
         const float T = TileSize;
-        bool full = _host!.ZonesShown;
-        List<Zone> applied = w.Map.Zones;
-        foreach (Zone z in Zones.Preview(w, _host.Drafts.All))
+        bool area = def.Layer != Zones.UseLayer, home = def.Behaviour == Zones.HomeArea;
+        if (home && !full && !dark) return;
+        Color c = ZoneColor(def);
+        Zone? now = w.Map.Zones.Find(a => a.Id == z.Id);
+        bool drafted = now == null || !now.Tiles.SequenceEqual(z.Tiles);
+        _zoneTiles.Clear();
+        foreach (SimPoint p in Zones.Each(z.Tiles)) _zoneTiles.Add(p);
+        foreach (SimPoint p in _zoneTiles)
         {
-            if (w.Content.TryZone(z.Kind) is not { } def) continue;
-            Color c = ZoneColor(def);
-            Zone? now = applied.Find(a => a.Id == z.Id);
-            bool drafted = now == null || !now.Tiles.SequenceEqual(z.Tiles);
-            _zoneTiles.Clear();
-            foreach (SimPoint p in Zones.Each(z.Tiles)) _zoneTiles.Add(p);
-            foreach (SimPoint p in _zoneTiles)
+            float x = p.X * T, y = p.Y * T;
+            if (full) _brush.Rect(x, y, T, T, c.WithAlpha(area ? 0.07f : 0.15f));
+            if (drafted)
             {
-                float x = p.X * T, y = p.Y * T;
-                if (full) _brush.Rect(x, y, T, T, c.WithAlpha(0.15f));
-                if (drafted)
-                {
-                    Color hatch = c.WithAlpha(0.45f);
-                    _brush.Line(x, y + T * 0.5f, x + T * 0.5f, y, hatch, 1f);
-                    _brush.Line(x, y + T, x + T, y, hatch, 1f);
-                    _brush.Line(x + T * 0.5f, y + T, x + T, y + T * 0.5f, hatch, 1f);
-                }
-            }
-            Color edge = c.WithAlpha(full ? 0.85f : 0.45f);
-            foreach (SimPoint p in _zoneTiles)
-            {
-                float x = p.X * T, y = p.Y * T;
-                if (!_zoneTiles.Contains(new SimPoint(p.X, p.Y - 1))) _brush.Dashed(new Vector2(x, y + 1f), new Vector2(x + T, y + 1f), edge, 1.2f, 4f);
-                if (!_zoneTiles.Contains(new SimPoint(p.X, p.Y + 1))) _brush.Dashed(new Vector2(x, y + T - 1f), new Vector2(x + T, y + T - 1f), edge, 1.2f, 4f);
-                if (!_zoneTiles.Contains(new SimPoint(p.X - 1, p.Y))) _brush.Dashed(new Vector2(x + 1f, y), new Vector2(x + 1f, y + T), edge, 1.2f, 4f);
-                if (!_zoneTiles.Contains(new SimPoint(p.X + 1, p.Y))) _brush.Dashed(new Vector2(x + T - 1f, y), new Vector2(x + T - 1f, y + T), edge, 1.2f, 4f);
+                Color hatch = c.WithAlpha(0.45f);
+                _brush.Line(x, y + T * 0.5f, x + T * 0.5f, y, hatch, 1f);
+                _brush.Line(x, y + T, x + T, y, hatch, 1f);
+                _brush.Line(x + T * 0.5f, y + T, x + T, y + T * 0.5f, hatch, 1f);
             }
         }
-        DrawDrag(w);
+        Color edge = c.WithAlpha(full ? 0.85f : home ? 0.35f : 0.45f);
+        foreach (SimPoint p in _zoneTiles)
+        {
+            float x = p.X * T, y = p.Y * T;
+            if (!_zoneTiles.Contains(new SimPoint(p.X, p.Y - 1))) _brush.Dashed(new Vector2(x, y + 1f), new Vector2(x + T, y + 1f), edge, 1.2f, 4f);
+            if (!_zoneTiles.Contains(new SimPoint(p.X, p.Y + 1))) _brush.Dashed(new Vector2(x, y + T - 1f), new Vector2(x + T, y + T - 1f), edge, 1.2f, 4f);
+            if (!_zoneTiles.Contains(new SimPoint(p.X - 1, p.Y))) _brush.Dashed(new Vector2(x + 1f, y), new Vector2(x + 1f, y + T), edge, 1.2f, 4f);
+            if (!_zoneTiles.Contains(new SimPoint(p.X + 1, p.Y))) _brush.Dashed(new Vector2(x + T - 1f, y), new Vector2(x + T - 1f, y + T), edge, 1.2f, 4f);
+        }
     }
 
     /// <summary>The box being dragged: tiles a zone can take in its colour (unmarking: a dark wash), a ✕ on the rest.</summary>
@@ -129,7 +141,7 @@ public partial class MapView
             var corner = new Vector2(z.Tiles[0].X * TileSize + 3f, z.Tiles[0].Y * TileSize + 2f);
             Text(_toScreen * corner, Ui.T(def.NameKey), CountFontSize, ZoneColor(def).Lightened(0.35f), Vector2.Zero, 3);
         }
-        string hint = ZoneText.Cursor(w, _host.Tool);
+        string hint = ZoneText.Cursor(w, _host.Tool, Zones.Preview(w, _host.Drafts.All));
         if (hint.Length > 0) Text(GetViewport().GetMousePosition() + new Vector2(16f, 18f), hint, NameFontSize, Palette.Name, Vector2.Zero, 4);
     }
 

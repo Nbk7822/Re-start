@@ -28,6 +28,7 @@ namespace Return.Game;
 ///                        "zone:KIND:X:Y:W:H" picks a kind in Zones and drags a W×H box from tile
 ///                        (X, Y) with the marking tool; "unzone:X:Y:W:H" does the same with Unmark;
 ///                        "open:NAME" opens a bar list as its button would (orders, zones, work, ...);
+///                        "stop" puts the marking tool down, as right-click or Esc does;
 ///                        "camp:B:F:T" paints the camp's day with block B (0 sleep, 1 work, 2 free time)
 ///                        from hour F to T (exclusive, wrapping) in Schedule, "night:B:F:T" the night
 ///                        folk's day, "person:B:F:T" the open inspector's day, "watch:F:T" sets the
@@ -272,6 +273,11 @@ public partial class SimHost : Node
     /// </summary>
     private bool PressZoneForCheck(string item)
     {
+        if (item == "stop")
+        {
+            StopZoneTool(); // puts the marking tool down, as right-click or Esc does
+            return true;
+        }
         string[] parts = item.Split(':');
         if (parts.Length == 2 && parts[0] == "open")
         {

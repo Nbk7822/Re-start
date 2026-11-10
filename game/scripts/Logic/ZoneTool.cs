@@ -154,15 +154,23 @@ public sealed class ZoneTool
         return commands;
     }
 
-    /// <summary>What the hint by the cursor says about the box: how many tiles the zone would take, where, and the facts that matter for its kind.</summary>
-    public readonly record struct Facts(int Tiles, string PlaceKey, bool Dry, bool OutOfSight);
+    /// <summary>
+    /// What the hint by the cursor says about the box: how many tiles the zone would take, where, and the facts that matter
+    /// for its kind: for a stockpile whether it is dry and out of the watch's sight; for the home area what it would leave
+    /// outside (the watch post, a bed, a stockpile tile), the three ways a home area quietly costs the camp a watch, sleep
+    /// or food after dark (zones design 4.2).
+    /// </summary>
+    public readonly record struct Facts(int Tiles, string PlaceKey, bool Dry, bool OutOfSight,
+        bool PostOutside = false, bool BedsOutside = false, bool StockpileOutside = false);
 
     /// <summary>
     /// The facts for marking this box: the tiles a zone could take, the place they would lie, and for a
     /// stockpile whether it is dry (every tile under cover) and whether it lies out of the watch's sight
-    /// (every tile beyond what the post sees).
+    /// (every tile beyond what the post sees). For the home area, whose one area a drag joins, they are read
+    /// from the area it would make: the box with the home area as <paramref name="zones"/> shows it (applied,
+    /// queued and drafted), or the world's.
     /// </summary>
-    public static Facts FactsFor(World w, string kind, Rect box)
+    public static Facts FactsFor(World w, string kind, Rect box, IReadOnlyList<Zone>? zones = null)
     {
         ZoneDef? def = w.Content.TryZone(kind);
         if (def == null) return new Facts(0, "place_phrase.open", false, false);
@@ -173,6 +181,17 @@ public sealed class ZoneTool
             if (!w.Map.Covered(p)) dry = false;
             if (p.ChebyshevTo(w.Map.WatchPost) <= CombatSystem.SightRange) unseen = false;
         }
-        return new Facts(tiles.Count, Zones.PlacePhraseKey(w, Zones.Canonical(tiles)), dry, unseen);
+        var facts = new Facts(tiles.Count, Zones.PlacePhraseKey(w, Zones.Canonical(tiles)), dry, unseen);
+        if (def.Behaviour != Zones.HomeArea || tiles.Count == 0) return facts;
+        IReadOnlyList<Zone> shown = zones ?? w.Map.Zones;
+        var area = new HashSet<Point>(tiles);
+        foreach (Zone z in shown)
+            if (z.Kind == def.Id) area.UnionWith(Zones.Each(z.Tiles));
+        bool beds = false, pile = false;
+        foreach (Bed b in w.Map.Beds) beds |= !area.Contains(b.Pos);
+        foreach (Zone z in shown)
+            if (Zones.IsStores(w, z))
+                foreach (Point p in Zones.Each(z.Tiles)) pile |= !area.Contains(p);
+        return facts with { PostOutside = !area.Contains(w.Map.WatchPost), BedsOutside = beds, StockpileOutside = pile };
     }
 }

@@ -50,6 +50,9 @@
   "ui.zones.cursor.dry": "dry",
   "ui.zones.cursor.open": "open to the damp",
   "ui.zones.cursor.out_of_sight": "out of the watch's sight",
+  "ui.zones.cursor.post_outside": "leaves the watch post outside",
+  "ui.zones.cursor.beds_outside": "leaves the beds outside",
+  "ui.zones.cursor.stockpile_outside": "leaves the stockpile outside",
   "ui.zones.cursor.none": "Nothing can be marked here",
   "ui.zones.cursor.sep": " · ",
 
