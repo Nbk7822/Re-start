@@ -377,3 +377,12 @@ The founder played the merged slice of Who you are and Return by Death with `too
   - Nothing showed the founder what was remembered (ADR-0031 #5: a memory of what you learned, and lost futures that hurt).
   - The run missed the founder's goal of a story the player can't forget.
 - This counts as a miss, and ADR-0031 asks for misses to be recorded. It is not yet the full play check: that needs two hours, the opening act, and two players who have never seen the game.
+
+## 2026-11-10 — The merge, reviewed (ADR-0029's merge review; soaks of 300 worlds × 1 year)
+
+With default flags nothing moved: every story log on seeds 1–300 is byte-identical to the merge's. With `--plan mixed`, 15 building worlds moved, all because hours spent building now count as work (17.50 stories a world-year against 17.48).
+
+### Thessil's roof (seed 223, soak `--plan mixed`; plan camp)
+On the morning of Day 39 you marked out a roof section, and early in the afternoon you used the last of the timber on it. The hours Thessil had given the building wore her out ("Thessil is worn out from long hours", at 16:00), and twenty minutes later she raised the section and, worn out, was hurt in an accident while working. She collapsed within the hour. Bram tended her wounds, and now Thessil owes him for it.
+- Chain: roof marked (World) → the last of the timber → the section built (Work) → hurt, worn out (Incident) → collapsed (Needs) → tended → owes Bram (Social). 7 steps, five systems.
+- Why it matters: before the review, the hours a builder spent building counted as needs, so a long day raising the hut never wore anyone out. Now building tires people as other work does, and the accident says that she was worn out.
