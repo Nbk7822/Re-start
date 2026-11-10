@@ -606,6 +606,37 @@ public class WatchTests
         Assert.Contains(ilex.Thoughts, t => t.DefId == "was_refused" && t.AboutId == mira.Id);
     }
 
+    /// <summary>
+    /// A sleeper who said no when woken is asked again once rested (BIBLE 8.4), not woken again and again through the night:
+    /// back in bed and still short of rest they are passed over; rested, or up and about, they may be asked.
+    /// </summary>
+    [Fact]
+    public void AVampireWakesNoSleeperAgainBeforeTheyHaveRested()
+    {
+        World w = Camp(1, "ilex", "mira").World;
+        Character ilex = w.Characters.First(c => c.CastKey == "ilex"), mira = w.Characters.First(c => c.CastKey == "mira");
+        w.Tick = Hours(w, 24 + 23);
+        Asleep(w, mira);
+        mira.Rest = 500;
+        ilex.Pos = Places.Adjacent(w, mira.Pos, mira.Pos);
+        var job = new Job { Kind = JobKind.RequestBlood, TargetId = mira.Id, Target = mira.Pos, StartedTick = w.Tick };
+        ilex.Job = job;
+        BloodJobs.Request(w, ilex, job);
+        Assert.Single(w.Log.All, e => e.Key == "event.social.blood_refused_woken");
+        ilex.Job = null;
+
+        w.Tick += Hours(w, 2.5);
+        Asleep(w, mira);
+        mira.Rest = BloodJobs.WokenRefusesBelowRest - 50;
+        Assert.Null(BloodJobs.PickDonor(w, ilex)); // still short of rest: not woken again
+        mira.Rest = BloodJobs.WokenRefusesBelowRest;
+        Assert.Equal(mira.Id, BloodJobs.PickDonor(w, ilex)?.Id); // rested: asked again
+        mira.Rest = BloodJobs.WokenRefusesBelowRest - 50;
+        mira.Asleep = false;
+        mira.Job = null;
+        Assert.Equal(mira.Id, BloodJobs.PickDonor(w, ilex)?.Id); // up and about: asked, and nobody is woken
+    }
+
     // ---- Design test 16: the undead at the watch ----
 
     [Fact]

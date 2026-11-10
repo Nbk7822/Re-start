@@ -23,7 +23,7 @@ public static class BloodJobs
         foreach (Character h in w.Characters)
         {
             if (h.Status != CharStatus.Member || h.Id == vampire.Id || h.Downed) continue;
-            if (!Places.Species(w, h).CanDonateBlood || RefusedRecently(w, vampire, h.Id)) continue;
+            if (!Places.Species(w, h).CanDonateBlood || RefusedRecently(w, vampire, h)) continue;
             if (Places.Targeted(w, JobKind.RequestBlood, h.Id, vampire.Id) || WatchSystem.OnDuty(w, h)) continue;
             int op = Relations.Opinion(w, vampire.Id, h.Id), d = vampire.Pos.ChebyshevTo(h.Pos);
             bool awake = !h.Asleep;
@@ -45,7 +45,7 @@ public static class BloodJobs
         foreach (Character v in w.Characters)
         {
             if (v.Status != CharStatus.Member || v.Id == donor.Id || !Places.Species(w, v).DrinksBlood) continue;
-            if (v.Food >= 170 || BeingFed(w, v) || RefusedRecently(w, v, donor.Id) || InSun(w, v) || WatchSystem.OnDuty(w, v)) continue;
+            if (v.Food >= 170 || BeingFed(w, v) || RefusedRecently(w, v, donor) || InSun(w, v) || WatchSystem.OnDuty(w, v)) continue;
             int d = donor.Pos.ChebyshevTo(v.Pos);
             if (d < bestDist) { best = v; bestDist = d; }
         }
@@ -194,11 +194,17 @@ public static class BloodJobs
     /// <summary>A vampire caught outside in (or just before) daylight must reach cover first; feeding waits.</summary>
     private static bool InSun(World w, Character v) => Places.BurnsInDaylight(w, v) && Places.SunDanger(w) && !w.Map.Covered(v.Pos);
 
-    /// <summary>Turned down by them in the last day; a sleeper's tired no does not count: once rested they may be asked again (ADR-0029).</summary>
-    private static bool RefusedRecently(World w, Character asker, int otherId)
+    /// <summary>
+    /// Turned down by them in the last day. A sleeper's tired no strikes them off only while they sleep on short of rest:
+    /// rested, or up and about, they may be asked again (ADR-0029, BIBLE 8.4), but they are not woken again and again.
+    /// </summary>
+    private static bool RefusedRecently(World w, Character asker, Character other)
     {
         foreach (Thought t in asker.Thoughts)
-            if (t.DefId == "was_refused" && t.AboutId == otherId && w.Log.Get(t.CauseEvent)?.Key != "event.social.blood_refused_woken") return true;
+        {
+            if (t.DefId != "was_refused" || t.AboutId != other.Id) continue;
+            if (w.Log.Get(t.CauseEvent)?.Key != "event.social.blood_refused_woken" || (other.Asleep && other.Rest < WokenRefusesBelowRest)) return true;
+        }
         return false;
     }
 
