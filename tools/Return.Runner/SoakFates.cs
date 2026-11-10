@@ -9,12 +9,12 @@ namespace Return.Runner;
 /// <summary>
 /// What one world's run says about Return by Death and your gift (the player design §10, ADR-0030): who you were, your
 /// returns (natural or forced), how far back each went, the lost futures and their stories, the final log's stories
-/// that cross a return or carry a gift event, companions' deaths, death loops, and whether your gift's own target
-/// event happened.
+/// that carry a Fate or gift event, those of them that run through a return, and those with a gift event, companions'
+/// deaths, death loops, and whether your gift's own target event happened.
 /// </summary>
 public sealed record FateTally(
     string People, string Gift, int Returns, int NaturalReturns, IReadOnlyList<string> NaturalDeathKeys, IReadOnlyList<long> TicksBack,
-    int Deep, int Futures, int FuturesWithStory, int LostStories, int Stories, int CrossingStories, int GiftChainStories,
+    int Deep, int Futures, int FuturesWithStory, int LostStories, int Stories, int FateOrGiftStories, int CrossingStories, int GiftChainStories,
     int CompanionDeaths, bool ThreeInThree, bool FourInThree, bool GiftTarget, long TicksPerDay);
 
 /// <summary>The soak's totals for Return by Death and the gifts; summary.json's "fates" object holds the same.</summary>
@@ -29,6 +29,12 @@ public sealed class FateSummary
     public int LostFutures { get; init; }
     public int LostFuturesWithStory { get; init; }
     public int LostStories { get; init; }
+
+    /// <summary>Final-log stories with a Fate or gift event on their chain (the design's --fates bar), and in how many worlds.</summary>
+    public int FateOrGiftStories { get; init; }
+    public int FateOrGiftWorlds { get; init; }
+
+    /// <summary>Final-log stories whose chain runs through a return (its line, or a memory or familiar face citing it), and in how many worlds.</summary>
     public int CrossingStories { get; init; }
     public int CrossingWorlds { get; init; }
     public int GiftChainStories { get; init; }
@@ -72,11 +78,11 @@ public static class SoakFates
             if (lf.StoriesFound > 0) withStory++;
             lost += lf.StoriesFound;
         }
-        int crossing = 0, giftChains = 0;
+        int fateOrGift = 0, crossing = 0, giftChains = 0;
         bool satchelChain = false;
         foreach (Story s in stories)
         {
-            bool fate = false, gift = false;
+            bool fate = false, gift = false, throughReturn = false;
             foreach (long id in s.Chain)
                 if (w.Log.Get(id) is { } e)
                 {
@@ -84,8 +90,11 @@ public static class SoakFates
                         || e.Key.StartsWith("event.gift.", StringComparison.Ordinal)) fate = true;
                     if (e.System == SystemTag.Gift || e.Key.StartsWith("event.gift.", StringComparison.Ordinal)) gift = true;
                     if (e.Key.StartsWith("event.gift.satchel.", StringComparison.Ordinal)) satchelChain = true;
+                    // Everything a return brings (a memory, a familiar face) cites its line, so a chain the return shaped holds it.
+                    if (e.Key == Fate.ReturnedKey) throughReturn = true;
                 }
-            if (fate) crossing++;
+            if (fate) fateOrGift++;
+            if (throughReturn) crossing++;
             if (gift) giftChains++;
         }
         int companions = 0;
@@ -100,7 +109,7 @@ public static class SoakFates
             _ => false,
         };
         return new FateTally(f.PeopleId, f.GiftId.Length == 0 ? "none" : f.GiftId, f.Returns, natural, naturalKeys, back, deep,
-            f.LostFutures.Count, withStory, lost, stories.Count, crossing, giftChains, companions,
+            f.LostFutures.Count, withStory, lost, stories.Count, fateOrGift, crossing, giftChains, companions,
             Loop(f.LostFutures, 3, 3L * def.TicksPerDay), Loop(f.LostFutures, 4, 3L * def.TicksPerDay), target, def.TicksPerDay);
     }
 
@@ -136,7 +145,8 @@ public static class SoakFates
         var worldsByGift = new Dictionary<string, int>(StringComparer.Ordinal);
         var targets = new Dictionary<string, int>(StringComparer.Ordinal);
         int returns = 0, returnWorlds = 0, natural = 0, naturalWorlds = 0, deep = 0, futures = 0, withStory = 0, lost = 0;
-        int crossing = 0, crossingWorlds = 0, giftChains = 0, giftWorlds = 0, companions = 0, three = 0, four = 0, stories = 0, timelines = 0;
+        int fateOrGift = 0, fateOrGiftWorlds = 0, crossing = 0, crossingWorlds = 0, giftChains = 0, giftWorlds = 0;
+        int companions = 0, three = 0, four = 0, stories = 0, timelines = 0;
         long back = 0;
         foreach (FateTally t in tallies)
         {
@@ -155,6 +165,8 @@ public static class SoakFates
             futures += t.Futures;
             withStory += t.FuturesWithStory;
             lost += t.LostStories;
+            fateOrGift += t.FateOrGiftStories;
+            if (t.FateOrGiftStories > 0) fateOrGiftWorlds++;
             crossing += t.CrossingStories;
             if (t.CrossingStories > 0) crossingWorlds++;
             giftChains += t.GiftChainStories;
@@ -189,6 +201,8 @@ public static class SoakFates
             LostFutures = futures,
             LostFuturesWithStory = withStory,
             LostStories = lost,
+            FateOrGiftStories = fateOrGift,
+            FateOrGiftWorlds = fateOrGiftWorlds,
             CrossingStories = crossing,
             CrossingWorlds = crossingWorlds,
             GiftChainStories = giftChains,
@@ -220,6 +234,8 @@ public static class SoakFates
         json.WriteNumber("lostFutures", f.LostFutures);
         json.WriteNumber("lostFuturesWithStory", f.LostFuturesWithStory);
         json.WriteNumber("lostStories", f.LostStories);
+        json.WriteNumber("fateOrGiftStories", f.FateOrGiftStories);
+        json.WriteNumber("fateOrGiftWorlds", f.FateOrGiftWorlds);
         json.WriteNumber("crossingStories", f.CrossingStories);
         json.WriteNumber("crossingWorlds", f.CrossingWorlds);
         json.WriteNumber("giftChainStories", f.GiftChainStories);

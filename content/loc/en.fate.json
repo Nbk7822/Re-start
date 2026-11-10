@@ -184,7 +184,7 @@
   "log.system.fate": "Fate",
   "log.system.gift": "Gift",
   "log.soak.fates": "Returns: {returns} in {worlds} of {total} worlds ({natural} by the world's own dangers, in {natural_worlds} worlds). Days sent back: {days} on average; deep-past share {deep}‰.",
-  "log.soak.fates_stories": "Lost futures: {futures}, {with_story} holding a story ({lost} stories in all). Final-log stories crossing a return: {crossing}, in {crossing_worlds} worlds.",
+  "log.soak.fates_stories": "Lost futures: {futures}, {with_story} holding a story ({lost} stories in all). Final-log stories with a Fate or gift event: {fate_or_gift}, in {fate_or_gift_worlds} worlds; running through a return: {crossing}, in {crossing_worlds} worlds.",
   "log.soak.deaths": "Your deaths by cause:",
   "log.soak.companion_deaths": "Companions' deaths: {n} ({per_year} a world-year).",
   "log.soak.death_loops": "Death loops (three deaths in three days): {n}."

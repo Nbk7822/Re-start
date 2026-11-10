@@ -282,7 +282,8 @@ public static class Soak
             ("natural", Num(f.NaturalReturns)), ("natural_worlds", Num(f.NaturalReturnWorlds)),
             ("days", f.AverageDaysBack.ToString("0.00", Inv)), ("deep", Num(f.DeepPermille))));
         Line(o, Format(loc, "log.soak.fates_stories", ("futures", Num(f.LostFutures)), ("with_story", Num(f.LostFuturesWithStory)),
-            ("lost", Num(f.LostStories)), ("crossing", Num(f.CrossingStories)), ("crossing_worlds", Num(f.CrossingWorlds))));
+            ("lost", Num(f.LostStories)), ("fate_or_gift", Num(f.FateOrGiftStories)), ("fate_or_gift_worlds", Num(f.FateOrGiftWorlds)),
+            ("crossing", Num(f.CrossingStories)), ("crossing_worlds", Num(f.CrossingWorlds))));
         Line(o, Format(loc, "log.soak.companion_deaths", ("n", Num(f.CompanionDeaths)), ("per_year", f.CompanionDeathsPerWorldYear.ToString("0.00", Inv))));
         Line(o, Format(loc, "log.soak.death_loops", ("n", Num(f.ThreeDeathsInThreeDaysWorlds))));
         if (f.NaturalDeathsByCause.Count > 0)

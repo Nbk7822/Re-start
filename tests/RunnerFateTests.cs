@@ -78,7 +78,7 @@ public class RunnerFateTests
             using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(serial, Soak.SummaryFile)));
             JsonElement fates = doc.RootElement.GetProperty("fates");
             Assert.Equal(4, fates.GetProperty("returnWorlds").GetInt32());
-            foreach (string field in new[] { "naturalReturns", "averageDaysBack", "deepPermille", "lostFuturesWithStory", "crossingStories", "companionDeathsPerWorldYear", "giftTargetWorlds" })
+            foreach (string field in new[] { "naturalReturns", "averageDaysBack", "deepPermille", "lostFuturesWithStory", "fateOrGiftStories", "crossingStories", "companionDeathsPerWorldYear", "giftTargetWorlds" })
                 Assert.True(fates.TryGetProperty(field, out _), "summary.json's fates has no " + field);
             Assert.Contains("Returns: ", printed);
             Assert.DoesNotContain("⟦", printed);
@@ -88,6 +88,28 @@ public class RunnerFateTests
             Directory.Delete(serial, true);
             Directory.Delete(threaded, true);
         }
+    }
+
+    /// <summary>
+    /// A story crosses a return only if its chain runs through one (the return's line, which every memory and familiar face
+    /// cites); a gift's story in a life that never died carries a gift event but crosses nothing. Seed 13: you are a djinn
+    /// with Fortune's favourite, never die in the year, and the harm your luck turns is on a story chain.
+    /// </summary>
+    [Fact]
+    public void OnlyAStoryThroughAReturnCrossesOne()
+    {
+        Simulation quiet = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 13, 1);
+        Assert.Equal(0, quiet.World.Fate.Returns);
+        FateTally t = SoakFates.Tally(quiet.World, StoryLog.Analyze(quiet.World).Stories);
+        Assert.True(t.FateOrGiftStories > 0, "seed 13's luck should reach a story");
+        Assert.Equal(0, t.CrossingStories);
+
+        Simulation fated = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 3, 1);
+        Assert.True(fated.World.Fate.Returns > 0);
+        IReadOnlyList<Return.Sim.Stories.Story> stories = StoryLog.Analyze(fated.World).Stories;
+        FateTally f = SoakFates.Tally(fated.World, stories);
+        Assert.Equal(stories.Count(s => s.Chain.Any(id => fated.World.Log.Get(id)!.Key == Return.Sim.Systems.Fate.ReturnedKey)), f.CrossingStories);
+        Assert.InRange(f.CrossingStories, 1, f.FateOrGiftStories);
     }
 
     [Fact]
