@@ -53,7 +53,8 @@ public static partial class ScheduleSystem
         {
             JobKind.KeepWatch or JobKind.WakeForWatch => LivedKind.Watched,
             JobKind.Forage or JobKind.GatherTimber or JobKind.Haul or JobKind.RepairRoof or JobKind.Care or JobKind.Rescue
-                or JobKind.KeepPromise or JobKind.GiveBlood or JobKind.Fight or JobKind.Flee or JobKind.RepayDebt => LivedKind.Worked,
+                or JobKind.KeepPromise or JobKind.GiveBlood or JobKind.Fight or JobKind.Flee or JobKind.RepayDebt
+                or JobKind.Build or JobKind.Deliver or JobKind.TakeDown => LivedKind.Worked, // the Build menu's work (ADR-0027)
             null or JobKind.Idle or JobKind.Wander or JobKind.Socialize or JobKind.Feast => LivedKind.Free,
             _ => LivedKind.Needs,
         };

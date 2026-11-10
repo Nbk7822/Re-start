@@ -162,6 +162,26 @@ public class ScheduleTests
         Assert.Equal(LivedKind.Free, ScheduleSystem.KindNow(new Character { Job = new Job { Kind = JobKind.Feast } }));
     }
 
+    /// <summary>
+    /// Building, carrying material to a plan and taking things down are work (ADR-0027 meeting ADR-0029 at the merge review):
+    /// their hours are duty, so they tire and wear people out like any other work, and match a working hour in the Day section.
+    /// </summary>
+    [Fact]
+    public void BuildingCarryingToAPlanAndTakingDownAreWork()
+    {
+        foreach (JobKind kind in new[] { JobKind.Build, JobKind.Deliver, JobKind.TakeDown })
+            Assert.Equal(LivedKind.Worked, ScheduleSystem.KindNow(new Character { Job = new Job { Kind = kind } }));
+        World w = WorkTests.Only(1, "oren");
+        Character oren = Cast(w, "oren");
+        w.Tick = Hours(w, 10);
+        oren.Job = new Job { Kind = JobKind.Build, Stage = 2 };
+        SampleHour(w);
+        w.Tick = Hours(w, 11);
+        ScheduleSystem.Hourly(w);
+        Assert.Equal(LivedKind.Worked, oren.Lived[10]);
+        Assert.Equal(1, ScheduleSystem.LastDay(oren).Duty); // the strip began as his planned day, with no duty in it
+    }
+
     [Fact]
     public void LongDutyWearsSomeoneOutAndTheWearCitesTheDuty()
     {
