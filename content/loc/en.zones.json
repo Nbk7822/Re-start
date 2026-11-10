@@ -17,6 +17,8 @@
   "zone_check.hearth": "The hearth",
   "zone_check.bush": "A berry bush",
   "zone_check.bed": "A bed",
+  "zone_check.built": "Something is built here",
+  "zone_check.planned": "A building is planned here",
 
   "place_phrase.covered_ruins": "in the covered ruins",
   "place_phrase.shelter": "in the shelter",

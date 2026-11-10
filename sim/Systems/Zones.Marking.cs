@@ -25,8 +25,9 @@ public static partial class Zones
 
     /// <summary>
     /// Null if a zone of this kind may lie on the tile, else the loc key of why not. A use zone (a
-    /// stockpile, a meeting place) needs open, passable ground: not the hearth, a bush or a bed.
-    /// Roofs overhead are fine. Build's buildings and plans will be refused here too.
+    /// stockpile, a meeting place) needs open, passable ground: not the hearth, a bush, a bed, a wall or
+    /// door built in this playthrough, or a plan for one of those (ADR-0027, at the merge). Roofs overhead,
+    /// standing or planned, are fine. The home area lies over anything.
     /// </summary>
     public static string? Check(World w, ZoneDef def, Point p)
     {
@@ -38,6 +39,9 @@ public static partial class Zones
         if (m.IsBush(p)) return "zone_check.bush";
         foreach (Bed b in m.Beds)
             if (b.Pos == p) return "zone_check.bed";
+        if (Building.StructureAt(w, p) != null) return "zone_check.built";
+        foreach (Blueprint bp in w.Blueprints)
+            if (bp.Area.Contains(p) && w.Content.TryBuilding(bp.DefId) is { } planned && planned.Kind != Building.Roof) return "zone_check.planned";
         return null;
     }
 

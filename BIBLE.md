@@ -242,6 +242,7 @@ Slice 1 of the zones design, steps 1 to 3, with step 3 cut to the watch's skip a
 - A carrier puts goods down on the nearest stockpile tile that already holds them. Eaters, roofers and anyone fetching a berry take from the stores where they stand.
 - **The damp** spoils only stores lying in the open: a sound roof or the covered ruins keep food dry.
 - **A thief** carries off only the pile it reached. One that gets past the watch unseen says so ("…out of sight of Vale on watch"), and a stockpile the player put there is on its chain.
+- **Stockpiles and buildings keep apart.** Nothing that stands on the ground (a wall, a door, a bed) is built on a stockpile, wherever the player has put it, though a roof may go over one and keep it dry; and no stockpile or meeting place is marked over a wall, a door or a plan for one, or for a bed. A wall that would cut any stockpile off from the hearth is refused, as one that would shut people in is (section 4.11).
 
 ### 8.2 The meeting place
 

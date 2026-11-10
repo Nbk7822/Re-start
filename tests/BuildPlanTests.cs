@@ -27,7 +27,7 @@ public class BuildPlanTests
         Assert.Equal("", Reason(w, "bed", Tile(ShelterFloor(w))));
         Assert.Equal("", Reason(w, "wall", Tile(Yard(w))));
         Assert.Equal(Building.ReasonCamp, Reason(w, "bed", Tile(w.Map.Hearth)));
-        Assert.Equal(Building.ReasonCamp, Reason(w, "wall", Tile(w.Map.StartStockpile.X, w.Map.StartStockpile.Y)));
+        Assert.Equal(Building.ReasonStockpile, Reason(w, "wall", Tile(w.Map.StartStockpile.X, w.Map.StartStockpile.Y))); // the first stockpile (ADR-0028)
         Assert.Equal(Building.ReasonCamp, Reason(w, "bed", Tile(w.Map.CoveredRuins.Center)));
         Assert.Equal(Building.ReasonBuilt, Reason(w, "bed", Tile(w.Map.Shelter.X, w.Map.Shelter.Y))); // the old stone wall
         Assert.Equal(Building.ReasonBuilt, Reason(w, "bed", Tile(w.Map.Beds[0].Pos)));

@@ -39,6 +39,7 @@ public static partial class Building
     public const string ReasonOffMap = "build.reason.off_map";
     public const string ReasonTerrain = "build.reason.terrain";
     public const string ReasonCamp = "build.reason.camp";
+    public const string ReasonStockpile = "build.reason.stockpile";
     public const string ReasonTree = "build.reason.tree";
     public const string ReasonBush = "build.reason.bush";
     public const string ReasonBody = "build.reason.body";
@@ -107,7 +108,10 @@ public static partial class Building
         TerrainKind ground = m.At(p);
         if (ground is TerrainKind.Wall or TerrainKind.Door) return def.Kind == Roof ? ReasonWallBelow : ReasonBuilt;
         if (!def.PlaceOn.Contains(TerrainName(ground))) return ReasonTerrain;
-        if (p == m.Hearth || p == m.WatchPost || m.StartStockpile.Contains(p) || m.CoveredRuins.Contains(p)) return ReasonCamp;
+        if (p == m.Hearth || p == m.WatchPost || m.CoveredRuins.Contains(p)) return ReasonCamp;
+        // A stockpile's tiles hold the camp's stores, wherever the player has put it (ADR-0028): nothing may stand on them,
+        // though a roof, being overhead, may go over them and keep them dry (lead's call at the merge).
+        if (def.Kind != Roof && Zones.UseZoneAt(w, p) is { } used && Zones.IsStores(w, used)) return ReasonStockpile;
         if (m.TreeAt(p) != null) return ReasonTree;
         if (m.BushAt(p) != null) return ReasonBush;
         if (BodyAt(w, p)) return ReasonBody;

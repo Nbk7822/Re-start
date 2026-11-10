@@ -64,6 +64,7 @@
   "build.reason.off_map": "it is off the map",
   "build.reason.terrain": "it is not open ground",
   "build.reason.camp": "the camp needs that spot",
+  "build.reason.stockpile": "a stockpile lies there",
   "build.reason.tree": "a tree stands there",
   "build.reason.bush": "a berry bush grows there",
   "build.reason.body": "a body lies there",
