@@ -89,6 +89,15 @@ public static class Stock
         return open;
     }
 
+    /// <summary>How many of this item lie stored in the open (see <see cref="InTheOpen"/>).</summary>
+    public static int CountInTheOpen(World w, string defId)
+    {
+        int n = 0;
+        foreach (ItemStack s in w.Items)
+            if (s.DefId == defId && s.Stored && !w.Map.Covered(s.Pos)) n += s.Count;
+        return n;
+    }
+
     public static int Total(IReadOnlyList<ItemStack> stacks)
     {
         int n = 0;

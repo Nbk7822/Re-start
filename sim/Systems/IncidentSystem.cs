@@ -151,9 +151,10 @@ public static class IncidentSystem
     private static SimEvent? Spoil(World w)
     {
         IncidentDef def = w.Content.IncidentById("food_spoils");
-        int stock = Stock.Count(w, "berries");
-        if (stock < def.Param("minBerries")) return null;
-        int lost = Stock.Take(w, "berries", w.Rng.Dice[DiceSystem.Incident].Range(DiceId.SpoilLoss, def.Param("lossMin"), def.Param("lossMax") + 1));
+        // The damp reaches only stores lying in the open: a sound roof or the covered ruins keep food dry (ADR-0028).
+        List<ItemStack> open = Stock.InTheOpen(w, "berries");
+        if (Stock.Total(open) < def.Param("minBerries")) return null;
+        int lost = Stock.Take(w, open, w.Rng.Dice[DiceSystem.Incident].Range(DiceId.SpoilLoss, def.Param("lossMin"), def.Param("lossMax") + 1));
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.food_spoils", Array.Empty<int>(), Array.Empty<long>(), null,
             EventArg.Num("n", lost), EventArg.Item("item", "berries"));
         foreach (Character m in w.Members())

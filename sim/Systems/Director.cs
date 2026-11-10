@@ -28,7 +28,7 @@ public static class Director
         if (w.Tick - st.LastMajorTick < (long)def.Director.MinHoursBetweenMajors * def.TicksPerHour) return;
 
         IncidentDef spoils = w.Content.IncidentById("food_spoils");
-        if (hour == 6 && Stock.Count(w, "berries") >= spoils.Param("minBerries")
+        if (hour == 6 && Stock.CountInTheOpen(w, "berries") >= spoils.Param("minBerries") // dry stores spend no roll (ADR-0028)
             && dice.Chance(DiceId.SpoilRoll, spoils.Param("dailyPermille") * st.Pressure / 50))
         {
             Major(w, "food_spoils");
