@@ -130,7 +130,7 @@ public static class WatchSystem
         int hurtBelow = Math.Max(400, Math.Max(Traits.Max(w, c, t => t.FleeHealthBelow), risky ? Traits.Max(w, c, t => t.RiskyWorkHealthBelow) : 0));
         if (c.Health < hurtBelow) return new Reason("event.social.watch_refused_hurt", c.LastHealthEvent, true);
         if (Places.Tires(w, c) && c.Rest < Math.Max(150, risky ? Traits.Max(w, c, t => t.RiskyWorkRestBelow) : 0))
-            return new Reason("event.social.watch_refused_tired", c.WornOutEvent != 0 ? c.WornOutEvent : c.LastDutyEvent != 0 ? c.LastDutyEvent : c.LastRestEvent, true);
+            return new Reason("event.social.watch_refused_tired", c.WornOutEvent != 0 ? c.WornOutEvent : ScheduleSystem.RecentDuty(w, c) is not 0 and var duty ? duty : c.LastRestEvent, true);
         if (!Places.Species(w, c).EatsNothing && (c.Food < NeedsSystem.StarvingBelow || c.Food < Traits.Max(w, c, t => t.StealFoodBelow)))
             return new Reason("event.social.watch_refused_hungry", c.LastFoodEvent, true);
         if (waker != null && Relations.ActiveGrudge(w, c.Id, waker.Id) is { } grudge)
@@ -465,7 +465,7 @@ public static class WatchSystem
     private static void FallAsleep(World w, WatchState s, Character watcher)
     {
         SimEvent e = w.Log.Emit(w, SystemTag.Needs, "event.needs.fell_asleep_on_watch", new[] { watcher.Id },
-            new[] { watcher.WornOutEvent != 0 ? watcher.WornOutEvent : watcher.LastDutyEvent }, null, EventArg.Char("a", watcher.Id));
+            new[] { watcher.WornOutEvent != 0 ? watcher.WornOutEvent : ScheduleSystem.RecentDuty(w, watcher) }, null, EventArg.Char("a", watcher.Id));
         s.GapEvent = e.Id;
         watcher.LastWatchEndTick = w.Tick;
         watcher.LastRestEvent = e.Id;

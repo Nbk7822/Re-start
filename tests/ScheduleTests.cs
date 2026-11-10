@@ -187,6 +187,36 @@ public class ScheduleTests
         Assert.Equal(0, oren.WornOutEvent); // rested again
     }
 
+    /// <summary>
+    /// A duty is the cause of wear only while it is in the last 24 hours as lived (ADR-0018: an event cites only what brought
+    /// it about): a watch kept days ago is not why someone is worn out today, so wear after ordinary long work cites nothing,
+    /// and a tired refusal cites their rest instead of the old watch.
+    /// </summary>
+    [Fact]
+    public void AnOldDutyIsNotWhySomeoneIsTiredToday()
+    {
+        World w = WorkTests.Only(1, "oren", "mira");
+        Character oren = Cast(w, "oren"), mira = Cast(w, "mira");
+        SimEvent oldWatch = w.Log.Emit(w, SystemTag.Work, "event.work.took_watch", new[] { oren.Id }, Array.Empty<long>(), null, EventArg.Char("a", oren.Id));
+        oren.LastDutyEvent = oldWatch.Id;
+        w.Tick = 5 * w.Content.World.TicksPerDay + Hours(w, 18); // five days on
+        for (int h = 6; h < 18; h++) oren.Lived[h] = LivedKind.Worked; // a long day's ordinary work
+        oren.Rest = 140;
+        ScheduleSystem.Hourly(w);
+        SimEvent worn = w.Log.All.Single(e => e.Key == "event.needs.worn_out");
+        Assert.Empty(worn.Causes);
+        Assert.DoesNotContain(oren.Thoughts, t => t.DefId == "overworked" && t.CauseEvent == oldWatch.Id);
+
+        oren.WornOutEvent = 0;
+        SimEvent restless = w.Log.Emit(w, SystemTag.Needs, "event.test.rest", new[] { oren.Id }, Array.Empty<long>());
+        oren.LastRestEvent = restless.Id;
+        Assert.Equal(restless.Id, WatchSystem.Refusal(w, oren, mira, draw: false)!.Value.Cause);
+
+        SimEvent lastNight = w.Log.Emit(w, SystemTag.Work, "event.work.took_watch", new[] { oren.Id }, Array.Empty<long>(), null, EventArg.Char("a", oren.Id));
+        oren.LastDutyEvent = lastNight.Id; // a watch kept within the day is why
+        Assert.Equal(lastNight.Id, WatchSystem.Refusal(w, oren, mira, draw: false)!.Value.Cause);
+    }
+
     [Fact]
     public void AwakeLongWithNoTimeToThemselvesWeighsOnSomeone()
     {

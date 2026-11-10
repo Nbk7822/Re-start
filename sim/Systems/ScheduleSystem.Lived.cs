@@ -106,17 +106,25 @@ public static partial class ScheduleSystem
     {
         ScheduleDef d = w.Content.World.Schedule;
         (int duty, int free, int awake) = LastDay(c);
-        if (duty >= d.OverworkHours) MoodSystem.AddThought(w, c, "overworked", 0, c.LastDutyEvent);
-        if (awake >= d.NoFreeTimeAwakeHours && free == 0) MoodSystem.AddThought(w, c, "no_time_to_myself", 0, c.LastDutyEvent);
+        long because = RecentDuty(w, c);
+        if (duty >= d.OverworkHours) MoodSystem.AddThought(w, c, "overworked", 0, because);
+        if (awake >= d.NoFreeTimeAwakeHours && free == 0) MoodSystem.AddThought(w, c, "no_time_to_myself", 0, because);
         if (fireside) MoodSystem.AddThought(w, c, "evening_by_the_fire", 0, 0);
         if (c.WornOutEvent != 0 && c.Rest >= RestedAt) c.WornOutEvent = 0;
         else if (c.WornOutEvent == 0 && c.Rest < WornOutRestBelow && duty >= d.WornOutDutyHours)
         {
-            SimEvent e = w.Log.Emit(w, SystemTag.Needs, "event.needs.worn_out", new[] { c.Id }, new[] { c.LastDutyEvent }, null, EventArg.Char("a", c.Id));
+            SimEvent e = w.Log.Emit(w, SystemTag.Needs, "event.needs.worn_out", new[] { c.Id }, new[] { because }, null, EventArg.Char("a", c.Id));
             c.WornOutEvent = e.Id;
             c.LastRestEvent = e.Id;
         }
     }
+
+    /// <summary>
+    /// Their last duty (a watch kept, work late, a longer working day), but only while it lies within the last 24 hours as
+    /// lived: an older one is not what tires them now, so it is cited for nothing (ADR-0018); 0 when there is none.
+    /// </summary>
+    public static long RecentDuty(World w, Character c) =>
+        c.LastDutyEvent != 0 && w.Log.Get(c.LastDutyEvent) is { } e && w.Tick - e.Tick <= w.Content.World.TicksPerDay ? c.LastDutyEvent : 0;
 
     /// <summary>A newcomer's lived strip starts as their planned day, so they never arrive overworked.</summary>
     public static void Arrived(World w, Character c) => ResetLived(w, c);
