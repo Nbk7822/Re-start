@@ -72,7 +72,7 @@ public static class JobPicker
         Job? repay = Culture.Honour.RepayJob(w, c, sunBlocked); // a debt of honour, when the creditor goes hungry (ADR-0023)
         if (repay != null) return repay;
 
-        if (sp.CanDonateBlood && c.Health > 800 && (Traits.Any(w, c, t => t.OffersBlood) || Culture.Ways.BloodOffer(w, c) != null))
+        if (sp.CanDonateBlood && c.Health > 800 && OffersBloodUnasked(w, c))
         {
             Character? vampire = BloodJobs.NeedyVampire(w, c);
             if (vampire != null) return new Job { Kind = JobKind.GiveBlood, TargetId = vampire.Id, Target = vampire.Pos, CauseEvent = vampire.LastFoodEvent };
@@ -97,6 +97,13 @@ public static class JobPicker
         }
         return WanderJob(w, c, sunBlocked);
     }
+
+    /// <summary>
+    /// A Generous person offers blood unasked, and so does a keeper of the blood-gift (ADR-0023). A
+    /// Generous keeper of the blood taboo still offers: their nature over their people's custom.
+    /// </summary>
+    private static bool OffersBloodUnasked(World w, Character c) =>
+        Traits.Any(w, c, t => t.OffersBlood) || Culture.Ways.BloodOffer(w, c) != null;
 
     public static int PriorityOf(Character c, string workId)
     {
