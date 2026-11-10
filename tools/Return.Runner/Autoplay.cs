@@ -8,10 +8,11 @@ namespace Return.Runner;
 /// <summary>
 /// The headless runner's stand-in for a player. Each world sets one of the three ration policies on
 /// its first tick, chosen by seed, so a soak exercises every policy's stories (the demo's meal theft
-/// and broken promises depend on it). With --plan it also marks out building plans (ADR-0027): beds in
-/// the shelter on day 1, and with "camp" a hut with a door, a roof and two beds on day 2. Plans go through
-/// Building.Check against the world as it is when they are placed, so they are valid on every map.
-/// `run` and `soak` share this, so a seed's log is the same either way.
+/// and broken promises depend on it). With --plan it also marks out building plans (ADR-0027): three beds
+/// in the shelter, and with "camp" then a hut with a door, a roof and two beds, each on the first morning
+/// (from day 1 and day 2) that the camp has outgrown its beds. Plans go through Building.Check against the
+/// world as it is when they are placed, so they are valid on every map. `run` and `soak` share this, so a
+/// seed's log is the same either way.
 /// </summary>
 internal static class Autoplay
 {
@@ -42,14 +43,41 @@ internal static class Autoplay
         }
     }
 
-    /// <summary>On the hour a plan is due, marks it out: beds at 08:00 on day 1; the hut at 08:00 on day 2.</summary>
+    /// <summary>
+    /// At 08:00 each morning, marks out what is due. The design set the beds for day 1 and the hut for day 2; the
+    /// stand-in instead waits, from those mornings on, until the camp has outgrown its beds (ADR-0027: a deviation
+    /// for the founder). On fixed days the camp was built before anyone who would care had arrived.
+    /// </summary>
     internal static void Hour(Simulation sim, string plan)
     {
         if (plan is not ("beds" or "camp")) return;
-        WorldDef def = sim.World.Content.World;
-        long tick = sim.World.Tick;
-        if (tick == 8L * def.TicksPerHour) PlaceShelterBeds(sim);
-        if (plan == "camp" && tick == def.TicksPerDay + 8L * def.TicksPerHour) PlaceHut(sim);
+        World w = sim.World;
+        WorldDef def = w.Content.World;
+        long tick = w.Tick;
+        if (tick % def.TicksPerDay != 8L * def.TicksPerHour || !Outgrown(w)) return;
+        if (!HasPlanned(w))
+        {
+            PlaceShelterBeds(sim);
+            return;
+        }
+        if (plan == "camp" && tick >= def.TicksPerDay + 8L * def.TicksPerHour && !HutPlanned(w)) PlaceHut(sim);
+    }
+
+    /// <summary>Has the stand-in marked out anything yet (the shelter beds come first)?</summary>
+    private static bool HasPlanned(World w) =>
+        w.Log.All.Exists(e => e.Key.StartsWith("event.world.planned", StringComparison.Ordinal) || e.Key.StartsWith("event.world.plan_failed", StringComparison.Ordinal));
+
+    private static bool HutPlanned(World w) =>
+        w.Blueprints.Exists(b => b.DefId == "wall") || w.Map.Structures.Exists(s => s.DefId == "wall")
+        || w.Log.All.Exists(e => e.Key.StartsWith("event.world.plan_failed", StringComparison.Ordinal) && e.Args.Exists(a => a.Value == "k:building.wall.a"));
+
+    /// <summary>The camp has outgrown its beds: someone in it who sleeps has no bed, and no bed is free.</summary>
+    private static bool Outgrown(World w)
+    {
+        if (w.Map.Beds.Exists(b => b.OwnerId == 0)) return false;
+        foreach (Character c in w.Members())
+            if (c.Named && Places.Tires(w, c) && Building.OwnedBed(w, c.Id) == null) return true;
+        return false;
     }
 
     /// <summary>Three beds on free shelter floor, keeping clear the tile just inside each door, first in (y, x) order.</summary>
