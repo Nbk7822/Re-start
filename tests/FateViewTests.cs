@@ -1,6 +1,7 @@
 using Return.Game;
 using Return.Game.Logic;
 using Return.Sim;
+using Return.Sim.Core;
 using Return.Sim.Systems;
 
 namespace Return.Tests;
@@ -54,6 +55,48 @@ public class FateViewTests
         Assert.Equal(0, FateText.SelectionAfterReturn(back, thief));
         Assert.Equal(mira, FateText.SelectionAfterReturn(back, mira));
         Assert.Equal(0, FateText.SelectionAfterReturn(back, 0));
+    }
+
+    /// <summary>
+    /// A zone drag (or a Build gesture) held through your death was begun in the world that is gone: when the return begins
+    /// it ends without being released, the tool still in hand, and the drafts made in the lost world go, as they go again at
+    /// the fold, so nothing chosen there reaches the world gone back to when time moves (merge review).
+    /// </summary>
+    [Fact]
+    public void AGestureHeldThroughADeathEndsUnreleasedAndDraftsNothing()
+    {
+        var sim = Simulation.Create(TestContent.Db, 15);
+        sim.Advance(Day + 6 * Hour);
+        World lost = sim.World;
+        var drafts = new OrderDrafts();
+        drafts.Add(new SetRationPolicy(lost.Tick, RationPolicy.SelfFirst)); // chosen while paused, in the lost world
+        Point yard = BuildPlanTests.Yard(lost);
+        var zones = new ZoneTool();
+        zones.Start("stockpile");
+        zones.Move(yard);
+        zones.Press(yard);
+        zones.Move(new Point(yard.X + 1, yard.Y + 1));
+        var build = new BuildTool();
+        build.Place("wall");
+        build.Hover(yard);
+        build.Press(yard);
+
+        Assert.True(sim.ForceDeath());
+        sim.Step();
+        Assert.NotSame(lost, sim.World);
+        ReturnGestures.Begin(drafts, zones, build); // as SimHost does when the return begins
+        Assert.Equal(0, drafts.Count);
+        Assert.True(zones.Active && build.Active); // the tools stay in hand
+        Assert.False(zones.Dragging || build.Dragging);
+        Assert.Empty(zones.Release(lost, CampPreview.Of(lost, drafts.All), drafts.NewZoneId, lost.Tick)); // the button let go during the return
+        Assert.False(build.Release(lost, drafts, c => drafts.Add(c)));
+        Assert.Equal(0, drafts.Count);
+
+        drafts.Add(new SetRationPolicy(lost.Tick, RationPolicy.SelfFirst)); // anything else chosen while the return played
+        ReturnGestures.Fold(drafts);
+        Assert.Equal(0, drafts.Count);
+        drafts.Flush(sim);
+        Assert.Empty(sim.World.PendingCommands);
     }
 
     /// <summary>ADR-0019's guarantee across a return: a world watched by the map's gore log (reset at the return, as MapView does) hashes the same as one nobody watched.</summary>

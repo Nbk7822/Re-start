@@ -68,6 +68,9 @@ public sealed class ZoneTool
         if (Dragging) DragEnd = tile;
     }
 
+    /// <summary>Drops the drag in progress without changing anything; the kind stays in hand (a return began, ADR-0030).</summary>
+    public void CancelDrag() => Dragging = false;
+
     /// <summary>The rectangle dragged so far (one tile before the mouse moves).</summary>
     public Rect Box => Span(DragStart, DragEnd);
 

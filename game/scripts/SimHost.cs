@@ -94,8 +94,19 @@ public partial class SimHost : Node
     /// <summary>The Build tool in hand, if any (build design 3.3): the bar's Build list picks it, the map takes its gestures.</summary>
     public BuildTool Build { get; } = new();
 
-    /// <summary>Ends the Build tool's gesture: the plan, call-off or marks it asked for go out through <see cref="Order"/>.</summary>
-    public void FinishGesture() => Build.Release(World, Drafts, Order);
+    /// <summary>
+    /// Ends the Build tool's gesture: the plan, call-off or marks it asked for go out through <see cref="Order"/>. While a
+    /// return plays the gesture ends unreleased: it was made in the world that was lost (ADR-0030; the merge review).
+    /// </summary>
+    public void FinishGesture()
+    {
+        if (_lost != null)
+        {
+            Build.CancelDrag();
+            return;
+        }
+        Build.Release(World, Drafts, Order);
+    }
 
     /// <summary>
     /// A check screenshot is being taken (RETURN_SCREENSHOT): the real pointer does not move a cursor that a check hook's
@@ -125,9 +136,14 @@ public partial class SimHost : Node
 
     public void StopZoneTool() => Tool.Stop();
 
-    /// <summary>Ends a drag: its one change goes out through <see cref="Order"/>, as a draft while paused.</summary>
+    /// <summary>Ends a drag: its one change goes out through <see cref="Order"/>, as a draft while paused; none while a return plays, as for the Build tool.</summary>
     public void ReleaseZoneTool()
     {
+        if (_lost != null)
+        {
+            Tool.CancelDrag();
+            return;
+        }
         foreach (Command c in Tool.Release(World, Return.Sim.Systems.CampPreview.Of(World, Drafts.All), NewZoneId, World.Tick)) Order(c);
     }
 
@@ -246,12 +262,13 @@ public partial class SimHost : Node
     }
 
     /// <summary>
-    /// You died and the world went back (ADR-0030): time stops, choices drafted in the lost world are dropped, and the
-    /// return plays over the lost world until the fold. A return during the warm-up plays once the view is up.
+    /// You died and the world went back (ADR-0030): time stops, a gesture in hand ends unreleased, choices drafted in the
+    /// lost world are dropped, and the return plays over the lost world until the fold. A return during the warm-up plays
+    /// once the view is up.
     /// </summary>
     private void OnReturned(FateReturn r)
     {
-        Drafts.Clear();
+        ReturnGestures.Begin(Drafts, Tool, Build);
         Clock.SetSpeed(0);
         SpeedChanged?.Invoke();
         _lost = r.Lost;
@@ -276,6 +293,7 @@ public partial class SimHost : Node
         if (_lost == null) return;
         _lost = null;
         _pendingReturn = null;
+        ReturnGestures.Fold(Drafts); // whatever was drafted while the return played was chosen in the lost world
         _map.ResetFor(Sim.World);
         FocusOnYou(Sim.World);
         // Someone made after the knot (the thief who struck you down) is not in the world gone back to: close their inspector.
