@@ -14,7 +14,12 @@ public class ContentTests
     {
         var files = Directory.GetFiles(ContentDir, "*.json").OrderBy(f => f, StringComparer.Ordinal).ToList();
         var locFiles = Directory.GetFiles(Path.Combine(ContentDir, "loc"), "en*.json").OrderBy(f => f, StringComparer.Ordinal).ToList();
-        Assert.Equal(13, files.Count);
+        // Every schema but loc's has its content file (and the loop below finds a schema for every file),
+        // so a missing or misnamed file fails here without a count to bump for each new one.
+        var schemaNames = Directory.GetFiles(Path.Combine(ContentDir, "schemas"), "*.schema.json")
+            .Select(f => Path.GetFileName(f)[..^".schema.json".Length]).Where(n => n != "loc").OrderBy(n => n, StringComparer.Ordinal);
+        Assert.Equal(schemaNames, files.Select(f => Path.GetFileNameWithoutExtension(f)));
+        Assert.Contains(files, f => Path.GetFileName(f) == "cultures.json");
         Assert.Contains(locFiles, f => Path.GetFileName(f) == "en.json");
         files.AddRange(locFiles);
         foreach (string file in files)
