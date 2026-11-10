@@ -118,6 +118,10 @@ public static class Memories
         _ => "event.fate.remembered_kindness",
     };
 
+    /// <summary>Whether a line is one saying you remembered something from a lost future (of any kind).</summary>
+    public static bool IsRememberedKey(string key) =>
+        key == EventKeyOf(MemoryKind.Wrong) || key == EventKeyOf(MemoryKind.Death) || key == EventKeyOf(MemoryKind.Kindness);
+
     /// <summary>
     /// Applies every memory you carry to a world just returned to, where it lacks it: a line quoting the lost future
     /// ("You remembered a wrong from a future that never came: Hollis took the meal set aside for you."), citing the

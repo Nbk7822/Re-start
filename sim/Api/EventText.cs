@@ -110,7 +110,7 @@ public static class EventText
         LostLine quoted = futures[future].Lines[line];
         // A memory of a memory (a return to before an earlier one, where the remembered grudge was the wrong) quotes what
         // was first remembered, not the remembering. A line quotes only futures lost before its own, so this ends.
-        if (quoted.Key.StartsWith("event.fate.remembered", StringComparison.Ordinal))
+        if (Systems.Memories.IsRememberedKey(quoted.Key))
             foreach (EventArg a in quoted.Args)
                 if (a.Value.StartsWith("e:", StringComparison.Ordinal) && Quote(w, a.Value.Substring(2)) is { } first) return first;
         return Describe(w, quoted);
