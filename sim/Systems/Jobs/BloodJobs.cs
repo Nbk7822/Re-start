@@ -47,14 +47,22 @@ public static class BloodJobs
 
     public static bool Consents(World w, Character donor, Character vampire) => RefusalKey(w, donor, vampire) == null;
 
-    /// <summary>Null if the donor agrees; otherwise the loc key for why they refuse (hungry, weak, low mood, or simply unwilling).</summary>
+    /// <summary>
+    /// Null if the donor agrees; otherwise the loc key for why they refuse (hungry, weak, low mood, a
+    /// custom that forbids it, or simply unwilling). Consent needs an opinion of the vampire at least
+    /// the donor's reluctance: traits, the blood customs they keep and their people's stance toward
+    /// vampires all move it. The custom's own key is used only when the custom was decisive (ADR-0023).
+    /// </summary>
     public static string? RefusalKey(World w, Character donor, Character vampire)
     {
         if (donor.HungerStage >= 1) return "event.social.blood_refused_hungry";
         if (donor.Downed || donor.Health < Math.Max(600, Traits.Max(w, donor, t => t.RiskyWorkHealthBelow) + 100)) return "event.social.blood_refused_weak";
         if (donor.Mood < 35) return "event.social.blood_refused_mood";
-        int required = -Traits.Sum(w, donor, t => t.ConsentBias);
-        return Relations.Opinion(w, donor.Id, vampire.Id) >= required ? null : "event.social.blood_refused";
+        int bias = Traits.Sum(w, donor, t => t.ConsentBias) + Culture.Ways.StanceConsent(w, donor, vampire);
+        int opinion = Relations.Opinion(w, donor.Id, vampire.Id);
+        if (opinion >= -(bias + Culture.Ways.BloodBias(w, donor))) return null;
+        if (opinion >= -bias && Culture.Ways.BloodTaboo(w, donor) is { } taboo) return taboo.Def.EventKey("refused");
+        return "event.social.blood_refused";
     }
 
     public static bool Request(World w, Character vampire, Job j)
@@ -93,8 +101,12 @@ public static class BloodJobs
             return vampire.Job is not { Kind: JobKind.RequestBlood } vj || vj.TargetId != donor.Id;
         if (InSun(w, vampire)) return true;
         if (!JobRunner.Near(w, donor, j, vampire)) return JobRunner.Failed(j);
-        SimEvent offer = JobRunner.Emit(w, SystemTag.Social, "event.social.blood_offered", new[] { donor.Id, vampire.Id }, new[] { vampire.LastFoodEvent },
-            EventArg.Char("a", donor.Id), EventArg.Char("b", vampire.Id));
+        // A Generous offer is the person's own; otherwise it is their people's or faith's blood-gift (ADR-0023).
+        SimEvent offer = !Traits.Any(w, donor, t => t.OffersBlood) && Culture.Ways.BloodOffer(w, donor) is { } gift
+            ? w.Log.Emit(w, SystemTag.Culture, gift.Def.EventKey("offered"), new[] { donor.Id, vampire.Id }, new[] { vampire.LastFoodEvent }, null,
+                EventArg.Char("a", donor.Id), EventArg.Char("b", vampire.Id), EventArg.Key("ways", gift.HolderNameKey))
+            : JobRunner.Emit(w, SystemTag.Social, "event.social.blood_offered", new[] { donor.Id, vampire.Id }, new[] { vampire.LastFoodEvent },
+                EventArg.Char("a", donor.Id), EventArg.Char("b", vampire.Id));
         if (vampire.Downed)
         {
             Transfer(w, vampire, donor, offer.Id);
@@ -119,6 +131,7 @@ public static class BloodJobs
         MoodSystem.AddThought(w, donor, "gave_blood", 0, e.Id);
         MoodSystem.AddThought(w, vampire, "received_blood", donor.Id, e.Id);
         CareJobs.SettleOrOwe(w, helper: donor, helped: vampire, DebtKind.Blood, e.Id);
+        Culture.Omens.RecordDeed(w, DeedKind.BloodGiven, e.Id, donor.Id);
         return e;
     }
 
@@ -130,10 +143,18 @@ public static class BloodJobs
             "event.social.blood_refused_weak" => donor.LastHealthEvent,
             _ => 0,
         };
-        SimEvent no = JobRunner.Emit(w, SystemTag.Social, key, new[] { vampire.Id, donor.Id }, new[] { askId, because },
-            EventArg.Char("a", vampire.Id), EventArg.Char("b", donor.Id));
-        MoodSystem.AddThought(w, vampire, "was_refused", donor.Id, no.Id, Traits.ScalePct(w, vampire, t => t.InsultOpinionScalePct));
+        // A refusal on a custom's account names the custom's people or faith, and is not taken personally (ADR-0023).
+        Culture.KeptCustom? taboo = key.StartsWith("event.culture.", StringComparison.Ordinal) ? Culture.Ways.BloodTaboo(w, donor) : null;
+        SimEvent no = taboo is { } t
+            ? w.Log.Emit(w, SystemTag.Culture, key, new[] { vampire.Id, donor.Id }, new[] { askId, because }, null,
+                EventArg.Char("a", vampire.Id), EventArg.Char("b", donor.Id), EventArg.Key("ways", t.HolderNameKey))
+            : JobRunner.Emit(w, SystemTag.Social, key, new[] { vampire.Id, donor.Id }, new[] { askId, because },
+                EventArg.Char("a", vampire.Id), EventArg.Char("b", donor.Id));
+        int scale = Traits.ScalePct(w, vampire, t => t.InsultOpinionScalePct);
+        if (taboo != null) scale = scale * Culture.CultureTuning.CustomRefusalOpinionPct / 100;
+        MoodSystem.AddThought(w, vampire, "was_refused", donor.Id, no.Id, scale);
         MoodSystem.AddThought(w, donor, "refused_someone", vampire.Id, no.Id);
+        if (taboo != null || key == "event.social.blood_refused") Culture.Omens.RecordDeed(w, DeedKind.BloodRefused, no.Id, donor.Id);
         vampire.LastFoodEvent = no.Id;
         if (Relations.Opinion(w, vampire.Id, donor.Id) <= SocialSystem.GrudgeAtOpinion)
             Relations.FormGrudge(w, vampire, donor, 25, no.Id);

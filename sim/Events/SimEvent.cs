@@ -15,6 +15,8 @@ public enum SystemTag
     World,
     /// <summary>Character growth: wants forming, arc stages, trait changes (fixed decision 12, ADR-0021).</summary>
     Growth,
+    /// <summary>Customs, faith and omens: a culture event sits between its cause and its consequence (ADR-0023).</summary>
+    Culture,
 }
 
 /// <summary>Persistent state changes. An event that carries one can end a story (ADR-0006).</summary>

@@ -32,6 +32,7 @@ public static class WorldGen
         PositionStarters(w);
         ScheduleArrivals(w);
         FormStartersWants(w);
+        Systems.Culture.CultureGen.Seed(w);
         return w;
     }
 
@@ -59,6 +60,9 @@ public static class WorldGen
             c.CastKey = template.CastKey + "_" + w.Characters.Count;
             c.Otherworlder = false;
             c.Status = CharStatus.Member;
+            c.CultureId = template.CultureId;
+            c.FaithId = template.FaithId;
+            c.Devotion = template.Devotion;
             c.Pos = FindOpenNear(w.Map, w.Map.Hearth, i);
             w.Characters.Add(c);
             Growth.FormWant(w, c);

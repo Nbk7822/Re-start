@@ -29,6 +29,7 @@ public static class Rations
         var byNeed = new List<Character>(eaters);
         byNeed.Sort(ByNeed);
         eaters.Sort((a, b) => Compare(w, a, b));
+        var wentWithout = new List<(Character, long)>();
         for (int i = 0; i < eaters.Count; i++)
         {
             Character c = eaters[i];
@@ -45,19 +46,29 @@ public static class Rations
                     new[] { policy, c.LastFoodEvent }, null, EventArg.Char("a", c.Id));
                 c.SkippedRation = true;
                 c.LastFoodEvent = e.Id;
+                wentWithout.Add((c, e.Id));
             }
-            BreakMealPromisesTo(w, c);
-            TakeSomeoneElsesShare(w, c, food);
+            if (!BreakMealPromisesTo(w, c)) TakeSomeoneElsesShare(w, c, food);
         }
+        Culture.LeaderLast.AfterShareOut(w, wentWithout); // who ate first, the leader or the led (ADR-0023)
     }
 
-    /// <summary>A promised meal is a first claim on food: sharing food out and leaving its creditor out while they are hungry breaks it (as in the demo).</summary>
-    private static void BreakMealPromisesTo(World w, Character c)
+    /// <summary>
+    /// A promised meal is a first claim on food: sharing food out and leaving its creditor out while
+    /// they are hungry breaks it (as in the demo), unless a keeper of guest-right is already bringing
+    /// the guest food (ADR-0023). True if someone is.
+    /// </summary>
+    private static bool BreakMealPromisesTo(World w, Character c)
     {
-        if (c.HungerStage < 1) return;
+        if (c.HungerStage < 1) return false;
+        bool hosted = false;
         foreach (Debt d in w.Debts)
             if (d.Status == DebtStatus.Open && d.Kind == DebtKind.PromiseMeal && d.CreditorId == c.Id)
+            {
+                if (Culture.Hospitality.Underway(w, d)) { hosted = true; continue; }
                 Relations.Break(w, d, c.LastFoodEvent);
+            }
+        return hosted;
     }
 
     /// <summary>

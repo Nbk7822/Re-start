@@ -65,6 +65,8 @@ public static class Poses
             case JobKind.Forage when p.Stage == 1:
             case JobKind.Care when p.Stage >= 1:
             case JobKind.RequestBlood when p.Stage >= 1:
+            case JobKind.RepayDebt when p.Stage == 0: // picking (or taking) the berry a debt of honour is paid with
+            case JobKind.KeepPromise when p.Stage == 0: // picking (or taking) a promised meal
                 return Pose.Crouch;
             case JobKind.GatherTimber when p.Stage == 1:
             case JobKind.RepairRoof when p.Stage >= 2:
@@ -72,6 +74,7 @@ public static class Poses
                 return Pose.Swing;
             case JobKind.Eat:
             case JobKind.GiveBlood when p.Stage >= 1:
+            case JobKind.Feast when p.Stage >= 1:
                 return Pose.Sit;
             case JobKind.Socialize when p.Stage >= 1:
                 return Pose.Talk;

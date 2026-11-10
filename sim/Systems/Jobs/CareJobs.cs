@@ -59,25 +59,45 @@ public static class CareJobs
         if (debt == null || debt.Status != DebtStatus.Open) return true;
         Character? creditor = w.Find(debt.CreditorId);
         if (creditor == null || creditor.Status != CharStatus.Member) return true;
+        bool host = c.Id != debt.DebtorId; // guest-bread: a keeper of guest-right feeds the guest (ADR-0023)
         if (j.Stage == 0)
         {
             if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
-            if (!Rations.HasReservation(w, c.Id) && Rations.Unreserved(w, "berries") == 0) return true;
-            if (Stock.Take(w, "berries", 1) == 0) return true;
-            Rations.Consume(w, c.Id);
+            bool picked = host && w.Map.BushAt(j.Target) != null;
+            if (picked)
+            {
+                // No share to give: the host picks the guest's meal themselves (no accident roll; culture draws only its own stream).
+                Bush bush = w.Map.BushAt(j.Target)!;
+                if (!JobRunner.Work(j, w.Content.WorkById("forage").DurationTicks)) return false;
+                if (bush.Berries <= 0) return true;
+                bush.Berries--;
+            }
+            else
+            {
+                if (!Rations.HasReservation(w, c.Id) && (host || Rations.Unreserved(w, "berries") == 0)) return true;
+                if (Stock.Take(w, "berries", 1) == 0) return true;
+                Rations.Consume(w, c.Id);
+            }
             c.Carrying = new Carry { DefId = "berries", Count = 1 };
-            j.Stage = 1;
+            j.Stage = picked ? 2 : 1; // 2: carrying berries the host picked; 1: carrying a share of the stores
+            j.Progress = 0;
             return false;
         }
         if (!JobRunner.Near(w, c, j, creditor)) return JobRunner.Failed(j);
         ItemDef berries = w.Content.ItemById("berries");
         creditor.Food = Math.Min(1000, creditor.Food + berries.Nutrition);
         c.Carrying = null;
+        if (host)
+        {
+            Culture.Hospitality.Deliver(w, c, creditor, debt, picked: j.Stage == 2);
+            return true;
+        }
         SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.shared_meal", new[] { c.Id, creditor.Id }, new[] { debt.FormedEvent, creditor.LastFoodEvent },
             EventArg.Char("a", c.Id), EventArg.Char("b", creditor.Id));
         MoodSystem.AddThought(w, creditor, "ate", 0, e.Id);
         NeedsSystem.AfterFed(creditor);
         Relations.Repay(w, debt, e.Id);
+        Culture.Omens.RecordDeed(w, DeedKind.MealShared, e.Id, c.Id);
         return true;
     }
 }

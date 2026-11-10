@@ -334,6 +334,11 @@ public class GameViewTests
     [InlineData(CharStatus.Member, false, false, JobKind.Forage, 1, false, false, Pose.Crouch)]
     [InlineData(CharStatus.Member, false, false, JobKind.Care, 1, false, false, Pose.Crouch)]
     [InlineData(CharStatus.Member, false, false, JobKind.RequestBlood, 1, false, false, Pose.Crouch)]
+    [InlineData(CharStatus.Member, false, false, JobKind.RepayDebt, 0, false, false, Pose.Crouch)]   // picking berries to settle a debt of honour
+    [InlineData(CharStatus.Member, false, false, JobKind.RepayDebt, 1, false, false, Pose.Stand)]    // handing them over
+    [InlineData(CharStatus.Member, false, false, JobKind.KeepPromise, 0, false, false, Pose.Crouch)] // picking a guest's meal
+    [InlineData(CharStatus.Member, false, false, JobKind.Feast, 0, true, false, Pose.Walk)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Feast, 1, false, true, Pose.Sit)]
     [InlineData(CharStatus.Member, false, false, JobKind.GatherTimber, 1, false, false, Pose.Swing)]
     [InlineData(CharStatus.Member, false, false, JobKind.RepairRoof, 1, false, false, Pose.Stand)]
     [InlineData(CharStatus.Member, false, false, JobKind.RepairRoof, 2, false, false, Pose.Swing)]
@@ -507,13 +512,41 @@ public class GameViewTests
         Assert.False(Daylight.IsWinter(0, def));
     }
 
+    /// <summary>
+    /// The first blow in a thief fight, in seed 34 or the first seed after it that has one: the tick a
+    /// member fighting a thief loses 40 or more health at once, and where they stand. Found by running
+    /// the sim rather than pinned (it was seed 34, tick 188,700), because culture (ADR-0023) and other
+    /// content change who fights when and where.
+    /// </summary>
+    private static readonly Lazy<(ulong Seed, long Tick, Return.Sim.Core.Point At)> FirstBlow = new(() =>
+    {
+        for (ulong seed = 34; seed < 64; seed++)
+        {
+            Simulation probe = Simulation.Create(Content, seed);
+            var health = new Dictionary<int, int>();
+            while (probe.World.Tick < probe.World.Content.World.TicksPerYear)
+            {
+                probe.Step();
+                foreach (Character c in probe.World.Characters)
+                {
+                    bool fighting = c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight };
+                    if (fighting && health.TryGetValue(c.Id, out int was) && was - c.Health >= 40) return (seed, probe.World.Tick, c.Pos);
+                    health[c.Id] = c.Health;
+                }
+            }
+        }
+        throw new InvalidOperationException("no blow struck in a thief fight in the first year of seeds 34 to 63");
+    });
+
     [Fact]
     public void GoreFollowsTheThiefFightWithoutTouchingTheSim()
     {
-        // Seed 34: a night thief reaches the camp before dawn on day 27 and Mira fights them near (16, 15).
-        Simulation watched = Simulation.Create(Content, 34), plain = Simulation.Create(Content, 34);
-        watched.Advance(188_700);
-        plain.Advance(188_700);
+        // A night thief reaches the camp and someone fights them; the first blow lands at FirstBlow.
+        (ulong seed, long blowTick, Return.Sim.Core.Point at) = FirstBlow.Value;
+        long start = blowTick - 200;
+        Simulation watched = Simulation.Create(Content, seed), plain = Simulation.Create(Content, seed);
+        watched.Advance(start);
+        plain.Advance(start);
         var gore = new GoreLog();
         for (int t = 0; t < 500; t++)
         {
@@ -525,12 +558,12 @@ public class GameViewTests
 
         var blood = gore.Decals.Where(d => d.Kind is DecalKind.Splatter or DecalKind.Drops).ToList();
         Assert.NotEmpty(blood);
-        Assert.Contains(blood, d => MathF.Abs(d.X - 16.5f) <= 2.5f && MathF.Abs(d.Y - 15.5f) <= 2.5f);
+        Assert.Contains(blood, d => MathF.Abs(d.X - (at.X + 0.5f)) <= 2.5f && MathF.Abs(d.Y - (at.Y + 0.5f)) <= 2.5f);
 
         // The same history always leaves the same marks.
         var again = new GoreLog();
-        Simulation replay = Simulation.Create(Content, 34);
-        replay.Advance(188_700);
+        Simulation replay = Simulation.Create(Content, seed);
+        replay.Advance(start);
         for (int t = 0; t < 500; t++)
         {
             replay.Step();
@@ -542,10 +575,12 @@ public class GameViewTests
     [Fact]
     public void GoreDoesNotDependOnHowManyTicksAFrameRuns()
     {
-        // Seed 34's thief fight: blows are health drops between looks, so a gore log that looked only
+        // A thief fight (FirstBlow): blows are health drops between looks, so a gore log that looked only
         // once a frame would merge blows, thin the drip trail and misplace marks on a long frame.
-        const long Start = 188_500, Span = 1_500;
-        Simulation perTick = Simulation.Create(Content, 34), perFrame = Simulation.Create(Content, 34);
+        (ulong seed, long blowTick, _) = FirstBlow.Value;
+        long Start = blowTick - 400;
+        const long Span = 1_500;
+        Simulation perTick = Simulation.Create(Content, seed), perFrame = Simulation.Create(Content, seed);
         perTick.Advance(Start);
         perFrame.Advance(Start);
         var everyTick = new GoreLog();

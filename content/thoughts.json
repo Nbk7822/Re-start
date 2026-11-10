@@ -28,5 +28,19 @@
   { "id": "thief_driven_off", "textKey": "thought.thief_driven_off", "mood": 6, "durationHours": 24, "emote": "sparkle" },
   { "id": "robbed", "textKey": "thought.robbed", "mood": -6, "durationHours": 24, "emote": "anger" },
   { "id": "windfall", "textKey": "thought.windfall", "mood": 3, "durationHours": 12, "emote": "sparkle" },
-  { "id": "joined_camp", "textKey": "thought.joined_camp", "mood": 5, "opinion": 8, "durationHours": 48, "emote": "sparkle" }
+  { "id": "joined_camp", "textKey": "thought.joined_camp", "mood": 5, "opinion": 8, "durationHours": 48, "emote": "sparkle" },
+  { "id": "faux_pas", "textKey": "thought.faux_pas", "mood": -3, "opinion": -6, "durationHours": 48, "emote": "anger", "stackLimit": 2 },
+  { "id": "kin_greeting", "textKey": "thought.kin_greeting", "mood": 3, "opinion": 6, "durationHours": 24, "emote": "hearts" },
+  { "id": "guest_bread_received", "textKey": "thought.guest_bread_received", "mood": 8, "opinion": 16, "durationHours": 72, "emote": "hearts" },
+  { "id": "guest_right_broken", "textKey": "thought.guest_right_broken", "mood": -20, "opinion": -40, "durationHours": 168, "emote": "anger" },
+  { "id": "heard_oath_broken", "textKey": "thought.heard_oath_broken", "mood": -2, "opinion": -8, "durationHours": 120, "emote": "anger", "stackLimit": 2 },
+  { "id": "leader_ate_first", "textKey": "thought.leader_ate_first", "mood": -6, "opinion": -15, "durationHours": 120, "emote": "anger", "stackLimit": 2 },
+  { "id": "leader_ate_last", "textKey": "thought.leader_ate_last", "mood": 4, "opinion": 10, "durationHours": 120, "emote": "sparkle" },
+  { "id": "debt_honoured", "textKey": "thought.debt_honoured", "mood": 4, "opinion": 10, "durationHours": 72, "emote": "sparkle" },
+  { "id": "festival", "textKey": "thought.festival", "mood": 6, "durationHours": 48, "emote": "music" },
+  { "id": "festival_lean", "textKey": "thought.festival_lean", "mood": 2, "durationHours": 24, "emote": "music" },
+  { "id": "grudge_set_down", "textKey": "thought.grudge_set_down", "mood": 5, "durationHours": 48, "emote": "sparkle" },
+  { "id": "omen_anger", "textKey": "thought.omen_anger", "mood": -4, "opinion": -12, "durationHours": 96, "emote": "alert", "stackLimit": 2 },
+  { "id": "omen_blessing", "textKey": "thought.omen_blessing", "mood": 5, "opinion": 10, "durationHours": 96, "emote": "sparkle", "stackLimit": 2 },
+  { "id": "sacred_tree_felled", "textKey": "thought.sacred_tree_felled", "mood": -10, "opinion": -45, "durationHours": 240, "emote": "anger" }
 ]

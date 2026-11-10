@@ -53,6 +53,17 @@ public sealed class SoakSummary
     public required IReadOnlyList<SoakFailure> Failures { get; init; }
     public required double ElapsedSeconds { get; init; }
     public required string OutDir { get; init; }
+
+    /// <summary>Stories whose chain holds a Culture event (ADR-0023), their share of all stories in percent, and how many worlds had one.</summary>
+    public int CultureStories { get; init; }
+    public double CultureStoryShare { get; init; }
+    public int CultureWorlds { get; init; }
+
+    /// <summary>Culture stories by the family of their first Culture event: a custom id, or omen_anger, omen_blessing, word_spread; most first.</summary>
+    public IReadOnlyList<Tally> ByCultureLink { get; init; } = Array.Empty<Tally>();
+
+    /// <summary>Named people who left or died, by species id; most first (the vampire guard of ADR-0023 reads it).</summary>
+    public IReadOnlyList<Tally> DeparturesAndDeathsBySpecies { get; init; } = Array.Empty<Tally>();
 }
 
 /// <summary>
@@ -68,8 +79,22 @@ public static class Soak
     private const int TopLines = 5;
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-    /// <summary>What one world contributes: a system-set key and a terminal event key per story, or a failure.</summary>
-    internal sealed record WorldResult(ulong Seed, int Events, IReadOnlyList<string> SystemSets, IReadOnlyList<string> TerminalKeys, SoakFailure? Failure);
+    /// <summary>
+    /// What one world contributes: a system-set key and a terminal event key per story, or a failure;
+    /// per story its culture link ("" for none); and the species of each named person who left or died.
+    /// </summary>
+    internal sealed record WorldResult(ulong Seed, int Events, IReadOnlyList<string> SystemSets, IReadOnlyList<string> TerminalKeys, SoakFailure? Failure,
+        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null);
+
+    /// <summary>The family of a Culture event: the custom id in "event.culture.&lt;id&gt;.&lt;moment&gt;", or the generic key's last part (omen_anger, word_spread); "" for any other key.</summary>
+    internal static string CultureLink(string key)
+    {
+        const string prefix = "event.culture.";
+        if (!key.StartsWith(prefix, StringComparison.Ordinal)) return "";
+        string rest = key[prefix.Length..];
+        int dot = rest.IndexOf('.');
+        return dot < 0 ? rest : rest[..dot];
+    }
 
     public static SoakSummary Run(SoakOptions options) => Run(options, ContentDb.Load(ContentDb.FindContentDir()));
 
@@ -111,6 +136,9 @@ public static class Soak
         var byEnding = new Dictionary<string, int>(StringComparer.Ordinal);
         var perWorld = new List<WorldTally>(results.Count);
         var failures = new List<SoakFailure>();
+        int cultureStories = 0, cultureWorlds = 0;
+        var byLink = new Dictionary<string, int>(StringComparer.Ordinal);
+        var losses = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (WorldResult r in results)
         {
             stories += r.SystemSets.Count;
@@ -118,12 +146,26 @@ public static class Soak
             foreach (string key in r.TerminalKeys) byEnding[key] = byEnding.GetValueOrDefault(key) + 1;
             perWorld.Add(new WorldTally(r.Seed, r.Events, r.SystemSets.Count));
             if (r.Failure != null) failures.Add(r.Failure);
+            int inWorld = 0;
+            foreach (string link in r.CultureLinks ?? Array.Empty<string>())
+            {
+                if (link.Length == 0) continue;
+                inWorld++;
+                byLink[link] = byLink.GetValueOrDefault(link) + 1;
+            }
+            cultureStories += inWorld;
+            if (inWorld > 0) cultureWorlds++;
+            foreach (string species in r.Losses ?? Array.Empty<string>()) losses[species] = losses.GetValueOrDefault(species) + 1;
         }
 
         List<Tally> sets = Tallies(bySet);
         sets.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
         List<Tally> endings = Tallies(byEnding);
         endings.Sort(MostFirst);
+        List<Tally> links = Tallies(byLink);
+        links.Sort(MostFirst);
+        List<Tally> lost = Tallies(losses);
+        lost.Sort(MostFirst);
 
         int worlds = results.Count;
         return new SoakSummary
@@ -141,6 +183,11 @@ public static class Soak
             Failures = failures,
             ElapsedSeconds = Math.Round(elapsed.TotalSeconds, 2, MidpointRounding.AwayFromZero),
             OutDir = outDir,
+            CultureStories = cultureStories,
+            CultureStoryShare = stories == 0 ? 0 : Math.Round(cultureStories * 100.0 / stories, 1, MidpointRounding.AwayFromZero),
+            CultureWorlds = cultureWorlds,
+            ByCultureLink = links,
+            DeparturesAndDeathsBySpecies = lost,
         };
     }
 
@@ -161,6 +208,11 @@ public static class Soak
             json.WriteNumber("storiesPerWorldYear", s.StoriesPerWorldYear);
             WriteTallies(json, "bySystemSet", s.BySystemSet);
             WriteTallies(json, "topTerminalKinds", s.TopTerminalKinds);
+            json.WriteNumber("cultureStories", s.CultureStories);
+            json.WriteNumber("cultureStoryShare", s.CultureStoryShare);
+            json.WriteNumber("cultureWorlds", s.CultureWorlds);
+            WriteTallies(json, "byCultureLink", s.ByCultureLink);
+            WriteTallies(json, "departuresAndDeathsBySpecies", s.DeparturesAndDeathsBySpecies);
             json.WriteStartArray("perWorld");
             foreach (WorldTally t in s.PerWorld)
             {
@@ -207,6 +259,13 @@ public static class Soak
             Line(o, loc.Get("log.soak.endings"));
             WriteTop(o, loc, s.TopTerminalKinds);
         }
+        Line(o, Format(loc, "log.soak.culture", ("stories", Num(s.CultureStories)), ("share", s.CultureStoryShare.ToString("0.0", Inv)),
+            ("worlds", Num(s.CultureWorlds)), ("total", Num(s.Worlds))));
+        if (s.ByCultureLink.Count > 0)
+        {
+            Line(o, loc.Get("log.soak.culture_links"));
+            WriteTop(o, loc, s.ByCultureLink);
+        }
         if (s.Failures.Count > 0)
             Line(o, Format(loc, "log.soak.crashed_list", ("seeds", List(loc, s.Failures.Select(f => Num(f.Seed))))));
         Line(o, Format(loc, "log.soak.written", ("dir", s.OutDir)));
@@ -233,12 +292,21 @@ public static class Soak
 
             var sets = new List<string>(analysis.Stories.Count);
             var endings = new List<string>(analysis.Stories.Count);
+            var links = new List<string>(analysis.Stories.Count);
             foreach (Story story in analysis.Stories)
             {
                 sets.Add(SystemSetKey(story.Systems));
                 endings.Add(w.Log.Get(story.TerminalEventId)?.Key ?? "");
+                string link = "";
+                foreach (long id in story.Chain)
+                    if (w.Log.Get(id) is { System: SystemTag.Culture } e) { link = CultureLink(e.Key); break; }
+                links.Add(link);
             }
-            return new WorldResult(seed, w.Log.All.Count, sets, endings, null);
+            var losses = new List<string>();
+            foreach (SimEvent e in w.Log.All)
+                foreach (Effect f in e.Effects)
+                    if (f.Kind is EffectKind.Departure or EffectKind.Death && w.Find(f.A) is { Named: true } who) losses.Add(who.SpeciesId);
+            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses);
         }
         catch (Exception ex)
         {

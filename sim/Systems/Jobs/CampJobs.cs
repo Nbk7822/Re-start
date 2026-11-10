@@ -56,6 +56,8 @@ public static class CampJobs
                 w.Map.RebuildCaches();
                 c.Carrying = new Carry { DefId = "timber", Count = def.Yield };
                 SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.felled_tree", new[] { c.Id }, Array.Empty<long>(), EventArg.Char("a", c.Id));
+                Culture.Omens.RecordDeed(w, DeedKind.TreeFelled, e.Id, c.Id);
+                Culture.SacredTrees.Felled(w, c, tree, e);
                 JobRunner.RollAccident(w, c, def, e.Id);
                 JobRunner.Next(w, c, j, Stock.DropTile(w, "timber"));
                 return JobRunner.Failed(j);

@@ -33,6 +33,10 @@ public static class JobPicker
             if (spot != Point.None) return new Job { Kind = JobKind.SeekCover, Target = spot, CauseEvent = c.LastHealthEvent };
         }
 
+        // Guest-bread: a keeper of guest-right feeds a promised guest before their own hunger, unless starving (ADR-0023).
+        Job? guest = Culture.Hospitality.GuestJob(w, c, sunBlocked);
+        if (guest != null) return guest;
+
         if (c.Food < NeedsSystem.HungryBelow)
         {
             if (sp.DrinksBlood && !BloodJobs.RecentlyRebuffed(w, c))
@@ -65,7 +69,10 @@ public static class JobPicker
             if (care != null) return care;
         }
 
-        if (sp.CanDonateBlood && c.Health > 800 && Traits.Any(w, c, t => t.OffersBlood))
+        Job? repay = Culture.Honour.RepayJob(w, c, sunBlocked); // a debt of honour, when the creditor goes hungry (ADR-0023)
+        if (repay != null) return repay;
+
+        if (sp.CanDonateBlood && c.Health > 800 && OffersBloodUnasked(w, c))
         {
             Character? vampire = BloodJobs.NeedyVampire(w, c);
             if (vampire != null) return new Job { Kind = JobKind.GiveBlood, TargetId = vampire.Id, Target = vampire.Pos, CauseEvent = vampire.LastFoodEvent };
@@ -77,6 +84,9 @@ public static class JobPicker
             if (eat != null) return eat;
         }
 
+        Job? feast = Culture.Festivals.FeastJob(w, c, sunBlocked); // a festival comes before ordinary work (ADR-0023)
+        if (feast != null) return feast;
+
         Job? work = WorkJob(w, c, sunBlocked);
         if (work != null) return work;
 
@@ -87,6 +97,13 @@ public static class JobPicker
         }
         return WanderJob(w, c, sunBlocked);
     }
+
+    /// <summary>
+    /// A Generous person offers blood unasked, and so does a keeper of the blood-gift (ADR-0023). A
+    /// Generous keeper of the blood taboo still offers: their nature over their people's custom.
+    /// </summary>
+    private static bool OffersBloodUnasked(World w, Character c) =>
+        Traits.Any(w, c, t => t.OffersBlood) || Culture.Ways.BloodOffer(w, c) != null;
 
     public static int PriorityOf(Character c, string workId)
     {
@@ -240,7 +257,7 @@ public static class JobPicker
             case "gather_timber":
             {
                 if (sunBlocked || Places.TimberNeeded(w) <= 0) return null;
-                Tree? tree = Places.StandingTree(w, c.Pos);
+                Tree? tree = Places.StandingTree(w, c.Pos, c);
                 return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos) };
             }
             case "forage":

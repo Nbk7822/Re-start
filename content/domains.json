@@ -1,0 +1,39 @@
+[
+  {
+    "id": "oaths",
+    "epithetKeys": ["god.epithet.oaths.0", "god.epithet.oaths.1"],
+    "caresKey": "god.cares.oaths",
+    "signs": [ { "sign": "rain", "reads": "anger" }, { "sign": "windfall", "reads": "blessing" } ],
+    "pleasedBy": ["oath_kept", "debt_repaid"],
+    "angeredBy": ["oath_broken"]
+  },
+  {
+    "id": "hearth",
+    "epithetKeys": ["god.epithet.hearth.0", "god.epithet.hearth.1"],
+    "caresKey": "god.cares.hearth",
+    "signs": [ { "sign": "food_spoils", "reads": "anger" }, { "sign": "windfall", "reads": "blessing" } ],
+    "pleasedBy": ["meal_shared", "guest_honoured"],
+    "angeredBy": ["meal_taken", "guest_wronged"]
+  },
+  {
+    "id": "vein",
+    "epithetKeys": ["god.epithet.vein.0", "god.epithet.vein.1"],
+    "caresKey": "god.cares.vein",
+    "signs": [
+      { "sign": "rain", "reads": "anger" },
+      { "sign": "work_accident", "reads": "anger" },
+      { "sign": "death", "reads": "anger" },
+      { "sign": "windfall", "reads": "blessing" }
+    ],
+    "pleasedBy": ["blood_given"],
+    "angeredBy": ["blood_refused"]
+  },
+  {
+    "id": "grove",
+    "epithetKeys": ["god.epithet.grove.0", "god.epithet.grove.1"],
+    "caresKey": "god.cares.grove",
+    "signs": [ { "sign": "food_spoils", "reads": "anger" }, { "sign": "rain", "reads": "blessing" } ],
+    "pleasedBy": ["meal_shared", "guest_honoured"],
+    "angeredBy": ["tree_felled", "sacred_harmed", "meal_taken"]
+  }
+]

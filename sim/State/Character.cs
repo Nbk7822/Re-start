@@ -66,6 +66,15 @@ public sealed class Character
 
     /// <summary>Trait origins, want and arc (fixed decision 12, ADR-0021).</summary>
     public CharacterGrowth Growth { get; set; } = new();
+    // Culture and faith (ADR-0023). Culture, faith and devotion are Truths keyed by cast key; the
+    // otherworlder has none ("", "", 0). Devotion is 0..100 and only ever shown as a word.
+    public string CultureId { get; set; } = "";
+    public string FaithId { get; set; } = "";
+    public int Devotion { get; set; }
+    /// <summary>Customs of other cultures this person learned by breaching them; ordinal order.</summary>
+    public List<string> LearnedCustoms { get; set; } = new();
+    /// <summary>Ids of everyone this person has spoken with; ascending.</summary>
+    public List<int> Met { get; set; } = new();
 
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;

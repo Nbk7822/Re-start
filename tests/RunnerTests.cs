@@ -22,8 +22,11 @@ public class RunnerTests
         Assert.Contains("Seed 1", lines);
         Assert.Contains("Stories", lines);
         Assert.Contains("Years simulated: 1", lines);
-        Assert.Contains(lines, l => l.StartsWith("  Mira (Human): Protective, ", StringComparison.Ordinal));
-        Assert.Contains(lines, l => l.StartsWith("  Ilex (Vampire): Proud, ", StringComparison.Ordinal));
+        // Where someone belongs varies by seed (ADR-0023), so only the start of the cast line is pinned.
+        Assert.Contains(lines, l => l.StartsWith("  Mira (Human, of ", StringComparison.Ordinal) && l.Contains("): Protective, ", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.StartsWith("  Ilex (Vampire, of ", StringComparison.Ordinal) && l.Contains("): Proud, ", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.StartsWith("  You (Human, from another world): Practical, ", StringComparison.Ordinal));
+        Assert.Contains("Peoples and faiths", lines);
         Assert.Contains("The camp at the end", lines);
         Assert.DoesNotContain("⟦", log);
         Assert.DoesNotContain("\r", log);
@@ -219,7 +222,7 @@ public class RunnerTests
         Assert.Contains("  Nobody lives there any more.\n", log);
         Assert.Contains("What happened\n-------------\n  Nothing notable happened.\n", log);
         Assert.Contains("Stories\n-------\n  No stories this time.\n", log);
-        Assert.Contains("  Mira (Human): Protective, ", log);
+        Assert.Contains("  Mira (Human, of ", log);
         Assert.Contains(". Dead.\n", log);
         Assert.Contains("Years simulated: 0.05\n", log);
         Assert.EndsWith("Events logged: 0. Notable: 0. Stories: 0.\n", log);

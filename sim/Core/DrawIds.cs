@@ -20,6 +20,17 @@ public enum TruthId : ushort
     InitialWant = 20,
     /// <summary>Breaks a tie between equally fitting people when a want is about someone, keyed by cast key.</summary>
     WantTarget = 21,
+    // Culture and faith (ADR-0023; values 40-49 are this track's). The index argument names the fact.
+    /// <summary>Per culture template: 0 name, 1 main faith, 2 + k the k-th custom drawn from its pool.</summary>
+    CultureNature = 40,
+    /// <summary>Per faith template: 0 name, 1 + k the k-th custom drawn from its pool.</summary>
+    FaithNature = 41,
+    /// <summary>Per god slot: 0 domain, 1 name, 2 epithet, 3 wrath, 4 grace.</summary>
+    GodNature = 42,
+    /// <summary>Per person: 0 culture, 1 whether they follow another faith, 2 which, 3 devotion.</summary>
+    PersonBelonging = 43,
+    SacredTree = 44,
+    FestivalDate = 45,
 }
 
 /// <summary>Tags for Dice draws, used for diffing divergent runs. Append only.</summary>
@@ -48,6 +59,11 @@ public enum DiceId : ushort
     CombatHit = 21,
     CombatDamage = 22,
     ArrivalOrder = 23,
+
+    // Culture and faith (ADR-0023; values 140-159 are this track's). All draw from DiceSystem.Culture.
+    FauxPas = 140,
+    GuestOffer = 141,
+    OmenRead = 142,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>
@@ -63,4 +79,5 @@ public enum DiceSystem : byte
     Combat = 7,
     /// <summary>Trait mutation and evolution rolls (fixed decision 12). Reserved now so the values stay contiguous; M0 draws nothing from it.</summary>
     Growth = 8,
+    Culture = 9,
 }

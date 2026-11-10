@@ -71,13 +71,15 @@ public static class Places
         return best;
     }
 
-    public static Tree? StandingTree(World w, Point from)
+    /// <summary>The nearest standing tree to fell; a keeper of a sacred tree's people or faith never picks that tree (ADR-0023).</summary>
+    public static Tree? StandingTree(World w, Point from, Character? feller = null)
     {
         Tree? best = null;
         int bestDist = int.MaxValue;
         foreach (Tree t in w.Map.Trees)
         {
             if (t.Felled || Targeted(w, JobKind.GatherTimber, t.Id)) continue;
+            if (feller != null && Culture.SacredTrees.Spares(w, feller, t)) continue;
             if (Adjacent(w, t.Pos, from) == Point.None) continue;
             int d = t.Pos.ChebyshevTo(from);
             if (d < bestDist) { best = t; bestDist = d; }

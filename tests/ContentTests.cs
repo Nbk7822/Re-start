@@ -20,6 +20,7 @@ public class ContentTests
             .Select(f => Path.GetFileName(f)[..^".schema.json".Length]).Where(n => n != "loc").OrderBy(n => n, StringComparer.Ordinal);
         Assert.Equal(schemaNames, files.Select(f => Path.GetFileNameWithoutExtension(f)));
         Assert.Contains(files, f => Path.GetFileName(f) == "wants.json");
+        Assert.Contains(files, f => Path.GetFileName(f) == "cultures.json");
         Assert.Contains(locFiles, f => Path.GetFileName(f) == "en.json");
         files.AddRange(locFiles);
         foreach (string file in files)
@@ -53,6 +54,7 @@ public class ContentTests
         defs.AddRange(db.Species); defs.AddRange(db.Traits); defs.AddRange(db.Items); defs.AddRange(db.Work);
         defs.AddRange(db.Roles); defs.AddRange(db.Thoughts); defs.AddRange(db.Incidents); defs.AddRange(db.Cast);
         defs.AddRange(db.Wants);
+        defs.AddRange(db.Domains); defs.AddRange(db.Customs);
         foreach (object def in defs)
             foreach (PropertyInfo p in def.GetType().GetProperties())
                 if (p.PropertyType == typeof(string) && p.Name.EndsWith("Key", StringComparison.Ordinal) && p.Name != "Key")
@@ -143,10 +145,12 @@ public class ContentTests
             ("item", db.Items.Select(i => i.Id).ToHashSet(), RequiredContent.Items),
             ("species", db.Species.Select(s => s.Id).ToHashSet(), RequiredContent.Species),
             ("work", db.Work.Select(x => x.Id).ToHashSet(), RequiredContent.Work),
-            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts),
+            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).ToList()),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
         };
         var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).ToHashSet();
+        var customArg = new System.Text.RegularExpressions.Regex("Arg\\(\"([A-Za-z]+)\"\\)");
+        var customParams = RequiredContent.CustomKinds.SelectMany(k => k.Params).ToHashSet();
         var missing = new List<string>();
         foreach (string file in Directory.EnumerateFiles(Path.Combine(TestPaths.Root, "sim"), "*.cs", SearchOption.AllDirectories))
         {
@@ -158,6 +162,8 @@ public class ContentTests
                         missing.Add($"{Path.GetFileName(file)} names {k.Kind} '{m.Groups[1].Value}'");
             foreach (System.Text.RegularExpressions.Match m in param.Matches(text))
                 if (!allParams.Contains(m.Groups[1].Value)) missing.Add($"{Path.GetFileName(file)} reads incident param '{m.Groups[1].Value}'");
+            foreach (System.Text.RegularExpressions.Match m in customArg.Matches(text))
+                if (!customParams.Contains(m.Groups[1].Value)) missing.Add($"{Path.GetFileName(file)} reads custom param '{m.Groups[1].Value}'");
         }
         Assert.True(missing.Count == 0, "Not in RequiredContent: " + string.Join("; ", missing.Distinct()));
     }

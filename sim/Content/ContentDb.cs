@@ -7,7 +7,7 @@ namespace Return.Sim.Content;
 /// All definitions from /content plus any mod folders (later folders override earlier ones by id).
 /// Lists keep file order; dictionaries here are for lookup only and never drive simulation order.
 /// </summary>
-public sealed class ContentDb
+public sealed partial class ContentDb
 {
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -79,6 +79,7 @@ public sealed class ContentDb
         db._incidents = Index(db.Incidents, d => d.Id);
         db._cast = Index(db.Cast, d => d.Key);
         db._wants = Index(db.Wants, d => d.Id);
+        db.LoadCulture(dirs);
         db.Validate();
         return db;
     }
@@ -163,6 +164,7 @@ public sealed class ContentDb
         if (otherworlders != 1) Fail("cast.json", $"needs exactly one otherworlder, found {otherworlders}");
 
         ValidateWants();
+        ValidateCulture();
     }
 
     /// <summary>

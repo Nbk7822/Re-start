@@ -34,6 +34,7 @@ public static class NeedsJobs
         MoodSystem.AddThought(w, victim, "meal_stolen", thief.Id, e.Id);
         victim.LastFoodEvent = e.Id;
         Relations.FormGrudge(w, victim, thief, 35, e.Id);
+        Culture.Omens.RecordDeed(w, DeedKind.MealTaken, e.Id, thief.Id);
         return e;
     }
 

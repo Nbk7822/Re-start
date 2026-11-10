@@ -16,7 +16,7 @@ public sealed record CharacterState(
     int Id, string Name, string Species, string Status, int X, int Y, string Job,
     IReadOnlyList<NeedState> Needs, int Mood, int Health, IReadOnlyList<string> Traits,
     IReadOnlyList<OpinionState> Opinions, IReadOnlyList<GrudgeState> Grudges, IReadOnlyList<DebtState> Debts,
-    IReadOnlyList<string> RecentThoughts, GrowthState Growth);
+    IReadOnlyList<string> RecentThoughts, GrowthState Growth, BelongingState Belonging);
 
 /// <summary>Where a trait came from: born with it (generated) or changed by an event (mutated); Text says which in plain words.</summary>
 public sealed record TraitOriginState(string TraitId, string Trait, TraitOriginKind Origin, long CauseEvent, long Tick, string Text);
@@ -47,7 +47,7 @@ public sealed record PolicyState(RationPolicy Current, RationPolicy Effective, b
 /// The text-state API: structured, localised reads of the world for the view, the headless runner,
 /// mods and AI agents. Reads never change state.
 /// </summary>
-public static class StateApi
+public static partial class StateApi
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -134,7 +134,7 @@ public static class StateApi
 
         string job = loc.Get("job." + Names.Snake((c.Job?.Kind ?? JobKind.Idle).ToString()));
         return new CharacterState(c.Id, loc.Get(c.NameKey), loc.Get(species.NameKey), loc.Get("status." + Names.Snake(c.Status.ToString())),
-            c.Pos.X, c.Pos.Y, job, needs, c.Mood, c.Health, traits, opinions, grudges, debts, thoughts, Growth(w, id));
+            c.Pos.X, c.Pos.Y, job, needs, c.Mood, c.Health, traits, opinions, grudges, debts, thoughts, Growth(w, id), Belonging(w, c));
     }
 
     /// <summary>
@@ -215,12 +215,13 @@ public static class StateApi
         if (!m.InBounds(p)) throw new ArgumentOutOfRangeException(nameof(x), $"Tile {p} is outside the map.");
         LocTable loc = w.Content.Loc;
         var contents = new List<string>();
-        if (m.TreeAt(p) != null) contents.Add(loc.Get("place.tree"));
+        if (m.TreeAt(p) != null) contents.Add(SacredTreeLine(w, p) ?? loc.Get("place.tree"));
+        else if (SacredTreeLine(w, p) is { } stump) contents.Add(stump);
         Bush? bush = m.BushAt(p);
         if (bush != null) contents.Add(loc.Format(bush.Berries == 1 ? "place.bush_one" : "place.bush", new[] { new KeyValuePair<string, string>("n", bush.Berries.ToString(Inv)) }));
         foreach (Bed b in m.Beds)
             if (b.Pos == p) contents.Add(loc.Get("place.bed"));
-        if (m.Hearth == p) contents.Add(loc.Get("place.hearth"));
+        if (m.Hearth == p) contents.Add(FestivalHearthLine(w) ?? loc.Get("place.hearth"));
         if (m.Stockpile.Contains(p)) contents.Add(loc.Get("place.stockpile"));
         if (m.WatchPost == p) contents.Add(loc.Get("place.watch_post"));
         if (m.CoveredRuins.Contains(p)) contents.Add(loc.Get("place.covered_ruins"));

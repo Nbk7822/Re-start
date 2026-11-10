@@ -8,7 +8,8 @@ using Return.Sim.Api;
 namespace Return.Game;
 
 /// <summary>
-/// The person inspector, opened by clicking someone on the map: name, species, status, current
+/// The person inspector, opened by clicking someone on the map: name, species, status, where they
+/// belong (culture and faith in plain words, with their ways and gods in its tooltip), current
 /// job, needs and mood as small bars with numbers, traits (each with where it came from), what they
 /// want, work priorities (click to change: an
 /// order through SimHost.Order), opinions, grudges, debts and recent thoughts, all from StateApi. It floats near the right edge, refreshes a few times a
@@ -28,6 +29,7 @@ public partial class InspectorPanel : PanelContainer
     private double _refresh;
     private Label _name = null!;
     private Label _subtitle = null!;
+    private Label _belonging = null!;
     private Label _job = null!;
     private Label _traits = null!;
     private Label _wants = null!;
@@ -98,6 +100,11 @@ public partial class InspectorPanel : PanelContainer
 
         _subtitle = Ui.MakeLabel("", Ui.FontSize, Ui.Dim);
         outer.AddChild(_subtitle);
+        _belonging = Ui.MakeLabel("", Ui.SmallFontSize, Ui.Dim);
+        _belonging.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _belonging.CustomMinimumSize = new Vector2(ContentWidth, 0);
+        _belonging.MouseFilter = MouseFilterEnum.Stop;
+        outer.AddChild(_belonging);
         _job = Ui.MakeLabel("");
         outer.AddChild(_job);
         outer.AddChild(new HSeparator());
@@ -170,6 +177,8 @@ public partial class InspectorPanel : PanelContainer
         CharacterState s = StateApi.Character(_host.World, _host.SelectedId);
         _name.Text = s.Name;
         _subtitle.Text = Ui.F("ui.inspector.subtitle", ("species", s.Species), ("status", s.Status));
+        _belonging.Text = s.Belonging.Line;
+        _belonging.TooltipText = ViewText.BelongingTooltip(s.Belonging);
         _job.Text = Ui.F("ui.inspector.job", ("job", s.Job));
 
         for (int i = 0; i < s.Needs.Count; i++) SetBar(i, s.Needs[i].Label, s.Needs[i].Value, 1000);

@@ -123,7 +123,8 @@ public static class Relations
         d.ClosedEvent = e.Id;
         Character? creditor = w.Find(d.CreditorId);
         if (d.IsPromise && creditor != null && creditor.Status == CharStatus.Member)
-            MoodSystem.AddThought(w, creditor, "promise_kept", d.DebtorId, e.Id);
+            MoodSystem.AddThought(w, creditor, "promise_kept", d.DebtorId, e.Id, Culture.Ways.OathWeightPct(w, creditor));
+        Culture.Omens.RecordDeed(w, d.IsPromise ? DeedKind.OathKept : DeedKind.DebtRepaid, e.Id, d.DebtorId);
         return e;
     }
 
@@ -135,12 +136,26 @@ public static class Relations
             EventArg.Char("a", d.DebtorId), EventArg.Char("b", d.CreditorId));
         d.ClosedEvent = e.Id;
         Character? creditor = w.Find(d.CreditorId), debtor = w.Find(d.DebtorId);
+        // The thought and grudge weigh by the creditor's ways; a wronged guest and word among kin follow (ADR-0023).
         if (creditor != null && debtor != null && creditor.Status == CharStatus.Member)
-        {
-            MoodSystem.AddThought(w, creditor, "promise_broken", debtor.Id, e.Id);
-            FormGrudge(w, creditor, debtor, 40, e.Id);
-        }
+            Culture.Promises.Broken(w, d, e, creditor, debtor);
+        Culture.Omens.RecordDeed(w, DeedKind.OathBroken, e.Id, d.DebtorId);
         return e;
+    }
+
+    /// <summary>
+    /// Records that a and b have spoken. True the first time (each now lists the other, in ascending
+    /// order), false if they had met before. Opinions cannot stand in for this: a chat warm enough to
+    /// count can still move opinion by 0, which leaves no opinion entry (ADR-0023).
+    /// </summary>
+    public static bool Meet(World w, Character a, Character b)
+    {
+        int at = a.Met.BinarySearch(b.Id);
+        if (at >= 0) return false;
+        a.Met.Insert(~at, b.Id);
+        int bt = b.Met.BinarySearch(a.Id);
+        if (bt < 0) b.Met.Insert(~bt, a.Id);
+        return true;
     }
 
     /// <summary>The oldest open debt the debtor owes the creditor (optionally of one kind), or null.</summary>
