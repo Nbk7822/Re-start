@@ -63,6 +63,7 @@ public class FestivalTests
         }
         Assert.Equal(new[] { you.Id, mira.Id, oren.Id, nia.Id }.OrderBy(x => x), run.Attendees);
         Assert.Equal(100 + CultureTuning.FestivalWarmth, Greetings.Warmth(w, nia, you, 0));
+        Assert.Contains("Hearth (keeping the harvest fire)", Return.Sim.Api.StateApi.Location(w, w.Map.Hearth.X, w.Map.Hearth.Y).Contents);
 
         // Mira holds two grudges against festival-goers: only the slighter is set down.
         SimEvent why = w.Log.Emit(w, SystemTag.Social, "event.test.why", new[] { mira.Id }, Array.Empty<long>());

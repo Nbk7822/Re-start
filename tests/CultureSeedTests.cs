@@ -267,4 +267,24 @@ public class CultureViewTests
         BelongingState you = StateApi.Character(w, w.PlayerId).Belonging;
         Assert.Equal("Their ways\nKnows none of the ways of this world yet.", ViewText.BelongingTooltip(you));
     }
+
+    [Fact]
+    public void ChronicleShowsCultureEvents()
+    {
+        World w = WorldGen.Create(TestContent.Db, 1);
+        Character mira = w.Characters.First(c => c.CastKey == "mira");
+        mira.CultureId = "reed";
+        Ways.CultureById(w, "reed")!.CustomIds = new List<string> { "no_touch_greeting" };
+        mira.Status = CharStatus.Member;
+        Character you = w.Characters.First(c => c.Otherworlder);
+        w.Rng = Rng.FromSeed(3);
+        for (int i = 0; i < 50 && !Greetings.FirstMeeting(w, you, mira); i++)
+        {
+            you.Met.Clear();
+            mira.Met.Clear();
+        }
+        string line = ViewText.Chronicle(w)[0];
+        Assert.Contains("You took Mira by the hand at their first meeting;", line);
+        Assert.StartsWith("Day 1, 00:00 — ", line);
+    }
 }
