@@ -194,24 +194,32 @@ public static class WatchSystem
     }
 
     /// <summary>
-    /// Keeps the record in step with what people are doing: a watcher who fell, left or went off is gone from the post
-    /// (one drawn into a fight comes back to it); someone on the way who no longer is, is not; and someone holding the
-    /// post the system does not know of (a test, a mod) is taken as the watcher, or let go outside the watch hours.
+    /// Keeps the record in step with what people are doing: a watcher who fell, left the camp or went off is gone from the
+    /// post, and what took them is why it stands empty (one drawn into a fight goes back to it, whatever they turned to next,
+    /// unless starving or kept in by the sun, as at the post itself); someone on the way who no longer is, is not; and
+    /// someone holding the post the system does not know of (a test, a mod) is taken as the watcher, or let go outside the
+    /// watch hours.
     /// </summary>
     private static void Reconcile(World w, WatchState s, bool inHours)
     {
         if (s.WatcherId != 0)
         {
             Character? c = w.Find(s.WatcherId);
-            if (c is not { Status: CharStatus.Member } || c.Downed || (c.Health < JobPicker.InjuredBelow && c.Job is not { Kind: JobKind.Fight or JobKind.Flee }))
+            if (c is not { Status: CharStatus.Member })
+            {
+                // Gone from the camp, or dead, while holding the post: their going is why it stands empty.
+                if (c != null)
+                {
+                    c.LastWatchEndTick = w.Tick;
+                    if (Going(w, c.Id) is { } gone) s.GapEvent = gone;
+                }
+                Vacate(w, s);
+            }
+            else if (c.Downed || (c.Health < JobPicker.InjuredBelow && c.Job is not { Kind: JobKind.Fight or JobKind.Flee }))
             {
                 // Struck down or wounded at the post: that is why it is empty, and they leave it to lie down.
-                if (c is { Status: CharStatus.Member })
-                {
-                    s.GapEvent = c.LastHealthEvent;
-                    OffDuty(w, c);
-                }
-                if (c != null) c.LastWatchEndTick = w.Tick;
+                s.GapEvent = c.LastHealthEvent;
+                OffDuty(w, c);
                 Vacate(w, s);
             }
             else if (c.Job is { Kind: JobKind.KeepWatch or JobKind.Fight or JobKind.Flee }) { }
@@ -222,13 +230,14 @@ public static class WatchSystem
                 c.LastWatchEndTick = w.Tick;
                 Vacate(w, s);
             }
-            else if (inHours && !c.Asleep && c.Job is not { Kind: JobKind.Eat or JobKind.RequestBlood or JobKind.SeekCover })
-                Post(w, c, s.TurnEvent); // back from a fight with the turn not done: to the post again, quietly
-            else
+            else if (!inHours || (Places.BurnsInDaylight(w, c) && Places.SunDanger(w)))
             {
+                // The watch hours are over, or those who burn go under cover before the sun: quietly, as at the post.
                 c.LastWatchEndTick = w.Tick;
                 Vacate(w, s);
             }
+            else if (Hungry(w, c)) LeaveHungry(w, s, c);
+            else Post(w, c, s.TurnEvent); // back from a fight with the turn not done, from a meal or a bed: to the post again, quietly
         }
         if (s.IncomingId != 0 && w.Find(s.IncomingId) is not { Status: CharStatus.Member, Downed: false, Job.Kind: JobKind.KeepWatch })
         {
@@ -262,6 +271,26 @@ public static class WatchSystem
         if (s.EmptySinceTick < 0) s.EmptySinceTick = w.Tick;
     }
 
+    /// <summary>"{a} left the watch to look for food": starving, or a Desperate person below their mark, they leave the post, and their hunger is why it stands empty.</summary>
+    private static void LeaveHungry(World w, WatchState s, Character watcher)
+    {
+        SimEvent e = w.Log.Emit(w, SystemTag.Work, "event.work.left_watch_hungry", new[] { watcher.Id }, new[] { watcher.LastFoodEvent }, null,
+            EventArg.Char("a", watcher.Id));
+        s.GapEvent = e.Id;
+        OffDuty(w, watcher);
+        Vacate(w, s);
+    }
+
+    /// <summary>The event that took someone from the camp since the last step (their departure or death), or null.</summary>
+    private static long? Going(World w, int id)
+    {
+        List<SimEvent> all = w.Log.All;
+        for (int i = all.Count - 1; i >= 0 && all[i].Tick >= w.Tick - 2 * StepEveryTicks; i--)
+            foreach (Effect fx in all[i].Effects)
+                if (fx.A == id && fx.Kind is EffectKind.Departure or EffectKind.Death) return all[i].Id;
+        return null;
+    }
+
     // ---- The watcher at the post ----
 
     private static void Keep(World w, WatchState s, Character watcher)
@@ -269,11 +298,7 @@ public static class WatchSystem
         if (watcher.Job is not { Kind: JobKind.KeepWatch }) return; // drawn into a fight: nothing to decide until they are back
         if (Hungry(w, watcher))
         {
-            SimEvent e = w.Log.Emit(w, SystemTag.Work, "event.work.left_watch_hungry", new[] { watcher.Id }, new[] { watcher.LastFoodEvent }, null,
-                EventArg.Char("a", watcher.Id));
-            s.GapEvent = e.Id;
-            OffDuty(w, watcher);
-            Vacate(w, s);
+            LeaveHungry(w, s, watcher);
             return;
         }
         if (Places.BurnsInDaylight(w, watcher) && Places.SunDanger(w))

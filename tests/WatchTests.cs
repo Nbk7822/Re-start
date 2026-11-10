@@ -410,6 +410,70 @@ public class WatchTests
         Assert.Equal(0, w.Watch.WatcherId);
     }
 
+    /// <summary>
+    /// Every way off the post has a line (ADR-0029): a watcher drawn off it by a fight goes back to it with the turn not done,
+    /// whatever they turned to next (a meal, their bed), unless they are now starving, when they leave it to look for food and say so.
+    /// </summary>
+    [Fact]
+    public void AWatcherBackFromAFightGoesBackToThePostUnlessStarving()
+    {
+        Simulation s = Camp(1, "you", "mira");
+        World w = s.World;
+        Character you = w.Characters.First(c => c.CastKey == "you"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Plain(you, "practical");
+        w.Tick = Hours(w, 24 + 1);
+        Asleep(w, mira);
+        OnWatch(w, you, w.Tick + Hours(w, 3));
+
+        // Hungry but not starving, they turned to a meal when the fight ended: back to the post.
+        you.Food = NeedsSystem.HungryBelow - 50;
+        you.Job = new Job { Kind = JobKind.Eat, Target = w.Map.StartStockpile.Center, StartedTick = w.Tick };
+        WatchSystem.Step(w);
+        Assert.Equal(you.Id, w.Watch.WatcherId);
+        Assert.Equal(JobKind.KeepWatch, you.Job?.Kind);
+
+        // Spent, they lay down: woken and sent back, where the watch decides whether they fall asleep at the post.
+        Asleep(w, you);
+        WatchSystem.Step(w);
+        Assert.Equal(you.Id, w.Watch.WatcherId);
+        Assert.Equal(JobKind.KeepWatch, you.Job?.Kind);
+        Assert.False(you.Asleep);
+        Assert.DoesNotContain(w.Log.All, e => e.Key.StartsWith("event.work.left_watch", StringComparison.Ordinal));
+
+        // Starving, they leave it to look for food, and that is why it stands empty.
+        SimEvent hunger = Note(w, "event.test.hunger", you.Id);
+        you.LastFoodEvent = hunger.Id;
+        you.Food = NeedsSystem.StarvingBelow - 10;
+        you.Job = new Job { Kind = JobKind.Eat, Target = w.Map.StartStockpile.Center, StartedTick = w.Tick };
+        WatchSystem.Step(w);
+        Assert.Equal(0, w.Watch.WatcherId);
+        SimEvent left = Assert.Single(w.Log.All, e => e.Key == "event.work.left_watch_hungry");
+        Assert.Equal(new[] { hunger.Id }, left.Causes);
+        Assert.Equal(left.Id, w.Watch.GapEvent);
+        Assert.Equal(JobKind.Eat, you.Job?.Kind); // their meal, not the post
+    }
+
+    /// <summary>A watcher who leaves the camp, or dies, while holding the post: their going is why it stands empty.</summary>
+    [Fact]
+    public void AWatcherWhoLeavesTheCampLeavesThePostEmptyForThatReason()
+    {
+        Simulation s = Camp(1, "you", "mira");
+        World w = s.World;
+        Character you = w.Characters.First(c => c.CastKey == "you"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Plain(mira, "practical");
+        w.Tick = Hours(w, 24 + 1);
+        Asleep(w, you);
+        OnWatch(w, mira, w.Tick + Hours(w, 3));
+        SimEvent gone = w.Log.Emit(w, SystemTag.Social, "event.social.left_camp", new[] { mira.Id }, Array.Empty<long>(),
+            new[] { new Effect { Kind = EffectKind.Departure, A = mira.Id } }, EventArg.Char("a", mira.Id));
+        mira.Status = CharStatus.Left;
+        mira.Job = null;
+        w.Tick += 1;
+        WatchSystem.Step(w);
+        Assert.Equal(0, w.Watch.WatcherId);
+        Assert.Equal(gone.Id, w.Watch.GapEvent);
+    }
+
     [Fact]
     public void WithNoWatchKeptATheftCitesOnlyTheThief()
     {
