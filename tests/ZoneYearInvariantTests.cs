@@ -9,13 +9,17 @@ namespace Return.Tests;
 /// A year with the stockpile moved into the ruins on the first tick and back out by the hearth in
 /// autumn (ADR-0028): every hour the zones stay canonical and apart, every item has a stockpile, stores
 /// lie only where they can be reached, nobody stands where they cannot, and every cause names an earlier event.
+/// A return sends the world back and hands the simulation the restored world (ADR-0030), so, as in
+/// YearInvariantTests, the year runs to its last tick and the world is read afresh every hour; one run
+/// has you die in summer (forced, as the soak's --fates does) to be sure the checks follow the return.
 /// </summary>
 public class ZoneYearInvariantTests
 {
     [Theory]
-    [InlineData(1UL)]
-    [InlineData(2UL)]
-    public void AYearOfMovedStockpilesKeepsTheStoresWhole(ulong seed)
+    [InlineData(1UL, false)]
+    [InlineData(2UL, false)]
+    [InlineData(1UL, true)]
+    public void AYearOfMovedStockpilesKeepsTheStoresWhole(ulong seed, bool dieInSummer)
     {
         var s = Simulation.Create(TestContent.Db, seed);
         World w = s.World;
@@ -25,9 +29,15 @@ public class ZoneYearInvariantTests
         long autumn = 2L * w.Content.World.TicksPerSeason;
         s.Enqueue(new MarkZone(autumn, 0, "stockpile", Zones.FromRect(w.Map.StartStockpile), new[] { "berries" }));
         int perHour = w.Content.World.TicksPerHour, checkedEvents = 0;
-        for (long hour = 0; hour < w.Content.World.TicksPerYear / perHour; hour++)
+        long year = w.Content.World.TicksPerYear, dieAt = dieInSummer ? w.Content.World.TicksPerSeason + w.Content.World.TicksPerSeason / 2 : -1;
+        bool died = false;
+        for (long hours = 0; s.World.Tick < year && !s.World.Fate.Ended; hours++)
         {
-            s.Advance(perHour);
+            Assert.True(hours < 4 * year / perHour, $"seed {seed}: the year never ended");
+            if (!died && dieAt >= 0 && s.World.Fate.Timeline == 0 && s.World.Tick >= dieAt) died = s.ForceDeath();
+            s.Advance(Math.Min(perHour, year - s.World.Tick));
+            if (s.World != w) checkedEvents = 0; // a return: the world gone back to has its own log, read from the start
+            w = s.World;
             string when = $"seed {seed}, tick {w.Tick}";
             var used = new Dictionary<Point, int>();
             foreach (Zone z in w.Map.Zones)
@@ -60,7 +70,10 @@ public class ZoneYearInvariantTests
                 foreach (long cause in e.Causes) Assert.True(cause >= 1 && cause < e.Id, $"event {e.Id} ({e.Key}) cites cause {cause}");
             }
         }
+        w = s.World;
+        Assert.True(w.Tick == year || w.Fate.Ended, $"seed {seed}: stopped at tick {w.Tick}");
         Assert.Contains(w.Log.All, e => e.Key == "event.world.zone_marked");
         Assert.True(w.Map.Zones.Count(z => z.Kind == "stockpile") == 2);
+        if (dieInSummer) Assert.True(w.Fate.Returns > 0, $"seed {seed}: you never died and came back");
     }
 }
