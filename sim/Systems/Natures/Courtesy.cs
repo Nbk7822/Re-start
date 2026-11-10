@@ -39,8 +39,9 @@ public static class Courtesy
                 new[] { broken.Id }, null, EventArg.Char("a", fae.Id));
             NatureNeeds.Adjust(w, fae, n, -def.Param("brokenWordLoss"), sting.Id);
             MoodSystem.AddThought(w, fae, "word_wound", culprit != null && culprit.Id != fae.Id ? culprit.Id : 0, sting.Id);
-            // A sting, not a wound: it costs a little health but never fells them by itself.
-            fae.Health = Math.Max(1, fae.Health - def.Param("brokenWordHurt"));
+            // A sting, not a wound: it costs a little health but never fells them by itself (never below the
+            // mark where people collapse, and nothing more from one who is already that low).
+            fae.Health = Math.Max(Math.Min(fae.Health, NeedsSystem.DownedBelow), fae.Health - def.Param("brokenWordHurt"));
             fae.LastHealthEvent = sting.Id;
             // The Good Folk hold an oath-breaker to account, whoever the oath was sworn to.
             if (oath && fae.Status == CharStatus.Member && culprit != null && culprit.Id != fae.Id && culprit.Status == CharStatus.Member)

@@ -725,6 +725,27 @@ public class PeoplesTests
         Assert.Equal("event.social.owes_care", w.Log.Get(human.FormedEvent)!.Key);
     }
 
+    /// <summary>The cold iron of a broken word stings but never fells a fae: never below the mark where people collapse.</summary>
+    [Fact]
+    public void TheStingOfABrokenWordNeverFellsAFae()
+    {
+        World w = WorkTests.Only(1, "you", "fionn");
+        Character fionn = Cast(w, "fionn");
+        SimEvent broken = w.Log.Emit(w, SystemTag.Social, "event.test.broken", new[] { fionn.Id }, Array.Empty<long>());
+        fionn.Health = NeedsSystem.DownedBelow + 20;
+        Courtesy.WordBroken(w, 0, broken);
+        Assert.Equal(NeedsSystem.DownedBelow, fionn.Health);
+        fionn.Health = NeedsSystem.DownedBelow - 30;
+        Courtesy.WordBroken(w, 0, broken);
+        Assert.Equal(NeedsSystem.DownedBelow - 30, fionn.Health);
+        fionn.Health = NeedsSystem.DownedBelow + 20;
+        Courtesy.WordBroken(w, 0, broken);
+        w.Tick += Hours(w, 1);
+        NeedsSystem.Hourly(w);
+        Assert.False(fionn.Downed);
+        Assert.DoesNotContain(w.Log.All, e => e.Key == "event.needs.collapsed");
+    }
+
     [Fact]
     public void AFaeWhoCannotBearTheBrokenWordsLeaves()
     {
