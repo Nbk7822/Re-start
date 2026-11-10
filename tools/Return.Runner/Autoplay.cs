@@ -223,25 +223,37 @@ internal static class Autoplay
     internal static string DaysPlanFor(string plan, ulong seed) =>
         plan != "mixed" ? plan : new[] { "default", "nowatch", "nightwatcher" }[(int)(seed / 36 % 3)];
 
-    internal static void Begin(Simulation sim, string zones = "none", string days = "default")
+    /// <summary>
+    /// The schedule plan a world actually runs under: the one <see cref="DaysPlanFor"/> deals it, except that a player who knows
+    /// they are an undead bound to the watch never takes the watch away. With none, their purpose is gone, they come to rest,
+    /// and every return replays it, a death loop (seeds 40 and 65 of the nightly soak once Schedule met the return), so the
+    /// stand-in keeps the watch then, and the world runs under the shipped hours: "default", which the soak tallies it under.
+    /// </summary>
+    internal static string DaysPlanRun(World w, string days)
+    {
+        string plan = DaysPlanFor(days, w.Seed);
+        return plan == "nowatch" && BoundToTheWatch(w) ? "default" : plan;
+    }
+
+    /// <summary>The stand-in's first tick: the ration policy, the zone plan and the days plan. Returns the days plan it ran (<see cref="DaysPlanRun"/>).</summary>
+    internal static string Begin(Simulation sim, string zones = "none", string days = "default")
     {
         sim.Enqueue(new SetRationPolicy(sim.World.Tick, PolicyFor(sim.World.Seed)));
         string plan = ZonePlanFor(zones, sim.World.Seed);
         if (plan is "dry" or "both") Dry(sim);
         if (plan is "home" or "both") Home(sim, shortOfThePost: false);
         if (plan == "short") Home(sim, shortOfThePost: true);
-        switch (DaysPlanFor(days, sim.World.Seed))
+        string ran = DaysPlanRun(sim.World, days);
+        switch (ran)
         {
             case "nowatch":
-                // A player who knows they are an undead bound to the watch never takes the watch away: with none, their
-                // purpose is gone, they come to rest, and every return replays it, a death loop (seeds 40 and 65 of the
-                // nightly soak once Schedule met the return). The stand-in keeps the watch then.
-                if (!BoundToTheWatch(sim.World)) sim.Enqueue(new SetWatchHours(sim.World.Tick, 0, 0));
+                sim.Enqueue(new SetWatchHours(sim.World.Tick, 0, 0));
                 break;
             case "nightwatcher":
                 if (sim.World.Characters.Find(c => c.CastKey == "mira") is { } mira) sim.Enqueue(new SetPersonDay(sim.World.Tick, mira.Id, NightWatcher()));
                 break;
         }
+        return ran;
     }
 
     /// <summary>You are an undead whose purpose is keeping the watch (ADR-0022).</summary>

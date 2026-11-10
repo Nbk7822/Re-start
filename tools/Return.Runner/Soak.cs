@@ -618,7 +618,7 @@ public static class Soak
         try
         {
             sim = Simulation.Create(content, seed, setup.Choice);
-            Autoplay.Begin(sim, zones, days);
+            string daysRun = Autoplay.Begin(sim, zones, days); // the days plan it ran: a watch kept for a you bound to it is the default
             var meter = new DaysMeter();
             // The schedule's meter reads the world every 30 ticks between steps (ADR-0029), through the one loop that steps
             // a world, so a return that sends it back is read as it is lived (ADR-0030).
@@ -650,7 +650,7 @@ public static class Soak
                 foreach (Effect f in e.Effects)
                     if (f.Kind is EffectKind.Departure or EffectKind.Death && w.Find(f.A) is { Named: true } who) losses.Add(who.SpeciesId);
             return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses, SoakFates.Tally(w, analysis.Stories), BuildOf(w, plan, analysis.Stories),
-                MeasureZones(w, analysis, Autoplay.ZonePlanFor(zones, seed)), MeasureDays(w, analysis, Autoplay.DaysPlanFor(days, seed), meter));
+                MeasureZones(w, analysis, Autoplay.ZonePlanFor(zones, seed)), MeasureDays(w, analysis, daysRun, meter));
         }
         catch (Exception ex)
         {

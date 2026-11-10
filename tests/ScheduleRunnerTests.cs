@@ -1,5 +1,6 @@
 using Return.Runner;
 using Return.Sim;
+using Return.Sim.Systems;
 
 namespace Return.Tests;
 
@@ -108,6 +109,38 @@ public class ScheduleRunnerTests
         Post(oren);
         Run(5 * day + 3 * hour);
         Assert.Equal(1, meter.TurnTenths.Sum());
+    }
+
+    /// <summary>
+    /// Under --days nowatch the stand-in keeps the watch for a you bound to it (the merge's loop fix): that world runs under
+    /// the shipped watch, so the stand-in reports the plan it ran, "default", and the soak tallies the world there rather
+    /// than under the plan it was dealt (merge review).
+    /// </summary>
+    [Fact]
+    public void AWorldWhoseWatchTheStandInKeptIsTalliedUnderThePlanItRan()
+    {
+        // Reborn undead, seed 1's you is bound to the watch and seed 2's to foraging.
+        var bound = Simulation.Create(TestContent.Rolled, 1, new RebirthChoice("undead"));
+        Assert.Equal("keep_watch", NatureNeeds.Get(bound.World.Get(bound.World.PlayerId), Purpose.NeedId)?.BondWork);
+        Assert.Equal("default", Autoplay.Begin(bound, "none", "nowatch"));
+        Assert.DoesNotContain(bound.World.PendingCommands, c => c is SetWatchHours);
+        var forager = Simulation.Create(TestContent.Rolled, 2, new RebirthChoice("undead"));
+        Assert.Equal("nowatch", Autoplay.Begin(forager, "none", "nowatch"));
+        Assert.Contains(forager.World.PendingCommands, c => c is SetWatchHours);
+
+        string dir = Path.Combine(Path.GetTempPath(), "return-days-kept-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var stdout = new StringWriter();
+            Assert.Equal(0, Cli.Run(new[] { "soak", "--worlds", "2", "--years", "1", "--out", dir, "--people", "undead", "--days", "nowatch", "--parallel", "2" },
+                stdout, new StringWriter()));
+            Assert.Contains("Days 'default', 1 worlds:", stdout.ToString());
+            Assert.Contains("Days 'nowatch', 1 worlds:", stdout.ToString());
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]
