@@ -91,6 +91,22 @@ public class HonourTests
         Assert.Null(Honour.RepayJob(w, ilex, sunBlocked: false));
     }
 
+    /// <summary>
+    /// A keeper the sun keeps indoors waits for dark: the stockpile and the fields are in the open, so
+    /// a debt of honour never sends a vampire out in daylight (the work system would pull them back to
+    /// cover every few minutes and the picker would send them out again).
+    /// </summary>
+    [Fact]
+    public void TheSunKeepsAVampireKeeperIndoorsUntilDark()
+    {
+        (World w, Character ilex, Character bram, Debt debt, _) = Owed();
+        w.Tick = debt.FormedTick + 50L * w.Content.World.TicksPerHour;
+        bram.HungerStage = 1; bram.Food = 250;
+        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Assert.Null(Honour.RepayJob(w, ilex, sunBlocked: true));
+        Assert.NotNull(Honour.RepayJob(w, ilex, sunBlocked: false));
+    }
+
     [Fact]
     public void WithNoBushToPickTheKeeperTakesTheirOwnShare()
     {
