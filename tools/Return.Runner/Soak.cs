@@ -21,10 +21,20 @@ public sealed class SoakOptions
     public int Parallel { get; init; } = Environment.ProcessorCount;
 
     public ulong FirstSeed { get; init; } = 1;
+
+    /// <summary>The stand-in player's building plan: none, beds, camp, or mixed (one of those three by seed; ADR-0027).</summary>
+    public string Plan { get; init; } = "none";
 }
 
 /// <summary>A key and how often it came up.</summary>
 public sealed record Tally(string Key, int Count);
+
+/// <summary>
+/// The worlds that got one plan (ADR-0027): their stories, how many held a building event and in how many worlds,
+/// the trees left standing on average, and roof promises made, kept, and the median hours to keep one.
+/// </summary>
+public sealed record PlanTally(string Plan, int Worlds, int Stories, double StoriesPerWorldYear, int BuildStories, int BuildWorlds,
+    double TreesLeft, int RoofPromises, int RoofPromisesKept, double RoofKeptMedianHours);
 
 /// <summary>One world's totals.</summary>
 public sealed record WorldTally(ulong Seed, int Events, int Stories);
@@ -64,6 +74,20 @@ public sealed class SoakSummary
 
     /// <summary>Named people who left or died, by species id; most first (the vampire guard of ADR-0023 reads it).</summary>
     public IReadOnlyList<Tally> DeparturesAndDeathsBySpecies { get; init; } = Array.Empty<Tally>();
+
+    /// <summary>The --plan the soak ran with (ADR-0027).</summary>
+    public string Plan { get; init; } = "none";
+
+    /// <summary>Stories whose chain holds a building event (a plan, a delivery of the last timber, a building finished or taken down, a bed claimed), their share in percent, and how many worlds had one.</summary>
+    public int BuildStories { get; init; }
+    public double BuildStoryShare { get; init; }
+    public int BuildWorlds { get; init; }
+
+    /// <summary>Building stories by set of systems, keyed like <see cref="BySystemSet"/>; most first.</summary>
+    public IReadOnlyList<Tally> BuildSystemSets { get; init; } = Array.Empty<Tally>();
+
+    /// <summary>The worlds of each plan, in the order none, beds, camp.</summary>
+    public IReadOnlyList<PlanTally> ByPlan { get; init; } = Array.Empty<PlanTally>();
 }
 
 /// <summary>
@@ -84,7 +108,13 @@ public static class Soak
     /// per story its culture link ("" for none); and the species of each named person who left or died.
     /// </summary>
     internal sealed record WorldResult(ulong Seed, int Events, IReadOnlyList<string> SystemSets, IReadOnlyList<string> TerminalKeys, SoakFailure? Failure,
-        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null);
+        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null, BuildResult? Build = null);
+
+    /// <summary>
+    /// What one world says about building (ADR-0027): its plan, which of its stories (in order) hold a building event,
+    /// the trees left standing, roof promises made, and the hours each kept one took.
+    /// </summary>
+    internal sealed record BuildResult(string Plan, IReadOnlyList<bool> BuildStories, int TreesLeft, int RoofPromises, IReadOnlyList<int> RoofKeptHours);
 
     /// <summary>The family of a Culture event: the custom id in "event.culture.&lt;id&gt;.&lt;moment&gt;", or the generic key's last part (omen_anger, word_spread); "" for any other key.</summary>
     internal static string CultureLink(string key)
@@ -107,7 +137,7 @@ public static class Soak
 
         var results = new WorldResult[options.Worlds];
         Parallel.For(0, options.Worlds, new ParallelOptions { MaxDegreeOfParallelism = options.Parallel },
-            i => results[i] = RunWorld(content, options.FirstSeed + (ulong)i, options.Years, outDir));
+            i => results[i] = RunWorld(content, options.FirstSeed + (ulong)i, options.Years, outDir, options.Plan));
         clock.Stop();
 
         SoakSummary summary = Summarize(options, outDir, results, clock.Elapsed);
@@ -166,6 +196,7 @@ public static class Soak
         links.Sort(MostFirst);
         List<Tally> lost = Tallies(losses);
         lost.Sort(MostFirst);
+        var build = BuildTallies(options, results);
 
         int worlds = results.Count;
         return new SoakSummary
@@ -188,7 +219,54 @@ public static class Soak
             CultureWorlds = cultureWorlds,
             ByCultureLink = links,
             DeparturesAndDeathsBySpecies = lost,
+            Plan = options.Plan,
+            BuildStories = build.Stories,
+            BuildStoryShare = stories == 0 ? 0 : Math.Round(build.Stories * 100.0 / stories, 1, MidpointRounding.AwayFromZero),
+            BuildWorlds = build.Worlds,
+            BuildSystemSets = build.Sets,
+            ByPlan = build.ByPlan,
         };
+    }
+
+    /// <summary>Building stories in all, the worlds with one, their system sets (most first), and each plan's tally (ADR-0027).</summary>
+    private static (int Stories, int Worlds, List<Tally> Sets, List<PlanTally> ByPlan) BuildTallies(SoakOptions options, IReadOnlyList<WorldResult> results)
+    {
+        int stories = 0, worlds = 0;
+        var sets = new Dictionary<string, int>(StringComparer.Ordinal);
+        var byPlan = new List<PlanTally>();
+        foreach (string plan in Autoplay.Plans)
+        {
+            int n = 0, all = 0, buildStories = 0, buildWorlds = 0, trees = 0, promises = 0;
+            var hours = new List<int>();
+            foreach (WorldResult r in results)
+            {
+                if (r.Build is not { } b || b.Plan != plan) continue;
+                n++;
+                all += r.SystemSets.Count;
+                int inWorld = 0;
+                for (int i = 0; i < b.BuildStories.Count && i < r.SystemSets.Count; i++)
+                {
+                    if (!b.BuildStories[i]) continue;
+                    inWorld++;
+                    sets[r.SystemSets[i]] = sets.GetValueOrDefault(r.SystemSets[i]) + 1;
+                }
+                buildStories += inWorld;
+                if (inWorld > 0) buildWorlds++;
+                trees += b.TreesLeft;
+                promises += b.RoofPromises;
+                hours.AddRange(b.RoofKeptHours);
+            }
+            if (n == 0) continue;
+            stories += buildStories;
+            worlds += buildWorlds;
+            hours.Sort();
+            double median = hours.Count == 0 ? 0 : hours.Count % 2 == 1 ? hours[hours.Count / 2] : (hours[hours.Count / 2 - 1] + hours[hours.Count / 2]) / 2.0;
+            byPlan.Add(new PlanTally(plan, n, all, Ratio(all, (long)n * options.Years), buildStories, buildWorlds,
+                Math.Round(trees / (double)n, 1, MidpointRounding.AwayFromZero), promises, hours.Count, median));
+        }
+        List<Tally> setList = Tallies(sets);
+        setList.Sort(MostFirst);
+        return (stories, worlds, setList, byPlan);
     }
 
     /// <summary>Writes summary.json with keys in the order the summary lists them; '+' in keys stays literal.</summary>
@@ -213,6 +291,28 @@ public static class Soak
             json.WriteNumber("cultureWorlds", s.CultureWorlds);
             WriteTallies(json, "byCultureLink", s.ByCultureLink);
             WriteTallies(json, "departuresAndDeathsBySpecies", s.DeparturesAndDeathsBySpecies);
+            json.WriteString("plan", s.Plan);
+            json.WriteNumber("buildStories", s.BuildStories);
+            json.WriteNumber("buildStoryShare", s.BuildStoryShare);
+            json.WriteNumber("buildWorlds", s.BuildWorlds);
+            WriteTallies(json, "buildSystemSets", s.BuildSystemSets);
+            json.WriteStartArray("byPlan");
+            foreach (PlanTally p in s.ByPlan)
+            {
+                json.WriteStartObject();
+                json.WriteString("plan", p.Plan);
+                json.WriteNumber("worlds", p.Worlds);
+                json.WriteNumber("stories", p.Stories);
+                json.WriteNumber("storiesPerWorldYear", p.StoriesPerWorldYear);
+                json.WriteNumber("buildStories", p.BuildStories);
+                json.WriteNumber("buildWorlds", p.BuildWorlds);
+                json.WriteNumber("treesLeft", p.TreesLeft);
+                json.WriteNumber("roofPromises", p.RoofPromises);
+                json.WriteNumber("roofPromisesKept", p.RoofPromisesKept);
+                json.WriteNumber("roofKeptMedianHours", p.RoofKeptMedianHours);
+                json.WriteEndObject();
+            }
+            json.WriteEndArray();
             json.WriteStartArray("perWorld");
             foreach (WorldTally t in s.PerWorld)
             {
@@ -266,6 +366,17 @@ public static class Soak
             Line(o, loc.Get("log.soak.culture_links"));
             WriteTop(o, loc, s.ByCultureLink);
         }
+        Line(o, Format(loc, "log.soak.build", ("stories", Num(s.BuildStories)), ("share", s.BuildStoryShare.ToString("0.0", Inv)),
+            ("worlds", Num(s.BuildWorlds)), ("total", Num(s.Worlds)), ("plan", s.Plan)));
+        if (s.BuildSystemSets.Count > 0)
+        {
+            Line(o, loc.Get("log.soak.build_sets"));
+            WriteTop(o, loc, s.BuildSystemSets);
+        }
+        foreach (PlanTally p in s.ByPlan)
+            Line(o, "  " + Format(loc, "log.soak.plan_line", ("plan", p.Plan), ("worlds", Num(p.Worlds)), ("per_year", p.StoriesPerWorldYear.ToString("0.00", Inv)),
+                ("build_worlds", Num(p.BuildWorlds)), ("trees", p.TreesLeft.ToString("0.0", Inv)), ("kept", Num(p.RoofPromisesKept)),
+                ("made", Num(p.RoofPromises)), ("hours", p.RoofKeptMedianHours.ToString("0.#", Inv))));
         if (s.Failures.Count > 0)
             Line(o, Format(loc, "log.soak.crashed_list", ("seeds", List(loc, s.Failures.Select(f => Num(f.Seed))))));
         Line(o, Format(loc, "log.soak.written", ("dir", s.OutDir)));
@@ -275,15 +386,16 @@ public static class Soak
     /// Runs one world on the calling thread and writes its log. A world that throws becomes a failure
     /// in the summary (its file says where it stopped) instead of ending the whole soak.
     /// </summary>
-    private static WorldResult RunWorld(ContentDb content, ulong seed, int years, string outDir)
+    private static WorldResult RunWorld(ContentDb content, ulong seed, int years, string outDir, string planOption)
     {
         string path = Path.Combine(outDir, "world-" + Num(seed) + ".txt");
         Simulation? sim = null;
+        string plan = Autoplay.PlanFor(planOption, seed);
         try
         {
             sim = Simulation.Create(content, seed);
             Autoplay.Begin(sim);
-            sim.Advance(StoryLog.TicksFor(content.World, years));
+            Autoplay.Run(sim, StoryLog.TicksFor(content.World, years), plan);
             World w = sim.World;
             LogAnalysis analysis = StoryLog.Analyze(w);
             var log = new StringWriter(Inv);
@@ -306,7 +418,7 @@ public static class Soak
             foreach (SimEvent e in w.Log.All)
                 foreach (Effect f in e.Effects)
                     if (f.Kind is EffectKind.Departure or EffectKind.Death && w.Find(f.A) is { Named: true } who) losses.Add(who.SpeciesId);
-            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses);
+            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses, BuildOf(w, plan, analysis.Stories));
         }
         catch (Exception ex)
         {
@@ -321,6 +433,32 @@ public static class Soak
             File.WriteAllText(path, text.ToString(), Cli.Utf8);
             return new WorldResult(seed, sim?.World.Log.All.Count ?? 0, Array.Empty<string>(), Array.Empty<string>(), new SoakFailure(seed, tick, error));
         }
+    }
+
+    /// <summary>A world's building: which stories hold a building event, the trees left, and its roof promises (ADR-0027).</summary>
+    internal static BuildResult BuildOf(World w, string plan, IReadOnlyList<Story> stories)
+    {
+        var flags = new List<bool>(stories.Count);
+        foreach (Story story in stories)
+        {
+            bool build = false;
+            foreach (long id in story.Chain)
+                if (w.Log.Get(id) is { } e && Sim.Systems.Building.IsBuildEvent(e.Key)) { build = true; break; }
+            flags.Add(build);
+        }
+        int trees = 0;
+        foreach (Tree t in w.Map.Trees)
+            if (!t.Felled) trees++;
+        int promises = 0;
+        var kept = new List<int>();
+        foreach (Debt d in w.Debts)
+        {
+            if (d.Kind != DebtKind.PromiseRest) continue;
+            promises++;
+            if (d.Status == DebtStatus.Repaid && w.Log.Get(d.ClosedEvent) is { } closed)
+                kept.Add((int)((closed.Tick - d.FormedTick) / w.Content.World.TicksPerHour));
+        }
+        return new BuildResult(plan, flags, trees, promises, kept);
     }
 
     private static void Validate(SoakOptions o)

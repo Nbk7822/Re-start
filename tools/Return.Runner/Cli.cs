@@ -13,8 +13,8 @@ namespace Return.Runner;
 public static class Cli
 {
     public const string Usage =
-        "usage: return-runner run --seed <n> --years <y> [--out <file>]\n" +
-        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>]\n";
+        "usage: return-runner run --seed <n> --years <y> [--out <file>] [--plan none|beds|camp|mixed]\n" +
+        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--plan none|beds|camp|mixed]\n";
 
     /// <summary>UTF-8 without a byte-order mark, for every file the runner writes.</summary>
     internal static readonly Encoding Utf8 = new UTF8Encoding(false);
@@ -60,7 +60,7 @@ public static class Cli
     private static int RunWorld(RunArgs a, TextWriter stdout)
     {
         ContentDb content = LoadContent();
-        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years);
+        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years, a.Plan);
         var log = new StringWriter(CultureInfo.InvariantCulture);
         StoryLog.Write(sim, log);
         if (a.OutFile == null)
@@ -94,23 +94,31 @@ public static class Cli
         }
     }
 
-    private sealed record RunArgs(ulong Seed, int Years, string? OutFile);
+    private sealed record RunArgs(ulong Seed, int Years, string? OutFile, string Plan);
 
     private static RunArgs ParseRun(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out");
-        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"));
+        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out", "--plan");
+        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"), Plan(o));
+    }
+
+    /// <summary>The stand-in player's building plan (ADR-0027); "none" when not given.</summary>
+    private static string Plan(Dictionary<string, string> options)
+    {
+        string plan = options.GetValueOrDefault("--plan") ?? "none";
+        return Autoplay.Plans.Contains(plan) ? plan : throw new UsageException($"--plan must be one of {string.Join(", ", Autoplay.Plans)}, not '{plan}'");
     }
 
     private static SoakOptions ParseSoak(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel");
+        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel", "--plan");
         return new SoakOptions
         {
             Worlds = AtLeastOne(o, "--worlds"),
             Years = AtLeastOne(o, "--years"),
             OutDir = Required(o, "--out"),
             Parallel = o.ContainsKey("--parallel") ? AtLeastOne(o, "--parallel") : Environment.ProcessorCount,
+            Plan = Plan(o),
         };
     }
 

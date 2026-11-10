@@ -55,7 +55,8 @@ public static class JobPicker
             {
                 Job? eat = EatJob(w, c, allowTheft: true);
                 if (eat != null) return eat;
-                Job? forage = ForageJob(w, c);
+                // Never out into the sun to pick berries: a vampire turned down walked out, was pulled back to cover, and burned (ADR-0027).
+                Job? forage = sunBlocked ? null : ForageJob(w, c);
                 if (forage != null) return forage;
             }
         }

@@ -116,7 +116,8 @@ public static class Places
     {
         bool burns = BurnsInDaylight(w, c);
         Bed? bed = Building.SleepBed(w, c, coveredOnly: burns);
-        if (bed != null) return bed.Pos;
+        // By day, one who burns goes to their bed only if the way there is under cover; else they would walk into the sun.
+        if (bed != null && (!burns || !SunDanger(w) || CoveredWay(w, c.Pos, bed.Pos))) return bed.Pos;
         if (burns)
         {
             Point covered = CoveredSpot(w, c.Pos, c.Id);
@@ -127,6 +128,34 @@ public static class Places
         Rect s = w.Map.Shelter;
         var inside = new Point(s.X + 1 + (c.Id % (s.W - 2)), s.Y + 1 + (c.Id % (s.H - 2)));
         return NotOthersBed(w, w.Map.Passable(inside) ? inside : c.Pos, c.Id);
+    }
+
+    /// <summary>Can one walk from one tile to another without leaving cover (8 ways, never cutting a corner)?</summary>
+    private static bool CoveredWay(World w, Point from, Point to)
+    {
+        Map m = w.Map;
+        bool[] cover = CoverArray(w);
+        bool Open(Point p) => m.Passable(p) && cover[m.Index(p)];
+        if (!Open(from) || !Open(to)) return false;
+        var seen = new bool[m.Width * m.Height];
+        var queue = new Queue<Point>();
+        seen[m.Index(from)] = true;
+        queue.Enqueue(from);
+        while (queue.Count > 0)
+        {
+            Point p = queue.Dequeue();
+            if (p == to) return true;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    var q = new Point(p.X + dx, p.Y + dy);
+                    if ((dx == 0 && dy == 0) || !Open(q) || seen[m.Index(q)]) continue;
+                    if (dx != 0 && dy != 0 && (!Open(new Point(p.X + dx, p.Y)) || !Open(new Point(p.X, p.Y + dy)))) continue;
+                    seen[m.Index(q)] = true;
+                    queue.Enqueue(q);
+                }
+        }
+        return false;
     }
 
     /// <summary>The tile itself, unless it is someone else's bed (or a free bed someone is in or heading for); then its first passable neighbour that is not.</summary>

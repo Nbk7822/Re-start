@@ -28,12 +28,15 @@ public static class StoryLog
         Render(w, Analyze(w), writer);
     }
 
-    /// <summary>Creates the world for a seed, lets the stand-in player set its ration policy, and runs it for whole years. `run` and `soak` both use this.</summary>
-    internal static Simulation Simulate(ContentDb content, ulong seed, int years)
+    /// <summary>
+    /// Creates the world for a seed, lets the stand-in player set its ration policy and make its building plan, and
+    /// runs it for whole years, an hour at a time. `run` and `soak` both use this.
+    /// </summary>
+    internal static Simulation Simulate(ContentDb content, ulong seed, int years, string plan = "none")
     {
         Simulation sim = Simulation.Create(content, seed);
         Autoplay.Begin(sim);
-        sim.Advance(TicksFor(content.World, years));
+        Autoplay.Run(sim, TicksFor(content.World, years), Autoplay.PlanFor(plan, seed));
         return sim;
     }
 

@@ -19,6 +19,22 @@ public static partial class Building
     /// <summary>The terrain a building may be placed on (buildings.json placeOn).</summary>
     public static readonly IReadOnlyList<string> PlaceableTerrain = new[] { "grass", "soil", "floor" };
 
+    /// <summary>The event keys Build emits (their variants share these starts): what the soak counts as a building story's mark.</summary>
+    public static readonly IReadOnlyList<string> EventKeys = new[]
+    {
+        "event.world.planned", "event.world.plan_failed", "event.world.plan_called_off", "event.world.marked_take_down",
+        "event.work.built", "event.work.plan_finished", "event.work.used_last_materials", "event.work.refused_to_shut_in",
+        "event.work.took_down", "event.social.claimed_bed", "event.social.claimed_own_bed",
+    };
+
+    /// <summary>Was this event Build's own (a plan, the last timber, a building finished or taken down, a bed claimed)?</summary>
+    public static bool IsBuildEvent(string key)
+    {
+        foreach (string k in EventKeys)
+            if (key.StartsWith(k, StringComparison.Ordinal)) return true;
+        return false;
+    }
+
     public static Bed? BedAt(World w, Point p)
     {
         foreach (Bed b in w.Map.Beds)
