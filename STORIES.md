@@ -81,3 +81,19 @@ At 02:00 on Day 25 Ketil, bound by their nature to keep watch, meets the night t
 ### Dryope by the lone pine (seed 13, playtest)
 Dryope's bound tree comes down early on Day 28. By 10:00 she stands by a lone pine among the stumps, with a stain of amber sap on her dress where the fall wounded her, and her autumn crown browning as the forest she needs runs low.
 - Chain on the map: felled bound tree (Work) → cried out, wounded (Needs) → forest low (Needs), shown as a sap stain and a wilting crown (view).
+
+## 2026-11-09 — The four peoples, reviewed (ADR-0022 review update; soak 100 worlds × 1 year)
+
+1,161 stories (11.61 per world; 12.13 before this review, 8.47 at c818511). Stories each people appears in: Ketil 70 in 38 worlds, Dryope 78 in 47, Qamar 194 in 100, Fionn 154 in 83. The fall is sibling stories: four people tending one withering dryad used to be four stories, and the dryad no longer withers to death in her bed.
+
+### The camp's axe and Dryope's tree (seed 13, soak; policy "promised meals come first")
+On Day 11 Qamar the djinn, restless without a bargain, offered to gather berries for the camp for timber for the fire each dawn. You and Mira turned it down; Wren struck it, and Qamar served it out to the turn of the season. On Day 22 Wren struck the next one. The camp kept timber in store for the djinn's fire, and on Day 25 Oren felled the tree Dryope was bound to. Dryope cried out as it came down, and now holds a grudge against Oren.
+- Chain: restless (Needs) → offered, turned down twice, struck, kept, struck again (Social) → Oren felled the bound tree, the felling citing the bargain (Work) → cried out (Needs) → grudge (Social).
+- Why it matters: before this review the djinn felled the tree itself, to pay its own price (in 7 of the 27 worlds where her tree fell). Now the camp pays the djinn, and the axe is a neighbour's. Traced hour by hour, Dryope then withers beside a lone tree near (33, 25) from Day 32 and lives to the year's end, sleeping in the shelter and getting up to stand by the tree whenever the withering starts to harm her. Before the fix she slept until she died, with eight trees standing.
+
+### Ketil and the bare bushes, again (seed 74, soak)
+Winter came on Day 31 and the frost took the berries from the bushes. Ketil, bound by their nature to forage, was losing the purpose that kept them here by Day 32 and fading by Day 34, and on Day 40 lay down and was at rest at last.
+- Chain: winter (World) → purpose slipping → fading → at rest (Needs, Death).
+- Why it matters: the undead no longer lie down to sleep when wounded, so a fading undead goes on until they fall and is carried in from where they fell, not tended in bed.
+
+The earlier playtest entries describe the build before this review, and the histories have moved. Seed 10's Ketil no longer meets the thief; their grave dust beside the thief's blood now shows in seed 11, on Day 33 at 19:00, near (20, 28). Seed 13's bound tree falls on Day 25, to Oren. The djinn now reads as smokeless fire: a low warmth and wavering flame-light, with no smoke.
