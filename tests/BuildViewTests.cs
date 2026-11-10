@@ -325,6 +325,30 @@ public class BuildViewTests
     }
 
     [Fact]
+    public void AfterAGestureTheHintSaysWhatItDidUntilThePointerMovesOn()
+    {
+        World w = WorldGen.Create(TestContent.Db, 1);
+        var drafts = new OrderDrafts();
+        Point hearth = w.Map.Hearth;
+        var tool = new BuildTool();
+        tool.Place("wall");
+        tool.Press(new Point(hearth.X - 3, hearth.Y));
+        tool.Hover(new Point(hearth.X + 2, hearth.Y));
+        Assert.True(tool.Release(w, drafts, c => drafts.Add(c)));
+        // The release tile is now planned; the hint still tells the gesture, not "nothing can go here".
+        Assert.True(tool.Settled);
+        IReadOnlyList<string> hint = tool.Hint(w, drafts, paused: true);
+        Assert.StartsWith("Wall · 5 marked · 5 timber", hint[0]);
+        Assert.Equal("Can't go here: the camp needs that spot", hint[1]);
+        Assert.Equal("Takes effect when time moves", hint[^1]);
+        tool.Hover(new Point(hearth.X + 2, hearth.Y));
+        Assert.True(tool.Settled);
+        tool.Hover(new Point(hearth.X + 2, hearth.Y + 1));
+        Assert.False(tool.Settled);
+        Assert.StartsWith("Wall · 1 marked", tool.Hint(w, drafts, paused: true)[0]);
+    }
+
+    [Fact]
     public void TheTooltipNamesWhatIsDraftedAtATile()
     {
         World w = WorldGen.Create(TestContent.Db, 1);
@@ -335,6 +359,8 @@ public class BuildViewTests
         Bed bed = w.Map.Beds[0];
         drafts.Add(new MarkTakeDown(w.Tick, new[] { new BuiltRef(TargetKind.Bed, bed.Id) }, true));
         Assert.Equal(new[] { "To be taken down when time moves" }, BuildTool.DraftLines(w, drafts, bed.Pos.X, bed.Pos.Y));
+        drafts.Add(new MarkTakeDown(w.Tick, new[] { new BuiltRef(TargetKind.Bed, bed.Id) }, false));
+        Assert.Equal(new[] { "To be left standing when time moves" }, BuildTool.DraftLines(w, drafts, bed.Pos.X, bed.Pos.Y));
         Assert.Empty(BuildTool.DraftLines(w, drafts, 0, 0));
     }
 
