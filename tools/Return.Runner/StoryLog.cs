@@ -67,7 +67,9 @@ public static class StoryLog
     /// <summary>
     /// Stories as <see cref="StoryAnalyzer"/> finds them (a named character makes a chain count), and
     /// the notable events: any with a persistent effect, any from Incident, Combat or Culture, every Growth
-    /// beat (a want forming, an arc moving, a trait changing: fixed decision 12), and every event in a story chain.
+    /// beat (a want forming, an arc moving, a trait changing: fixed decision 12), every line of who you are, your
+    /// returns and your gift whatever system it is told in (a familiar face knowing you is Social, a meal from the
+    /// satchel Needs; ADR-0030), and every event in a story chain.
     /// </summary>
     internal static LogAnalysis Analyze(World w)
     {
@@ -79,7 +81,8 @@ public static class StoryLog
         var notable = new List<SimEvent>();
         foreach (SimEvent e in all)
             if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture
-                    or SystemTag.Fate or SystemTag.Gift || e.Key.StartsWith("event.fate.", StringComparison.Ordinal) || inStory.Contains(e.Id))
+                    or SystemTag.Fate or SystemTag.Gift || e.Key.StartsWith("event.fate.", StringComparison.Ordinal)
+                    || e.Key.StartsWith("event.gift.", StringComparison.Ordinal) || inStory.Contains(e.Id))
                 notable.Add(e);
         return new LogAnalysis(stories, notable);
     }
