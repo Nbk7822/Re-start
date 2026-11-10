@@ -233,6 +233,7 @@ public partial class MapView : Node2D
         _gore.Observe(w);
         _light = Daylight.At(w.Tick, def, w.Weather.Raining);
         _lighting.Update(_light, _time, LanternLit(w));
+        UpdateGlows(w);
         UpdateRoofs(w, (float)delta);
 
         bool winter = Daylight.IsWinter(w.Tick, def);
@@ -336,6 +337,38 @@ public partial class MapView : Node2D
     }
 
     private static bool Spreads(Character c) => c.IsActive && !c.Downed;
+
+    private static readonly Color GroveLight = new(0.62f, 0.95f, 0.62f);
+    private static readonly Color EmberLight = new(1f, 0.52f, 0.22f);
+    private readonly List<Lighting.Glow> _glowList = new();
+
+    /// <summary>
+    /// The light some natures give at night: a dryad glows faintly green beside the tree she is bound
+    /// to (Kinship.GroveGlow), a djinn smoulders, brighter when restless or unbound.
+    /// </summary>
+    private void UpdateGlows(World w)
+    {
+        _glowList.Clear();
+        if (_light.Night > 0.05f)
+            foreach (Character c in w.Characters)
+            {
+                if (c.Status != CharStatus.Member || !_shown.TryGetValue(c.Id, out Shown? s) || !s.HasLook) continue;
+                Vector2 feet = s.At + s.Spread + new Vector2(0f, FeetOffset);
+                if (s.BaseLook.Has(Kin.Dryad))
+                {
+                    float glow = Kinship.GroveGlow(w, c, _light.Night);
+                    if (glow > 0.01f)
+                        _glowList.Add(new Lighting.Glow(feet - new Vector2(0f, TileSize * 0.55f), GroveLight, glow * (0.5f + 0.08f * MathF.Sin(_time * 1.1f + c.Id)), 2.3f));
+                }
+                if (s.BaseLook.Has(Kin.Djinn))
+                {
+                    float flicker = 1f + 0.12f * MathF.Sin(_time * 7.7f + c.Id) + 0.06f * MathF.Sin(_time * 13.1f + c.Id * 2f);
+                    float burn = 0.5f + 0.2f * Kinship.NatureStage(c);
+                    _glowList.Add(new Lighting.Glow(feet - new Vector2(0f, TileSize * 0.8f), EmberLight, _light.Night * burn * flicker, 1.8f));
+                }
+            }
+        _lighting.Glows(_glowList);
+    }
 
     private void UpdateRoofs(World w, float delta)
     {
@@ -525,7 +558,7 @@ public partial class MapView : Node2D
             Character c = w.Characters[i];
             if (!_shown.TryGetValue(c.Id, out Shown? s)) continue;
             Character? bearer = Bearer(w, c);
-            s.Look = Moonlit(LookOf(w, c, s), _light.Night);
+            s.Look = Moonlit(Fading(LookOf(w, c, s), Kinship.NatureStage(c)), _light.Night);
             s.State = StateOf(w, c, s);
             s.State.Carried = bearer != null;
             bool lying = s.State.Pose is Pose.Sleep or Pose.Downed or Pose.Dead;
@@ -667,6 +700,9 @@ public partial class MapView : Node2D
             Burning = GoreLog.Burning(w, c),
             HeadLeft = pose == Pose.Dead ? ArtHash.Unit(c.Id, 5) < 0.5f : c.Facing == Facing.W,
             OnBed = pose == Pose.Sleep && OnBed(w.Map, c.Pos),
+            Nature = Kinship.NatureStage(c),
+            Leaves = Kinship.LeavesAt(w.Tick, w.Content.World),
+            Night = _light.Night,
         };
         if (pose == Pose.Dead && _gore.RemainsOf(w, c) is Remains r)
         {
@@ -685,7 +721,8 @@ public partial class MapView : Node2D
 
     /// <summary>
     /// How someone looks: hair, skin and build from game/art/looks.json; cloth from looks.json or
-    /// cast.json, darkened and muted; the demo's chest marks by role; a vampire's collar and diamond.
+    /// cast.json, darkened and muted; the demo's chest marks by role; a vampire's collar and diamond;
+    /// the silhouette of their people and what their wounds give, from their species' nature (Kinship).
     /// </summary>
     private FigureLook LookOf(World w, Character c, Shown s)
     {
@@ -694,6 +731,7 @@ public partial class MapView : Node2D
         Look look = hostile ? _looks.Hostile : _looks.For(c.CastKey);
         SpeciesDef species = w.Content.SpeciesById(c.SpeciesId);
         bool vampire = species.DrinksBlood;
+        Kin kin = Kinship.Of(species);
         Rgb cloth = look.Cloth ?? CastRgb(c.CastKey) ?? new Rgb(0.45f, 0.43f, 0.4f);
         (float wide, float tall) = look.Scale;
         Mark mark = hostile ? Mark.None
@@ -714,6 +752,8 @@ public partial class MapView : Node2D
             Hood = look.Hood || hostile,
             Wide = wide,
             Tall = tall,
+            Kin = kin,
+            Stain = Palette.Of(Kinship.StainOf(Kinship.IchorOf(kin)), 0.9f),
         };
         s.HasLook = true;
         s.LookStatus = c.Status;
@@ -721,6 +761,15 @@ public partial class MapView : Node2D
     }
 
     private static readonly Color Moon = new(0.70f, 0.76f, 0.90f);
+
+    /// <summary>The undead fade toward the grey of the grave as the purpose that keeps them slips: skin and clothes alike.</summary>
+    private static FigureLook Fading(FigureLook look, int nature)
+    {
+        if (!look.Has(Kin.Undead) || nature <= 0) return look;
+        look.Skin = look.Skin.Lerp(Palette.GraveGrey, 0.22f * nature);
+        look.Cloth = look.Cloth.Lerp(Palette.GraveGrey, 0.16f * nature);
+        return look;
+    }
 
     /// <summary>
     /// At night people catch the moonlight: cloth, hair and skin are lifted toward a cool light in
@@ -758,6 +807,7 @@ public partial class MapView : Node2D
                 _art.DrawSmoke(_brush, feet + new Vector2(0f, -TileSize * 0.6f), _time, 1f, wind, c.Id, dark: true);
                 Gore.Embers(_brush, feet.X, feet.Y - TileSize * 0.5f, _time, c.Id);
             }
+            if (s.Look.Has(Kin.Djinn) && c.Status != CharStatus.Dead) DjinnSmoke(c, s, wind);
             if (c.Status != CharStatus.Dead || _gore.RemainsOf(w, c) is not Remains r) continue;
             float hours = Math.Max(0, w.Tick - r.Tick) / (float)w.Content.World.TicksPerHour;
             if (r.Kind == DeathKind.Sun && hours < 12f && _light.Night < 0.5f)
@@ -765,6 +815,21 @@ public partial class MapView : Node2D
             if (hours > 1f && _light.Night < 0.6f && !w.Weather.Raining)
                 Gore.Flies(_brush, feet.X, feet.Y - 4f, _time, c.Id, hours > 8f ? 6 : 3);
         }
+    }
+
+    /// <summary>
+    /// A djinn smokes faintly, from the head and shoulders (from the body, lying down), trailing behind
+    /// as it walks; restless without a bargain the smoke thickens, and unbound it throws off sparks.
+    /// </summary>
+    private void DjinnSmoke(Character c, Shown s, float wind)
+    {
+        FigureState st = s.State;
+        bool lying = st.Pose is Pose.Sleep or Pose.Downed or Pose.Dead;
+        Vector2 from = lying ? s.Feet + new Vector2(0f, -TileSize * 0.25f) : s.Feet - new Vector2(0f, s.HeadAbove * 0.97f);
+        float trail = s.Moving ? st.Facing switch { Facing.E => -7f, Facing.W => 7f, _ => 0f } : 0f;
+        float strength = st.Nature switch { 0 => 0.75f, 1 => 1.1f, _ => 1.5f };
+        Figures.Wisp(_brush, _tex, from, _time, c.Id, strength, wind * 6f + trail);
+        if (st.Nature >= 2 && !lying) Gore.Embers(_brush, from.X, from.Y - 2f, _time, c.Id);
     }
 
     private void RainSplashes()
@@ -824,9 +889,18 @@ public partial class MapView : Node2D
         _brush.Segments(_rain, null, new Color(0.72f, 0.78f, 0.86f, 0.32f), 1f);
     }
 
-    /// <summary>A thief's eyes catch the light in the dark.</summary>
+    /// <summary>
+    /// What shows in the dark, above the night's tint: a thief's eyes catch the light; a djinn's eyes
+    /// burn like embers; the undead's hollow eyes hold a faint cold gleam; a fae's glimmer twinkles.
+    /// </summary>
     private void Glints(World w)
     {
+        if (_light.Night < 0.15f) return;
+        foreach (Character c in w.Characters)
+        {
+            if (!_shown.TryGetValue(c.Id, out Shown? peer)) continue;
+            if (c.Status == CharStatus.Member && peer.Look.Has(Kin.Djinn | Kin.Undead | Kin.Fae)) NatureGlints(peer);
+        }
         if (_light.Night < 0.35f) return;
         foreach (Character c in w.Characters)
         {
@@ -842,6 +916,49 @@ public partial class MapView : Node2D
                 _brush.Dot(head.X + 1.2f * z, head.Y + 0.8f * z, 0.7f * z, glint);
             }
             else _brush.Dot(head.X + (f == Facing.E ? 3.2f : -3.2f) * z, head.Y + 0.8f * z, 0.7f * z, glint);
+        }
+    }
+
+    private static readonly Color EmberGlint = new(1f, 0.72f, 0.36f);
+    private static readonly Color EmberGlow = new(1f, 0.45f, 0.15f);
+    private static readonly Color ColdGlint = new(0.72f, 0.84f, 0.95f);
+    private static readonly Color MoteGlint = new(1f, 0.96f, 0.82f);
+    private readonly Vector2[] _eyes = new Vector2[2];
+
+    /// <summary>The night glints of the four peoples (Glints), at the eyes and motes the figure is drawn with.</summary>
+    private void NatureGlints(Shown s)
+    {
+        float night = Mathf.Clamp((_light.Night - 0.15f) / 0.6f, 0f, 1f);
+        float z = _toScreen.X.Length() * FigureScale;
+        FigureLook look = s.Look;
+        FigureState st = s.State;
+        int eyes = Figures.EyePoints(look, st, _eyes);
+        for (int i = 0; i < eyes; i++)
+        {
+            Vector2 at = _toScreen * (s.Feet + _eyes[i] * FigureScale);
+            if (look.Has(Kin.Djinn))
+            {
+                float burn = st.Nature switch { 0 => 0.8f, 1 => 0.95f, _ => 1.1f };
+                _brush.Dot(at.X, at.Y, 1.9f * z, EmberGlow.WithAlpha(0.22f * night * burn));
+                _brush.Dot(at.X, at.Y, 0.62f * z, EmberGlint.WithAlpha(Mathf.Min(1f, 0.95f * night * burn)));
+            }
+            else if (look.Has(Kin.Undead))
+                _brush.Dot(at.X - 0.12f * z, at.Y, 0.3f * z, ColdGlint.WithAlpha(0.6f * night));
+        }
+        if (!look.Has(Kin.Fae) || st.Pose is Pose.Sleep or Pose.Downed or Pose.Dead) return;
+        float strength = Figures.GlimmerStrength(st.Nature) * night;
+        for (int i = 0; i < Figures.GlimmerMotes; i++)
+        {
+            Vector2 p = Figures.GlimmerMote(i, st, look.Tall, out float bright);
+            float a = bright * strength;
+            if (a <= 0.02f) continue;
+            Vector2 at = _toScreen * (s.Feet + p * FigureScale);
+            _brush.Dot(at.X, at.Y, 0.6f * z, MoteGlint.WithAlpha(0.9f * a));
+            if (bright > 0.55f)
+            {
+                _brush.Line(at.X - 1.6f * z, at.Y, at.X + 1.6f * z, at.Y, MoteGlint.WithAlpha(0.45f * a), Mathf.Max(0.6f, 0.3f * z));
+                _brush.Line(at.X, at.Y - 1.6f * z, at.X, at.Y + 1.6f * z, MoteGlint.WithAlpha(0.45f * a), Mathf.Max(0.6f, 0.3f * z));
+            }
         }
     }
 

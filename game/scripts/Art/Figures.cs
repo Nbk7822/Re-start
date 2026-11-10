@@ -39,6 +39,14 @@ public struct FigureLook
     public bool Hood;
     public float Wide;
     public float Tall;
+
+    /// <summary>The peoples whose silhouette language they wear (Logic/Kin: dryad, djinn, fae, undead; flags, for hybrids).</summary>
+    public Kin Kin;
+
+    /// <summary>What their wounds soak into their clothes: blood, sap, grave dust or ash (Kinship.StainOf). Unset means blood.</summary>
+    public Color Stain;
+
+    public readonly bool Has(Kin kin) => (Kin & kin) != 0;
 }
 
 /// <summary>What a person is doing this frame, all of it derived from sim state.</summary>
@@ -58,6 +66,15 @@ public struct FigureState
     public bool HeadLeft;
     public bool OnBed;
     public bool Carried;
+
+    /// <summary>How the need of their nature stands: 0 met, 1 low, 2 critical (a djinn smoulders, the fae dim, the undead fade, a dryad wilts).</summary>
+    public int Nature;
+
+    /// <summary>The season of a dryad's leaves.</summary>
+    public Leaves Leaves;
+
+    /// <summary>How dark it is, 0 day … 1 deep night: a fae's wings catch the moonlight.</summary>
+    public float Night;
 }
 
 /// <summary>
@@ -68,6 +85,12 @@ public struct FigureState
 /// darker, more realistic pass: builds and hair styles, belts and hem grime, tools in hand, goods
 /// carried, blood soaking the clothes of the badly wounded, skin reddening in the sun, and the
 /// lying poses (asleep, downed, dead: splayed, greyed, charred by the sun or wasted by hunger).
+/// The four peoples of ADR-0022 each have a silhouette that reads at the default zoom, and their
+/// nature's need shows on them: a dryad's crown of leaves keeps the season and wilts away from the
+/// trees; a djinn's eyes are embers (its smoke is drawn with the effects); a fae is slight, with
+/// pointed ears, translucent wings and a glimmer that dims among broken words; the undead are
+/// grey, hollow-eyed and ragged and walk stiffly (MapView fades them toward the grave as their
+/// purpose slips).
 /// Units are figure units; the caller sets the transform (feet position and scale).
 /// </summary>
 public static class Figures
@@ -76,6 +99,24 @@ public static class Figures
     public const float Height = 39f;
 
     private const float Lw = 0.95f;
+
+    /// <summary>The fae's glimmer: this many motes about the head and shoulders.</summary>
+    public const int GlimmerMotes = 4;
+
+    private static readonly Color Vine = Palette.Hex(0x3d4f22);
+    private static readonly Color Twig = Palette.Hex(0x3a2e22);
+    private static readonly Color LeafGreen = Palette.Hex(0x58722f);
+    private static readonly Color LeafGreen2 = Palette.Hex(0x6d8a39);
+    private static readonly Color LeafGold = Palette.Hex(0xa27b2b);
+    private static readonly Color LeafRusset = Palette.Hex(0x8b4b23);
+    private static readonly Color LeafDead = Palette.Hex(0x5f4b31);
+    private static readonly Color EmberEye = new(1f, 0.74f, 0.38f);
+    private static readonly Color EmberHalo = new(1f, 0.5f, 0.18f, 0.22f);
+    private static readonly Color ColdGleam = new(0.70f, 0.78f, 0.84f, 0.75f);
+    private static readonly Color WingFill = new(0.82f, 0.88f, 0.93f, 0.26f);
+    private static readonly Color WingEdge = new(0.90f, 0.95f, 1f, 0.6f);
+    private static readonly Color WingVein = new(0.90f, 0.95f, 1f, 0.32f);
+    private static readonly Color Mote = new(1f, 0.96f, 0.84f);
 
     public static void Person(Brush b, in FigureLook look, in FigureState s, ArtTextures tex, Vector2 shadow, float shadowAlpha)
     {
@@ -89,19 +130,22 @@ public static class Figures
         bool side = f is Facing.E or Facing.W;
         float d = f == Facing.W ? -1f : 1f;
         bool walking = s.Pose == Pose.Walk;
+        bool undead = look.Has(Kin.Undead), dryad = look.Has(Kin.Dryad), fae = look.Has(Kin.Fae);
         float sw = walking ? MathF.Sin(s.Phase * MathF.Tau) : 0f;
+        // The undead walk stiffly: a short stride and arms that hardly swing.
+        float legSw = undead ? sw * 0.7f : sw, armSw = undead ? sw * 0.35f : sw;
         float breathe = MathF.Sin(s.Time * 2.1f + s.Seed) * 0.35f;
         bool sit = s.Pose == Pose.Sit, crouch = s.Pose == Pose.Crouch;
         float drop = sit ? 9f : crouch ? 5f : 0f;
         float W = look.Wide, T = look.Tall;
         Color cloth = look.Cloth;
         Color skin = s.Burning && look.Vampire ? look.Skin.Lerp(new Color(0.78f, 0.32f, 0.22f), 0.45f) : look.Skin;
-        float hunch = look.Ghoul ? 3f * d : 0f;
+        float hunch = Hunch(look, side, d);
 
         // Soft contact shadow, stretched away from the sun.
         Shadow(b, tex, shadow.X, shadow.Y, 9.5f * W + MathF.Abs(shadow.X) * 0.5f, 3.4f, shadowAlpha);
 
-        float bob = walking ? -MathF.Abs(MathF.Cos(s.Phase * MathF.Tau)) * 1.2f : 0f;
+        float bob = Bob(look, s);
 
         // A seated person's legs rest on the ground (the feet frame); the body above drops onto them.
         if (sit) SeatedLegs(b, look, side, d, W);
@@ -114,16 +158,19 @@ public static class Figures
         {
             if (side)
             {
-                Leg(b, look, 0f, 0f, -sw * 0.5f * d, T, true);
-                Leg(b, look, 0f, 0f, sw * 0.5f * d, T, false);
+                Leg(b, look, 0f, 0f, -legSw * 0.5f * d, T, true);
+                Leg(b, look, 0f, 0f, legSw * 0.5f * d, T, false);
             }
             else
             {
                 float lift = crouch ? 4f : 0f;
-                Leg(b, look, -2.6f * W, walking ? MathF.Max(0f, sw) * 2.5f : lift, 0f, T, false);
-                Leg(b, look, 2.6f * W, walking ? MathF.Max(0f, -sw) * 2.5f : lift, 0f, T, false);
+                Leg(b, look, -2.6f * W, walking ? MathF.Max(0f, legSw) * 2.5f : lift, 0f, T, false);
+                Leg(b, look, 2.6f * W, walking ? MathF.Max(0f, -legSw) * 2.5f : lift, 0f, T, false);
             }
         }
+
+        // A fae's wings rise behind the shoulders (over the back when seen from behind, below).
+        if (fae && f != Facing.N) Wings(b, s, side, d, W, T, walking);
 
         // Long hair falls behind the shoulders, seen from the front.
         if (f == Facing.S && look.HairStyle == HairStyle.Long && !look.Hood)
@@ -134,16 +181,21 @@ public static class Figures
         b.Lit(cloth, 0.26f).Stroke(Palette.Ink, Lw);
         if (!look.Vampire && !look.Ghoul)
         {
-            // Hem grime and a belt.
+            // Hem grime (a ragged hem has no straight line of it) and a belt (a dryad's is a vine).
             float hw = side ? 5.6f : 9.0f * W;
-            b.Clear().Add(-hw * 0.97f, -13.6f * T).Add(hw * 0.97f, -13.6f * T).Add(hw, -11f * T).Add(-hw, -11f * T);
-            if (side) b.Offset(d * 0.2f, 0f);
-            b.Fill(cloth.Darkened(0.45f).WithAlpha(0.55f));
+            if (!undead)
+            {
+                b.Clear().Add(-hw * 0.97f, -13.6f * T).Add(hw * 0.97f, -13.6f * T).Add(hw, -11f * T).Add(-hw, -11f * T);
+                if (side) b.Offset(d * 0.2f, 0f);
+                b.Fill(cloth.Darkened(0.45f).WithAlpha(0.55f));
+            }
             float bw = side ? 4.9f : 7.7f * W;
-            b.Line(-bw, -18.2f * T, bw, -18.2f * T, Palette.Hex(0x261d16), 1.3f);
+            b.Line(-bw, -18.2f * T, bw, -18.2f * T, dryad ? Vine : Palette.Hex(0x261d16), dryad ? 1.1f : 1.3f);
         }
+        if (undead) Tears(b, cloth, side, d, W, T);
+        if (dryad) HemLeaves(b, s, side, d, W, T);
         Folds(b, cloth, side, d, T);
-        if (s.Wounds > 0) Stains(b, s, side, W, T);
+        if (s.Wounds > 0) Stains(b, look, s, side, W, T);
 
         if (f == Facing.S) ChestMark(b, look, T);
 
@@ -154,12 +206,14 @@ public static class Figures
         {
             // Seen from the side, the near arm reaches toward the facing (Logic/Poses), so a blow lands
             // in front; the tool head is mirrored to lead the downstroke.
-            float ang = Poses.SideArmAngle(Poses.SideArmReach(s.Pose, s.Phase, s.Time, s.Seed, armsBusy), f);
+            float reach = Poses.SideArmReach(s.Pose, s.Phase, s.Time, s.Seed, armsBusy);
+            if (undead && walking && !armsBusy) reach *= 0.35f;
+            float ang = Poses.SideArmAngle(reach, f);
             Arm(b, look, skin, hunch * 0.7f, ang, true, s.Tool, -d, T);
         }
         else
         {
-            float swing = walking ? sw * 0.5f
+            float swing = walking ? armSw * 0.5f
                 : s.Pose == Pose.Swing ? MathF.Sin(s.Time * 7f + s.Seed) * 0.9f - 0.6f
                 : crouch ? 0.6f + MathF.Sin(s.Time * 3f + s.Seed) * 0.3f
                 : sit ? 0.5f
@@ -173,6 +227,9 @@ public static class Figures
             Arm(b, look, skin, -7.6f * W, left, front, HeldTool.None, 1f, T);
             Arm(b, look, skin, 7.6f * W, right, front, s.Tool, 1f, T);
         }
+
+        // Seen from behind, a fae's wings lie over the back and shoulders.
+        if (fae && f == Facing.N) Wings(b, s, side, d, W, T, walking);
 
         if (s.Carry != Carried.None) CarriedGoods(b, s.Carry, side, d, T);
 
@@ -189,6 +246,239 @@ public static class Figures
         }
         Head(b, look, s, skin, f, side, d, hx, hy);
         b.Pop();
+
+        // The fae's glimmer, faint by day (at night the map's overlay lights the same motes).
+        if (fae) Glimmer(b, s, T, GlimmerStrength(s.Nature) * 0.6f);
+    }
+
+    /// <summary>The ghoul's hunch, and the undead's lean seen from the side (the head carried forward).</summary>
+    private static float Hunch(in FigureLook look, bool side, float d) =>
+        look.Ghoul ? 3f * d : look.Has(Kin.Undead) && side ? 1.3f * d : 0f;
+
+    /// <summary>How far the body rises and falls with the walk (the undead's tread is heavier).</summary>
+    private static float Bob(in FigureLook look, in FigureState s) =>
+        s.Pose == Pose.Walk ? -MathF.Abs(MathF.Cos(s.Phase * MathF.Tau)) * (look.Has(Kin.Undead) ? 1.6f : 1.2f) : 0f;
+
+    /// <summary>Where the centre of a standing figure's head is drawn this frame, in figure units from the feet (as Person draws it).</summary>
+    public static Vector2 HeadCenter(in FigureLook look, in FigureState s)
+    {
+        bool side = s.Facing is Facing.E or Facing.W;
+        float d = s.Facing == Facing.W ? -1f : 1f;
+        float drop = s.Pose == Pose.Sit ? 9f : s.Pose == Pose.Crouch ? 5f : 0f;
+        float breathe = MathF.Sin(s.Time * 2.1f + s.Seed) * 0.35f;
+        float hx = (side ? 1f * d : 0f) + Hunch(look, side, d);
+        float hy = (-33.5f + breathe * 0.4f + (look.Ghoul ? 2f : 0f)) * look.Tall;
+        return new Vector2(hx, hy + Bob(look, s) + drop);
+    }
+
+    /// <summary>
+    /// The eyes as drawn this frame, in figure units from the feet: two seen from the front, one from
+    /// the side, none from behind or lying down (asleep, downed, dead: closed). Returns how many.
+    /// </summary>
+    public static int EyePoints(in FigureLook look, in FigureState s, Span<Vector2> eyes)
+    {
+        if (s.Pose is Pose.Sleep or Pose.Downed or Pose.Dead || s.Facing == Facing.N || eyes.Length < 2) return 0;
+        Vector2 h = HeadCenter(look, s);
+        if (s.Facing == Facing.S)
+        {
+            eyes[0] = h + new Vector2(-1.9f, 0.9f);
+            eyes[1] = h + new Vector2(1.9f, 0.9f);
+            return 2;
+        }
+        eyes[0] = h + new Vector2((s.Facing == Facing.W ? -1f : 1f) * 2.8f, 0.8f);
+        return 1;
+    }
+
+    /// <summary>How bright a fae's glimmer is: full among kept words, dimmed when courtesy runs low, all but gone when it fails.</summary>
+    public static float GlimmerStrength(int nature) => nature switch { 0 => 1f, 1 => 0.45f, _ => 0.15f };
+
+    /// <summary>
+    /// Mote <paramref name="i"/> of a fae's glimmer: where it drifts about the head and shoulders now, in
+    /// figure units from the feet, and how bright it is (0..1; the motes twinkle in turn).
+    /// </summary>
+    public static Vector2 GlimmerMote(int i, in FigureState s, float tall, out float bright)
+    {
+        float drop = s.Pose == Pose.Sit ? 9f : s.Pose == Pose.Crouch ? 5f : 0f;
+        float a = s.Seed * 1.7f + i * 2.1f + s.Time * 0.33f;
+        float r = 8.5f + 2.5f * MathF.Sin(s.Time * 0.47f + i * 1.3f);
+        float twinkle = MathF.Max(0f, MathF.Sin(s.Time * 1.9f + i * 2.4f + s.Seed));
+        bright = twinkle * twinkle * twinkle;
+        return new Vector2(MathF.Cos(a) * r, -27f * tall + drop + MathF.Sin(a) * r * 0.6f - 2f * MathF.Sin(s.Time * 0.7f + i));
+    }
+
+    private static void Glimmer(Brush b, in FigureState s, float T, float strength)
+    {
+        if (strength <= 0.01f) return;
+        for (int i = 0; i < GlimmerMotes; i++)
+        {
+            Vector2 p = GlimmerMote(i, s, T, out float bright);
+            float a = bright * strength;
+            if (a <= 0.02f) continue;
+            b.Dot(p.X, p.Y, 0.55f, Mote.WithAlpha(0.9f * a));
+            if (bright > 0.55f)
+            {
+                b.Line(p.X - 1.4f, p.Y, p.X + 1.4f, p.Y, Mote.WithAlpha(0.5f * a), 0.3f);
+                b.Line(p.X, p.Y - 1.4f, p.X, p.Y + 1.4f, Mote.WithAlpha(0.5f * a), 0.3f);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A fae's wings: two pairs of thin, veined, translucent wings at the shoulder blades, a dragonfly's
+    /// rather than a bird's, that stir slowly at rest and flutter as they walk. From the side only the
+    /// far pair shows, behind the back.
+    /// </summary>
+    private static void Wings(Brush b, in FigureState s, bool side, float d, float W, float T, bool walking)
+    {
+        float flap = 1f - (walking ? 0.3f : 0.12f) * (0.5f + 0.5f * MathF.Sin(s.Time * (walking ? 13f : 2.2f) + s.Seed));
+        // At night the wings catch the moonlight, so they still read under the dark.
+        float moon = Math.Clamp(s.Night, 0f, 1f);
+        Color fill = WingFill.WithAlpha(WingFill.A + 0.1f * moon), edge = WingEdge.WithAlpha(Math.Min(1f, WingEdge.A + 0.35f * moon));
+        if (side)
+        {
+            Wing(b, new Vector2(-1.4f * d, -26.5f * T), -d, flap * 0.8f, T, fill, edge);
+            return;
+        }
+        for (int k = -1; k <= 1; k += 2) Wing(b, new Vector2(k * 2.2f * W, -26.5f * T), k, flap, T, fill, edge);
+    }
+
+    private static void Wing(Brush b, Vector2 root, float k, float flap, float T, Color fill, Color edge)
+    {
+        b.Push();
+        b.Translate(root.X, root.Y);
+        b.Scale(k * flap, T);
+        // The upper wing reaches up and out past the shoulder, rounded at the tip; the lower is smaller.
+        b.Clear();
+        Quad(b, new Vector2(0f, 0f), new Vector2(5f, -13f), new Vector2(9.5f, -10f), 6, true);
+        Quad(b, new Vector2(9.5f, -10f), new Vector2(10.5f, -3f), new Vector2(0.5f, 1.5f), 6, false);
+        b.Fill(fill).Stroke(edge, 0.45f);
+        b.Line(0.4f, 0f, 8.2f, -9f, WingVein, 0.3f);
+        b.Clear();
+        Quad(b, new Vector2(0f, 2.5f), new Vector2(7.5f, 2.5f), new Vector2(7.2f, 9f), 5, true);
+        Quad(b, new Vector2(7.2f, 9f), new Vector2(2.5f, 9.5f), new Vector2(0f, 3.5f), 5, false);
+        b.Fill(fill).Stroke(edge, 0.45f);
+        b.Line(0.4f, 3f, 6.2f, 8f, WingVein, 0.3f);
+        b.Pop();
+    }
+
+    /// <summary>A fae's pointed ears: both seen from the front or behind (the head hides their roots), the near one from the side.</summary>
+    private static void Ears(Brush b, Color skin, Facing f, bool side, float d, float hx, float hy)
+    {
+        if (side)
+        {
+            b.Clear().Add(hx - 1.6f * d, hy + 1.1f).Add(hx - 5f * d, hy - 3.9f).Add(hx - 0.1f * d, hy - 0.3f).Fill(skin).Stroke(Palette.Ink, 0.6f);
+            b.Line(hx - 1.5f * d, hy + 0.4f, hx - 3.8f * d, hy - 2.8f, skin.Darkened(0.3f), 0.4f);
+            return;
+        }
+        for (int k = -1; k <= 1; k += 2)
+        {
+            b.Clear().Add(hx + 4.6f * k, hy - 1.4f).Add(hx + 8.3f * k, hy - 4.5f).Add(hx + 4.9f * k, hy + 1.8f).Fill(skin).Stroke(Palette.Ink, 0.6f);
+            if (f == Facing.S) b.Line(hx + 5.6f * k, hy - 0.4f, hx + 7.4f * k, hy - 3.4f, skin.Darkened(0.3f), 0.4f);
+        }
+    }
+
+    /// <summary>
+    /// A dryad's crown of leaves, the silhouette that reads at any zoom: a wreath that sits on the brow
+    /// and over the crown of the head, its leaves splaying up and out and stirring with the trees' sway;
+    /// green in spring and summer, gold and russet in autumn, bare twigs in winter. Cut off from the
+    /// forest it wilts: browning, and thinning when it fails.
+    /// </summary>
+    private static void LeafCrown(Brush b, in FigureState s, bool side, float d, float hx, float hy)
+    {
+        float sway = MathF.Sin(s.Time * 0.9f + s.Seed * 1.3f);
+        float cy = hy - 3.1f;
+        const float rx = 5.4f, ry = 1.7f;
+        // Twigs rise from the back of the wreath; in winter they are all that is left.
+        for (int i = -1; i <= 1; i++)
+        {
+            float bx = hx + i * 2.3f + (side ? -0.8f * d : 0f), by = cy - ry * 0.8f;
+            b.Line(bx, by, bx + i * 1.3f + sway * 0.25f, by - 4.2f + MathF.Abs(i) * 1.1f, Twig, 0.6f);
+        }
+        int n = s.Leaves == Leaves.Bare ? 2 : s.Nature >= 2 ? 6 : 11;
+        float wilt = s.Nature * 0.35f;
+        float turn = side ? 0.35f * d : 0f;
+        // The back of the wreath first, then the leaves over the brow.
+        for (int pass = 0; pass < 2; pass++)
+            for (int i = 0; i < n; i++)
+            {
+                float th = (i + 0.5f) / n * MathF.Tau + turn;
+                bool front = MathF.Sin(th) > 0f;
+                if (front != (pass == 1)) continue;
+                var root = new Vector2(hx + MathF.Cos(th) * rx, cy + MathF.Sin(th) * ry);
+                float wobble = MathF.Sin(s.Time * 0.9f + s.Seed + i * 0.8f) * 0.08f + sway * 0.05f;
+                var dir = new Vector2(MathF.Cos(th) * 0.85f, -0.8f + MathF.Sin(th) * 0.2f).Normalized().Rotated(wobble);
+                Leaf(b, root, dir, 3.3f, 1.5f, LeafColour(s.Leaves, i, wilt));
+            }
+    }
+
+    private static Color LeafColour(Leaves season, int i, float wilt)
+    {
+        Color c = season switch
+        {
+            Leaves.Turning => i % 2 == 0 ? LeafGold : LeafRusset,
+            Leaves.Bare => LeafDead,
+            _ => i % 2 == 0 ? LeafGreen : LeafGreen2,
+        };
+        return season == Leaves.Bare ? c : c.Lerp(LeafDead, Math.Clamp(wilt, 0f, 0.8f));
+    }
+
+    /// <summary>A pointed leaf from its root along <paramref name="dir"/>: two curves meeting at the tip.</summary>
+    private static void Leaf(Brush b, Vector2 root, Vector2 dir, float len, float width, Color c)
+    {
+        Vector2 tip = root + dir * len, mid = root + dir * (len * 0.45f), across = new Vector2(-dir.Y, dir.X) * width;
+        b.Clear();
+        Quad(b, root, mid + across, tip, 4, true);
+        Quad(b, tip, mid - across, root, 4, false);
+        b.Fill(c).Stroke(Palette.Ink, 0.45f);
+    }
+
+    /// <summary>A dryad's hem of leaves in the season's colours, hanging over bare, bark-dark legs.</summary>
+    private static void HemLeaves(Brush b, in FigureState s, bool side, float d, float W, float T)
+    {
+        int n = side ? 3 : 5;
+        float half = side ? 5.2f : 8.6f * W;
+        for (int i = 0; i < n; i++)
+        {
+            float t = (i + 0.5f) / n;
+            float x = side ? (-4.9f + 10f * t) * d : -half + 2f * half * t;
+            float a = MathF.PI / 2f + (t - 0.5f) * 0.7f + MathF.Sin(s.Time * 1.1f + s.Seed + i) * 0.08f;
+            Leaf(b, new Vector2(x, -12.4f * T), new Vector2(MathF.Cos(a), MathF.Sin(a)), 3.2f, 1.25f, LeafColour(s.Leaves, i + 1, s.Nature * 0.35f).Darkened(0.18f));
+        }
+    }
+
+    /// <summary>Rents in an undead's grave-worn clothes.</summary>
+    private static void Tears(Brush b, Color cloth, bool side, float d, float W, float T)
+    {
+        Color rent = cloth.Darkened(0.6f);
+        if (side)
+        {
+            b.Clear().Add(1.2f * d, -21f * T).Add(2.7f * d, -19.6f * T).Add(1.7f * d, -18.8f * T).Add(2.5f * d, -17.2f * T).Add(0.9f * d, -18.3f * T).Fill(rent);
+            return;
+        }
+        b.Clear().Add(-4.3f * W, -22.6f * T).Add(-2.8f * W, -21.3f * T).Add(-3.7f * W, -20.4f * T).Add(-2.6f * W, -18.8f * T).Add(-4.5f * W, -20f * T).Fill(rent);
+        b.Clear().Add(3.4f * W, -16.9f * T).Add(5f * W, -15.7f * T).Add(4.1f * W, -14.9f * T).Add(5.3f * W, -13.5f * T).Add(3.3f * W, -14.6f * T).Fill(rent);
+    }
+
+    /// <summary>
+    /// The thin smoke that rises off a djinn, a being of smokeless fire: a few small dark puffs from the
+    /// head and shoulders that drift with the wind and trail behind a walker. Map units (drawn with the
+    /// effects, over everything that stands); thicker when restless, thickest when unbound.
+    /// </summary>
+    public static void Wisp(Brush b, ArtTextures tex, Vector2 at, float time, int salt, float strength, float drift)
+    {
+        if (strength <= 0.01f) return;
+        // Pale and thin, nearer a heat haze than the hearth's smoke: it must read against dark ground.
+        var tint = new Color(0.66f, 0.64f, 0.62f);
+        for (int i = 0; i < 6; i++)
+        {
+            float k = (time * 0.45f + i / 6f + salt * 0.17f) % 1f;
+            float x = at.X + MathF.Sin(i * 4.1f + time * 0.9f + salt) * 1.8f + k * drift;
+            float y = at.Y - k * 17f;
+            float size = 4.5f + k * 11f;
+            float a = 0.62f * (1f - k) * MathF.Min(1f, k * 3.5f) * strength;
+            if (tex.Smoke != null) b.Texture(tex.Smoke, x, y, size, size, k * 2f + i, tint.WithAlpha(Math.Min(1f, a)));
+            else b.Clear().Ellipse(x, y, size * 0.3f, size * 0.25f, 10).Fill(tint.WithAlpha(a * 0.7f));
+        }
     }
 
     private static void BodyShape(Brush b, in FigureLook look, bool side, float d, float hunch, float W, float T)
@@ -198,12 +488,19 @@ public static class Figures
         {
             if (look.Vampire)
                 b.Add((-4.5f * d + hunch), -29f * T).Add((4.5f * d + hunch), -29f * T).Add(7f * d, -10f * T).Add(3f * d, -12.5f * T).Add(-1f * d, -9.5f * T).Add(-6f * d, -11f * T);
+            else if (look.Has(Kin.Undead))
+                // Grave-worn: the hem hangs in rags.
+                b.Add((-4f * d + hunch), -28.5f * T).Add((4.5f * d + hunch), -28.5f * T).Add(6.2f * d, -10.6f * T).Add(3.6f * d, -13f * T).Add(1.6f * d, -10.2f * T)
+                    .Add(-1f * d, -12.9f * T).Add(-3.4f * d, -10.5f * T).Add(-5.6f * d, -12.6f * T);
             else
                 b.Add((-4f * d + hunch), -28.5f * T).Add((4.5f * d + hunch), -28.5f * T).Add(6f * d, -11f * T).Add(-5.5f * d, -11f * T);
             return;
         }
         if (look.Ghoul)
             b.Add(-7f * W, -27.5f * T).Add(7f * W, -27.5f * T).Add(9.5f * W, -11f * T).Add(6f * W, -13.5f * T).Add(3.5f * W, -10f * T).Add(0f, -13f * T).Add(-3.5f * W, -10f * T).Add(-6f * W, -13.5f * T).Add(-9.5f * W, -11f * T);
+        else if (look.Has(Kin.Undead))
+            b.Add(-7f * W, -28.5f * T).Add(7f * W, -28.5f * T).Add(9.4f * W, -10.6f * T).Add(6.3f * W, -13.2f * T).Add(4f * W, -10.2f * T).Add(1.2f * W, -12.8f * T)
+                .Add(-1.6f * W, -10.4f * T).Add(-4.3f * W, -13f * T).Add(-6.6f * W, -10.5f * T).Add(-8.2f * W, -12.6f * T).Add(-9.4f * W, -11.2f * T);
         else if (look.Vampire)
             b.Add(-7.5f * W, -29f * T).Add(7.5f * W, -29f * T).Add(10.5f * W, -10f * T).Add(5f * W, -12.5f * T).Add(0f, -9f * T).Add(-5f * W, -12.5f * T).Add(-10.5f * W, -10f * T);
         else
@@ -227,8 +524,12 @@ public static class Figures
         new(-2.6f, -22.5f), new(2.8f, -19f), new(-0.8f, -15.5f), new(3.6f, -25f), new(-4.2f, -17f), new(0.8f, -26f),
     };
 
-    private static void Stains(Brush b, in FigureState s, bool side, float W, float T)
+    /// <summary>What a person's wounds soak into their clothes (blood unless their look says otherwise).</summary>
+    private static Color StainOf(in FigureLook look) => look.Stain.A > 0f ? look.Stain : Palette.Stain;
+
+    private static void Stains(Brush b, in FigureLook look, in FigureState s, bool side, float W, float T)
     {
+        Color stain = StainOf(look);
         int n = s.Wounds switch { 1 => 1, 2 => 3, _ => 6 };
         float r = s.Wounds switch { 1 => 1.6f, 2 => 2.0f, _ => 2.5f };
         for (int i = 0; i < n; i++)
@@ -237,9 +538,9 @@ public static class Figures
             Vector2 p = StainSpots[k];
             float x = side ? p.X * 0.55f : p.X * W;
             float rr = r * (0.8f + 0.4f * ((k * 37 + i * 11) % 7) / 6f);
-            b.Clear().Ellipse(x, p.Y * T, rr * 1.1f, rr, 10).Fill(Palette.Stain);
+            b.Clear().Ellipse(x, p.Y * T, rr * 1.1f, rr, 10).Fill(stain);
         }
-        if (s.Wounds >= 3) b.Clear().Ellipse(side ? 0.5f : -0.5f, -19.5f * T, 3.6f, 4.6f, 12).Fill(Palette.Stain.WithAlpha(0.75f));
+        if (s.Wounds >= 3) b.Clear().Ellipse(side ? 0.5f : -0.5f, -19.5f * T, 3.6f, 4.6f, 12).Fill(stain.WithAlpha(stain.A * 0.83f));
     }
 
     private static void ChestMark(Brush b, in FigureLook look, float T)
@@ -285,27 +586,34 @@ public static class Figures
         b.Translate(x, -13f * T);
         b.Rotate(ang);
         float len = 13f * T - lift;
-        Color trousers = look.Ghoul ? Palette.Hex(0x3a3d33) : look.Hostile ? Palette.Hex(0x1d1c1f) : Palette.Trousers;
+        Color trousers = TrousersOf(look);
         if (back) trousers = trousers.Darkened(0.2f);
         b.Clear().RoundRect(-1.8f, 0f, 3.6f, len, 1.4f).Lit(trousers, 0.2f).Stroke(Palette.Ink, 0.8f);
-        b.Clear().Ellipse(0.3f, len, 2.3f, 1.35f, 10).Fill(Palette.Boots).Stroke(Palette.Ink, 0.7f);
+        b.Clear().Ellipse(0.3f, len, 2.3f, 1.35f, 10).Fill(BootsOf(look)).Stroke(Palette.Ink, 0.7f);
         b.Pop();
     }
 
+    /// <summary>What covers the legs: trousers, a ghoul's rags, a thief's black, or a dryad's bare bark.</summary>
+    private static Color TrousersOf(in FigureLook look) =>
+        look.Ghoul ? Palette.Hex(0x3a3d33) : look.Hostile ? Palette.Hex(0x1d1c1f) : look.Has(Kin.Dryad) ? look.Skin.Darkened(0.12f) : Palette.Trousers;
+
+    /// <summary>Boots, or a dryad's bare feet, darker at the sole.</summary>
+    private static Color BootsOf(in FigureLook look) => look.Has(Kin.Dryad) && !look.Hostile ? look.Skin.Darkened(0.4f) : Palette.Boots;
+
     private static void SeatedLegs(Brush b, in FigureLook look, bool side, float d, float W)
     {
-        Color trousers = look.Hostile ? Palette.Hex(0x1d1c1f) : Palette.Trousers;
+        Color trousers = look.Ghoul ? Palette.Trousers : TrousersOf(look), boots = BootsOf(look);
         if (side)
         {
             b.Clear().Capsule(new Vector2(-1f * d, -3f), new Vector2(6f * d, -4.5f), 1.9f).Lit(trousers, 0.2f).Stroke(Palette.Ink, 0.8f);
             b.Clear().Capsule(new Vector2(6f * d, -4.5f), new Vector2(8f * d, 0f), 1.7f).Lit(trousers, 0.2f).Stroke(Palette.Ink, 0.8f);
-            b.Clear().Ellipse(8.8f * d, 0.4f, 2.3f, 1.3f, 10).Fill(Palette.Boots).Stroke(Palette.Ink, 0.7f);
+            b.Clear().Ellipse(8.8f * d, 0.4f, 2.3f, 1.3f, 10).Fill(boots).Stroke(Palette.Ink, 0.7f);
             return;
         }
         for (int k = -1; k <= 1; k += 2)
         {
             b.Clear().Capsule(new Vector2(2.4f * k * W, -3f), new Vector2(3.2f * k * W, 1.2f), 1.9f).Lit(trousers, 0.2f).Stroke(Palette.Ink, 0.8f);
-            b.Clear().Ellipse(3.3f * k * W, 2f, 2.2f, 1.4f, 10).Fill(Palette.Boots).Stroke(Palette.Ink, 0.7f);
+            b.Clear().Ellipse(3.3f * k * W, 2f, 2.2f, 1.4f, 10).Fill(boots).Stroke(Palette.Ink, 0.7f);
         }
     }
 
@@ -399,6 +707,10 @@ public static class Figures
             b.Clear().Ellipse(bx, hy + (f == Facing.N ? 0.5f : -1f), 2.4f, 2.2f, 10).Fill(look.Hair).Stroke(Palette.Ink, 0.7f);
         }
 
+        // A fae's ears, seen from the front or behind, stand out from behind the head.
+        bool fae = look.Has(Kin.Fae);
+        if (fae && !side) Ears(b, skin, f, side, d, hx, hy);
+
         b.Clear().Ellipse(hx, hy, 5.2f, 5.4f, 16).Lit(skin, 0.22f).Stroke(Palette.Ink, Lw);
 
         Color hair = look.Hair;
@@ -426,9 +738,13 @@ public static class Figures
                 b.Lit(hair, 0.18f).Stroke(Palette.Ink, 0.75f);
             }
             if (look.Beard) Beard(b, hair, hx, hy, 0f);
-            Color eye = Palette.Eye;
-            b.Clear().Ellipse(hx - 1.9f, hy + 0.9f, 0.6f, 0.75f, 8).Fill(eye);
-            b.Clear().Ellipse(hx + 1.9f, hy + 0.9f, 0.6f, 0.75f, 8).Fill(eye);
+            for (int k = -1; k <= 1; k += 2) Eye(b, look, skin, hx + 1.9f * k, hy + 0.9f, k * 1.4f);
+            if (look.Has(Kin.Dryad))
+            {
+                // Bark: faint furrows down the brow and cheek.
+                b.Line(hx - 2.7f, hy - 3.1f, hx - 3f, hy - 0.6f, skin.Darkened(0.32f), 0.35f);
+                b.Line(hx + 2.4f, hy + 2f, hx + 2.8f, hy + 4.1f, skin.Darkened(0.32f), 0.35f);
+            }
         }
         else
         {
@@ -440,9 +756,12 @@ public static class Figures
                 b.Lit(hair, 0.18f).Stroke(Palette.Ink, 0.75f);
             }
             if (look.Beard) Beard(b, hair, hx, hy, d);
-            b.Clear().Ellipse(hx + 2.8f * d, hy + 0.8f, 0.6f, 0.75f, 8).Fill(Palette.Eye);
+            if (fae) Ears(b, skin, f, side, d, hx, hy);
+            Eye(b, look, skin, hx + 2.8f * d, hy + 0.8f, -d * 1.1f);
             b.Clear().Add(hx + 5f * d, hy + 0.8f).Add(hx + 5.9f * d, hy + 2f).Add(hx + 5f * d, hy + 2.6f).StrokeOpen(Palette.Ink, 0.7f);
         }
+
+        if (look.Has(Kin.Dryad) && !look.Ghoul) LeafCrown(b, s, side, d, hx, hy);
 
         if (look.Mark == Mark.You && f != Facing.N)
         {
@@ -450,6 +769,32 @@ public static class Figures
             Quad(b, new Vector2(hx - 4.6f, hy - 2.6f), new Vector2(hx, hy - 4.6f), new Vector2(hx + 4.6f, hy - 2.6f), 6, true);
             b.StrokeOpen(Palette.YouGold, 1.1f);
         }
+    }
+
+    /// <summary>
+    /// One eye at (x, y): an ordinary dark eye; a djinn's ember, lit from within; or the undead's sunken
+    /// eye, a dark hollow with a faint cold gleam above a fallen cheek (<paramref name="cheek"/> is where
+    /// the hollow under the cheekbone runs: outward from the front, back toward the ear from the side).
+    /// </summary>
+    private static void Eye(Brush b, in FigureLook look, Color skin, float x, float y, float cheek)
+    {
+        if (look.Has(Kin.Undead))
+        {
+            // A small dark eye deep in a shadowed hollow under the brow, a faint cold gleam in it.
+            Color hollow = skin.Darkened(0.36f);
+            b.Clear().Ellipse(x, y - 0.2f, 1.3f, 0.95f, 10).Fill(hollow);
+            b.Clear().Ellipse(x, y + 0.1f, 0.5f, 0.58f, 8).Fill(Palette.Eye);
+            b.Dot(x - 0.12f, y - 0.02f, 0.2f, ColdGleam);
+            b.Line(x + cheek, y + 1.5f, x + cheek * 0.45f, y + 3.1f, hollow.WithAlpha(0.85f), 0.45f);
+            return;
+        }
+        if (look.Has(Kin.Djinn))
+        {
+            b.Dot(x, y, 1.05f, EmberHalo);
+            b.Clear().Ellipse(x, y, 0.68f, 0.62f, 8).Fill(EmberEye);
+            return;
+        }
+        b.Clear().Ellipse(x, y, 0.6f, 0.75f, 8).Fill(Palette.Eye);
     }
 
     private static void Beard(Brush b, Color hair, float hx, float hy, float d)
@@ -495,6 +840,8 @@ public static class Figures
                     skin = skin.Lerp(Palette.Hex(0x8a8c80), 0.45f);
                     break;
             }
+            // The undead at rest at last: grave-grey, crumbling to the dust they lie in.
+            if (look.Has(Kin.Undead)) skin = skin.Lerp(Palette.GraveGrey.Lightened(0.15f), 0.5f);
         }
 
         b.Push();
@@ -510,19 +857,20 @@ public static class Figures
         float heave = downed ? MathF.Sin(s.Time * 4.2f + s.Seed) * 0.35f : s.Pose == Pose.Sleep ? MathF.Sin(s.Time * 1.3f + s.Seed) * 0.25f : 0f;
 
         // Legs.
-        Color trousers = look.Hostile ? Palette.Hex(0x1d1c1f) : Palette.Trousers;
+        Color trousers = look.Hostile ? Palette.Hex(0x1d1c1f) : TrousersOf(look);
+        Color boots = BootsOf(look);
         if (dead && s.Death == DeathKind.Sun) trousers = Palette.Hex(0x15110e);
         if (downed)
         {
-            LimbPair(b, trousers, new Vector2(-5f, -1.2f), new Vector2(-10f, -5.5f), new Vector2(-15.5f, -2.5f), 1.8f * thin);
-            LimbPair(b, trousers, new Vector2(-5f, 1.4f), new Vector2(-10.5f, -2.5f), new Vector2(-15f, 1.5f), 1.8f * thin);
+            LimbPair(b, trousers, boots, new Vector2(-5f, -1.2f), new Vector2(-10f, -5.5f), new Vector2(-15.5f, -2.5f), 1.8f * thin);
+            LimbPair(b, trousers, boots, new Vector2(-5f, 1.4f), new Vector2(-10.5f, -2.5f), new Vector2(-15f, 1.5f), 1.8f * thin);
         }
         else if (dead)
         {
             b.Clear().Capsule(new Vector2(-5f, -1.4f), new Vector2(-16f, -4.5f), 1.8f * thin).Lit(trousers, 0.15f).Stroke(Palette.Ink, 0.8f);
             b.Clear().Capsule(new Vector2(-5f, 1.4f), new Vector2(-15.5f, 4.2f), 1.8f * thin).Lit(trousers, 0.15f).Stroke(Palette.Ink, 0.8f);
-            b.Clear().Ellipse(-16.4f, -4.7f, 1.4f, 2.1f, 10).Fill(Palette.Boots).Stroke(Palette.Ink, 0.6f);
-            b.Clear().Ellipse(-15.9f, 4.4f, 1.4f, 2.1f, 10).Fill(Palette.Boots).Stroke(Palette.Ink, 0.6f);
+            b.Clear().Ellipse(-16.4f, -4.7f, 1.4f, 2.1f, 10).Fill(boots).Stroke(Palette.Ink, 0.6f);
+            b.Clear().Ellipse(-15.9f, 4.4f, 1.4f, 2.1f, 10).Fill(boots).Stroke(Palette.Ink, 0.6f);
         }
         else
         {
@@ -535,8 +883,9 @@ public static class Figures
         if (s.Wounds > 0 || (dead && s.Death == DeathKind.Wounds))
         {
             int n = dead ? 4 : s.Wounds + 1;
+            Color stain = StainOf(look);
             for (int i = 0; i < n; i++)
-                b.Clear().Ellipse(-3.5f + i * 2.4f, -1.5f + (i % 2) * 2.6f, 2.2f, 1.7f, 10).Fill(Palette.Stain);
+                b.Clear().Ellipse(-3.5f + i * 2.4f, -1.5f + (i % 2) * 2.6f, 2.2f, 1.7f, 10).Fill(stain);
         }
 
         // Arms.
@@ -581,6 +930,19 @@ public static class Figures
             if (look.Beard) b.Clear().Ellipse(7.2f, 1.2f + tilt, 1.8f, 2.4f, 10).Fill(hair);
             // Closed eyes (sleep, death) or a pained squint (downed).
             b.Line(9.3f, 0.4f + tilt, 11.4f, 0.1f + tilt, Palette.Ink, 0.7f);
+            if (look.Has(Kin.Fae))
+                b.Clear().Add(9.6f, -3.6f + tilt).Add(8.6f, -7.6f + tilt).Add(11.4f, -3.9f + tilt).Fill(skin).Stroke(Palette.Ink, 0.55f);
+            if (look.Has(Kin.Dryad))
+            {
+                // A dryad's crown, even asleep: leaves about the crown of the head (dropped and browned in death).
+                int leaves = s.Leaves == Leaves.Bare ? 1 : dead ? 3 : 5;
+                for (int i = 0; i < leaves; i++)
+                {
+                    float a = -1.25f + i * (2.5f / Math.Max(1, leaves - 1));
+                    var away = new Vector2(MathF.Cos(a), MathF.Sin(a));
+                    Leaf(b, new Vector2(10.5f + away.X * 4.3f, tilt + away.Y * 3.9f), away, 3f, 1.2f, LeafColour(s.Leaves, i, dead ? 0.7f : s.Nature * 0.35f));
+                }
+            }
         }
 
         if (dead && s.Death == DeathKind.Sun && s.DeadHours < 8f)
@@ -601,11 +963,11 @@ public static class Figures
         b.Clear().Ellipse(to.X, to.Y, 1.6f, 1.6f, 10).Fill(skin).Stroke(Palette.Ink, 0.6f);
     }
 
-    private static void LimbPair(Brush b, Color trousers, Vector2 hip, Vector2 knee, Vector2 foot, float r)
+    private static void LimbPair(Brush b, Color trousers, Color boots, Vector2 hip, Vector2 knee, Vector2 foot, float r)
     {
         b.Clear().Capsule(hip, knee, r).Lit(trousers, 0.15f).Stroke(Palette.Ink, 0.8f);
         b.Clear().Capsule(knee, foot, r * 0.92f).Lit(trousers, 0.15f).Stroke(Palette.Ink, 0.8f);
-        b.Clear().Ellipse(foot.X - 0.6f, foot.Y, 1.4f, 2.1f, 10).Fill(Palette.Boots).Stroke(Palette.Ink, 0.6f);
+        b.Clear().Ellipse(foot.X - 0.6f, foot.Y, 1.4f, 2.1f, 10).Fill(boots).Stroke(Palette.Ink, 0.6f);
     }
 
     /// <summary>A soft shadow on the ground (texture, or a flat ellipse without it).</summary>
