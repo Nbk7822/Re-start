@@ -39,6 +39,8 @@ public sealed class RoofSection
     // The Build menu (ADR-0027). New sections are appended; one taken down stays in the list, unsound and
     // Removed, so Index stays its position.
     public int Id { get; set; }
+    /// <summary>The buildings.json id it was built from; "" for the old camp's, which count as "roof".</summary>
+    public string DefId { get; set; } = "";
     /// <summary>Who raised it, whoever finished it first; empty for the old camp's sections.</summary>
     public List<int> BuiltBy { get; set; } = new();
     public long BuiltEvent { get; set; }
@@ -57,6 +59,8 @@ public sealed class Bed
     public int OwnerId { get; set; }
 
     // The Build menu (ADR-0027). New beds are appended; one taken down is removed.
+    /// <summary>The buildings.json id it was built from; "" for the old camp's bedrolls, which count as "bed".</summary>
+    public string DefId { get; set; } = "";
     /// <summary>Who built it, whoever finished it first; empty for the old camp's bedrolls.</summary>
     public List<int> BuiltBy { get; set; } = new();
     public long BuiltEvent { get; set; }

@@ -10,6 +10,9 @@ namespace Return.Sim;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(SetRationPolicy), "setRationPolicy")]
 [JsonDerivedType(typeof(SetWorkPriority), "setWorkPriority")]
+[JsonDerivedType(typeof(PlaceBlueprint), "placeBlueprint")]
+[JsonDerivedType(typeof(CancelBlueprints), "cancelBlueprints")]
+[JsonDerivedType(typeof(MarkTakeDown), "markTakeDown")]
 public abstract record Command(long Tick)
 {
     /// <summary>Order of enqueueing; ties on the same tick apply in this order.</summary>
@@ -56,4 +59,24 @@ public sealed record SetWorkPriority(long Tick, int CharacterId, string WorkId, 
             EventArg.Char("a", c.Id), EventArg.Key("work", w.Content.WorkById(WorkId).NameKey), EventArg.Num("n", Priority));
         Systems.Purpose.OnPriority(w, c, WorkId, Priority, e.Id);
     }
+}
+
+// The Build menu (ADR-0027): plans are intentions. People choose who builds, when, and whether.
+
+/// <summary>Marks out one plan of a building: each piece is a tile (a roof section: a rectangle up to its maxSide). Pieces not valid when it applies are dropped.</summary>
+public sealed record PlaceBlueprint(long Tick, string BuildingId, IReadOnlyList<Core.Rect> Pieces, int ForId = 0) : Command(Tick)
+{
+    internal override void Apply(World w) => Systems.Building.Place(w, BuildingId, Pieces, ForId);
+}
+
+/// <summary>Calls off plans; whatever was delivered to them drops on the site for hauling.</summary>
+public sealed record CancelBlueprints(long Tick, IReadOnlyList<int> BlueprintIds) : Command(Tick)
+{
+    internal override void Apply(World w) => Systems.Building.CallOff(w, BlueprintIds);
+}
+
+/// <summary>Marks built things to be taken down (Marked = true) or unmarks them.</summary>
+public sealed record MarkTakeDown(long Tick, IReadOnlyList<BuiltRef> Targets, bool Marked) : Command(Tick)
+{
+    internal override void Apply(World w) => Systems.Building.Mark(w, Targets, Marked);
 }
