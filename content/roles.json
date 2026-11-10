@@ -8,6 +8,7 @@
       { "work": "care", "priority": 2 },
       { "work": "gather_timber", "priority": 3 },
       { "work": "repair_roof", "priority": 3 },
+      { "work": "build", "priority": 3 },
       { "work": "keep_watch", "priority": 3 }
     ]
   },
@@ -16,6 +17,7 @@
     "nameKey": "role.builder.name",
     "priorities": [
       { "work": "repair_roof", "priority": 1 },
+      { "work": "build", "priority": 1 },
       { "work": "gather_timber", "priority": 1 },
       { "work": "haul", "priority": 2 },
       { "work": "forage", "priority": 3 },
@@ -32,6 +34,7 @@
       { "work": "haul", "priority": 2 },
       { "work": "gather_timber", "priority": 3 },
       { "work": "repair_roof", "priority": 3 },
+      { "work": "build", "priority": 3 },
       { "work": "keep_watch", "priority": 3 }
     ]
   },
@@ -44,7 +47,8 @@
       { "work": "care", "priority": 2 },
       { "work": "forage", "priority": 3 },
       { "work": "gather_timber", "priority": 3 },
-      { "work": "repair_roof", "priority": 3 }
+      { "work": "repair_roof", "priority": 3 },
+      { "work": "build", "priority": 3 }
     ]
   }
 ]

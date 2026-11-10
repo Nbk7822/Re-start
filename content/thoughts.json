@@ -70,5 +70,13 @@
   { "id": "courtesy_starved", "textKey": "thought.courtesy_starved", "mood": -14, "durationHours": 1, "emote": "gloom" },
   { "id": "spoke_truth", "textKey": "thought.spoke_truth", "mood": 2, "durationHours": 12 },
   { "id": "told_hard_truth", "textKey": "thought.told_hard_truth", "mood": -5, "opinion": -4, "durationHours": 48, "emote": "anger", "stackLimit": 2 },
-  { "id": "heard_hard_truth", "textKey": "thought.heard_hard_truth", "mood": 0, "opinion": -12, "durationHours": 72, "emote": "question", "stackLimit": 2 }
+  { "id": "heard_hard_truth", "textKey": "thought.heard_hard_truth", "mood": 0, "opinion": -12, "durationHours": 72, "emote": "question", "stackLimit": 2 },
+
+  { "id": "built_something", "textKey": "thought.built_something", "mood": 3, "durationHours": 24, "emote": "sparkle" },
+  { "id": "slept_in_own_bed", "textKey": "thought.slept_in_own_bed", "mood": 3, "durationHours": 12 },
+  { "id": "no_bed", "textKey": "thought.no_bed", "mood": -2, "durationHours": 12 },
+  { "id": "sheltered_by", "textKey": "thought.sheltered_by", "mood": 1, "opinion": 2, "durationHours": 24 },
+  { "id": "passed_over", "textKey": "thought.passed_over", "mood": -4, "opinion": -8, "durationHours": 48, "emote": "anger" },
+  { "id": "lost_bed", "textKey": "thought.lost_bed", "mood": -6, "opinion": -10, "durationHours": 72, "emote": "anger" },
+  { "id": "work_torn_down", "textKey": "thought.work_torn_down", "mood": -3, "opinion": -3, "durationHours": 48, "emote": "gloom" }
 ]

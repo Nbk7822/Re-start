@@ -8,5 +8,8 @@
   { "id": "give_blood", "nameKey": "work.give_blood.name", "durationTicks": 150, "restCostPerHour": 10 },
   { "id": "eat", "nameKey": "work.eat.name", "durationTicks": 60 },
   { "id": "sleep", "nameKey": "work.sleep.name", "durationTicks": 0 },
-  { "id": "socialize", "nameKey": "work.socialize.name", "durationTicks": 120 }
+  { "id": "socialize", "nameKey": "work.socialize.name", "durationTicks": 120 },
+  { "id": "build", "nameKey": "work.build.name", "durationTicks": 0, "restCostPerHour": 25, "accidentPermille": 20, "risky": true },
+  { "id": "deliver", "nameKey": "work.deliver.name", "durationTicks": 0, "restCostPerHour": 10 },
+  { "id": "take_down", "nameKey": "work.take_down.name", "durationTicks": 0, "restCostPerHour": 25, "accidentPermille": 15 }
 ]

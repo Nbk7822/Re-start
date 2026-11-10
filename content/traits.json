@@ -29,6 +29,7 @@
     "descKey": "trait.practical.desc",
     "workBias": [
       { "work": "repair_roof", "add": 2 },
+      { "work": "build", "add": 1 },
       { "work": "forage", "add": 1 }
     ]
   },

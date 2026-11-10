@@ -15,6 +15,8 @@ public static class RequiredContent
     public static readonly IReadOnlyList<string> Work = new[]
     {
         "care", "eat", "forage", "gather_timber", "give_blood", "haul", "keep_watch", "repair_roof", "socialize",
+        // The Build menu (ADR-0027): build is prioritised; deliver and take_down give those jobs their rest cost and odds.
+        "build", "deliver", "take_down",
     };
 
     public static readonly IReadOnlyList<string> Thoughts = new[]
@@ -87,6 +89,27 @@ public static class RequiredContent
         if (c.Kind == "festival" && c.Params.TryGetValue("feastPerHead", out int feast) && feast > 0) moments.Add("begins_lean");
         return moments;
     }
+
+    /// <summary>The Build menu's thoughts (ADR-0027), checked like <see cref="Thoughts"/> and kept apart to keep merges apart.</summary>
+    public static readonly IReadOnlyList<string> BuildThoughts = new[]
+    {
+        "built_something", "slept_in_own_bed", "no_bed", "sheltered_by", "passed_over", "lost_bed", "work_torn_down",
+    };
+
+    /// <summary>
+    /// The buildings the code relies on, with the kind each must have: the old camp's roof sections and
+    /// bedrolls are a roof and a bed, and the stand-in player plans walls, a door, a roof and beds (ADR-0027).
+    /// </summary>
+    public static readonly IReadOnlyList<(string Id, string Kind)> Buildings = new[]
+    {
+        ("wall", "wall"), ("door", "door"), ("roof", "roof"), ("bed", "bed"),
+    };
+
+    /// <summary>Every kind of building the simulation has behaviour for. A grave joins with laying the dead to rest (build design 4.8).</summary>
+    public static readonly IReadOnlyList<string> BuildingKinds = new[] { "wall", "door", "roof", "bed" };
+
+    /// <summary>How the Build list groups buildings.</summary>
+    public static readonly IReadOnlyList<string> BuildingCategories = new[] { "shelter", "rest", "rites" };
 
     /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>
     public static readonly IReadOnlyList<(string Id, string[] Params)> Needs = new (string, string[])[]
