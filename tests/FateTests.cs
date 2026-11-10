@@ -377,6 +377,22 @@ public class FateTests
         Assert.Equal(a.StateHash(), replay.StateHash());
     }
 
+    /// <summary>A replay whose timeline no longer ends in its recorded death has diverged: it fails at once instead of stepping on forever.</summary>
+    [Fact]
+    public void AReplayThatDivergesFailsInsteadOfRunningOn()
+    {
+        var sim = Simulation.Create(TestContent.Db, 8);
+        sim.Advance(2 * Day);
+        Assert.True(sim.ForceDeath());
+        sim.Step();
+        sim.Advance(Day);
+        FateBook life = sim.World.Fate;
+        Assert.Equal(sim.StateHash(), Simulation.Replay(TestContent.Db, 8, life, sim.World.Tick).StateHash());
+        life.Timelines[^1].Forced = false; // as if that death had come on its own: the replay cannot meet it
+        var error = Assert.Throws<InvalidOperationException>(() => Simulation.Replay(TestContent.Db, 8, life, sim.World.Tick));
+        Assert.Contains("diverged", error.Message);
+    }
+
     [Fact]
     public void WhatYouKeep()
     {

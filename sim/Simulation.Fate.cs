@@ -182,21 +182,30 @@ public sealed partial class Simulation
     /// <summary>
     /// Re-runs a whole life (§10): the same seed and the same commands in each timeline give the same run. Each finished
     /// timeline's commands are enqueued when the world reaches the tick they were given at, its forced death (if any)
-    /// is forced again, and it runs until its return; the last timeline runs to <paramref name="untilTick"/>.
+    /// is forced again, and it runs until its return; the last timeline runs to <paramref name="untilTick"/>. A finished
+    /// timeline that does not end in a death at its recorded tick has diverged: that throws, rather than running on.
     /// </summary>
     public static Simulation Replay(ContentDb content, ulong seed, FateBook life, long untilTick, RebirthChoice? choice = null)
     {
         Simulation sim = Create(content, seed, choice);
-        foreach (TimelineRecord t in life.Timelines) sim.RunTimeline(t.Commands, t.Forced ? t.DeathTick : -1, long.MaxValue);
-        sim.RunTimeline(life.Commands, life.ForcedDeathTick, untilTick);
+        foreach (TimelineRecord t in life.Timelines)
+        {
+            sim.RunTimeline(t.Commands, t.Forced ? t.DeathTick : -1, long.MaxValue, t.DeathTick);
+            FateBook now = sim.World.Fate;
+            if (now.Timeline != t.Timeline + 1 || now.LostFutures[^1].DeathTick != t.DeathTick)
+                throw new InvalidOperationException($"Replay diverged: timeline {t.Timeline} did not end in a death at tick {t.DeathTick}.");
+        }
+        sim.RunTimeline(life.Commands, life.ForcedDeathTick, untilTick, long.MaxValue);
         return sim;
     }
 
-    private void RunTimeline(List<TimedCommand> commands, long forcedAt, long untilTick)
+    private void RunTimeline(List<TimedCommand> commands, long forcedAt, long untilTick, long deathTick)
     {
         int timeline = World.Fate.Timeline, next = 0;
         while (World.Fate.Timeline == timeline && !World.Fate.Ended && World.Tick < untilTick)
         {
+            if (World.Tick > deathTick)
+                throw new InvalidOperationException($"Replay diverged: timeline {timeline} reached tick {World.Tick} without the death it had at tick {deathTick}.");
             while (next < commands.Count && commands[next].EnqueuedAt <= World.Tick) Enqueue(commands[next++].Command);
             if (forcedAt >= 0 && World.Tick == forcedAt) ForceDeath();
             Step();
