@@ -48,6 +48,7 @@ Fixed tick. `content/world.json` sets the calendar (300 ticks per hour, 24 hours
 | Combat (simple melee) | traits, social, travel | needs (health), mood, social (rescue debts, abandonment grudges) |
 | Growth (wants, arcs, trait origins; section 5) | traits, species, roles, social (chemistry), incidents (arrivals) | in M0 only the story log, the inspector and the text-state API; from M1, traits (and through them needs, mood, social, work, combat) |
 | Culture and faith (customs, gods, omens; section 6) | social, needs, incidents, work, map | mood, social (warmth, consent, grudges ended), work (feasts, guest-bread, repayments), rations (who goes without) |
+| Build (plans, structures, beds; section 4.11) | work, map, items, needs, social | needs (rest, cover from sun and rain), mood (comfort, pride, thanks; envy with slice 1c), social (claims, passing over, roof promises kept and broken), travel (walls), incidents (work accidents), and through felling the dryads and the sacred trees |
 
 Every system touches at least two others; that is the cut rule from CLAUDE.md. Growth is the one exception for now: by the founder's M0 scope for fixed decision 12 (section 5.3) it reads three systems (traits, social chemistry, incidents) but writes back only beats, and M1's trait changes close the loop.
 
@@ -111,6 +112,15 @@ Fourteen berry bushes (three clusters of four, and a cluster of two for the fae'
 ### 4.10 Map
 
 A small grid (48 × 32) generated from Truths: a river, rocks, trees, berry bushes, and the demo's ruined camp: a shelter whose roof has three broken sections (repairs cost timber), covered ruins where vampires shelter by day, a hearth, and a stockpile.
+
+### 4.11 Building (slice 1a of the build design, ADR-0027)
+
+- **Plans are intentions.** The player marks out walls, doors, roof sections (up to 4×4, within 3 tiles of a wall) and beds on the grid; one gesture is one plan. People choose, through their priorities, who carries the timber (under haul) and who builds (a work of its own, after mending the roof); the player never says who. A wall is never finished on someone's tile, and a wall that would shut people in is refused until the map changes.
+- **Timber is scarce and shared.** Every plan draws on one stock from 24 trees that do not grow back yet, and felling now follows what plans lack, so a plan can cost a dryad her tree or a faith its sacred tree. Whoever commits the last of the timber someone was counting on (a bedless sleeper's bed, a promised roof) passes them over, and they think less of the taker; a broken roof promise cites it.
+- **Beds belong to someone.** Lying down in an unclaimed bed claims it, if you have none; nobody sleeps in someone else's bed. A bed restores rest faster; waking in your own bed is a comfort and waking with none is felt; waking under a roof someone mended, or in a bed someone built, warms you to them. Someone without a bed builds a bed before mending the roof, unless they are Generous. Whoever leaves or dies leaves their bed unclaimed. Vampires take a bed only under cover, and by day only if the way there is under cover.
+- **Taking down** returns half the timber; a bed's owner and a thing's builder blame the player who marked it.
+- **Finishing a building is never a story's ending by itself.** Building stories end where the systems it touches end them: grudges, departures, debts, broken promises.
+- The headless stand-in player builds with `--plan beds|camp|mixed`: three beds in the shelter, then a 5×4 hut with a door, a roof and two beds, each on the first morning the camp has outgrown its beds.
 
 ## 5. Character growth and arcs (fixed decision 12)
 

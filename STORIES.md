@@ -140,3 +140,27 @@ Winter came on Day 31 and the frost took the berries from the bushes. Varrow, bo
 
 The earlier playtest entries describe the build before this review, and the histories have moved. Seed 10's Varrow no longer meets the thief; their grave dust beside the thief's blood now shows in seed 11, on Day 33 at 19:00, near (20, 28). Seed 13's bound tree falls on Day 25, to Oren. The djinn now reads as living flame: a low warmth and wavering flame-light, with no smoke.
 
+## 2026-11-09 — The Build menu, slice 1a (ADR-0027; soak 100 worlds × 1 year, `--plan mixed`)
+
+Building stories in 22 of the 66 worlds where the stand-in player made a plan (6 of 33 with beds alone, 16 of 33 with the camp), 35 stories from four sets of systems. Every one is headed by the player's plan and runs through a felling: the timber a plan needs is cut from the trees nearest the camp, and some of those belong to a dryad or a faith. Passing over fires (57 times in 29 of 33 camp worlds) but ends no story within a year, and the design's showcase, "The last of the timber", needs a vampire promised a roof, which no longer happens at this baseline (the old roof is mended on day 1); it is told by the scenario test below.
+
+### Three beds, and Thessil (seed 16, soak `--plan camp`; policy "promised meals come first")
+On the fourth morning the camp had outgrown its beds, and you marked out three more in the old shelter. An hour and a half later you went out with the axe yourself and felled a tree for the timber. Thessil, a dryad who had come to the camp only days before, grieved for the tree you cut down; she held a grudge against you from that moment, and eighteen minutes later she had left the camp.
+- Chain: your plan (World) → you felled a tree for it (Work) → Thessil grieved, grudge, left (Social). 5 steps.
+- Why it matters: the felling cites the plan, so a stranger reads a decision about beds turning into a dryad walking out. Nobody is a villain; the beds were needed.
+
+### The sacred tree for the beds (seed 22, soak; plan beds; policy "promised meals come first")
+On Day 5 you marked out three beds in the shelter. Before noon you had felled a tree for the timber: the old tree sacred to the Faith of the Deep Root. Bram, who keeps that faith, held a grudge against you, and within the hour he had left the camp.
+- Chain: your plan (World) → felled (Work) → the sacred tree desecrated (Culture) → grudge → left (Social). 5 steps.
+- The same chain with a neighbour's axe ends in a festival instead (seed 15, plan camp, "the hungriest eat first"): Bram felled the tree sacred to the Green Way for your three beds on Day 4, Sera held a grudge against him, and at the harvest fire on Day 26 she set it down.
+
+### Mira and Thessil's tree (seed 39, soak; plan beds; policy "the hungriest eat first")
+On Day 4 you marked out three beds. Mira went to fell timber for them, and the tree she brought down was the one Thessil was bound to. Thessil cried out as it came down, and now holds a grudge against Mira.
+- Chain: your plan (World) → Mira felled the bound tree (Work) → Thessil cried out (Needs) → grudge (Social). 4 steps.
+- Seen beside it in camp worlds: a dryad whose tree fell for the hut withers, and each person who tends her makes a story of its own (ADR-0022's sibling seam). The camp plan leaves about 7 trees of 24 by the year's end.
+
+### The last of the timber (scenario test `TheLastTimberIsCitedWhenTheRoofPromiseBreaks`)
+Ilex, a vampire, agreed to stay after you promised a sound roof against the sun within two days. You had marked out a bed. Sera, who had no bed, built the bed before the roof, and in fetching its timber she used the last of what the roof needed: "Sera used the last of the timber on a bed." Ilex, passed over, thought less of her, and when the two days were out your promise broke, citing that moment.
+- Chain: your plan (World) → Sera used the last of the timber (Work) → promise broken → grudge (Social).
+- Why it matters: the design's own first story, in the engine. It waits in soaks for a camp whose roof is still broken when a vampire arrives.
+
