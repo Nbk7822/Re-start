@@ -267,6 +267,55 @@ public class BuildTests
         }
     }
 
+    /// <summary>
+    /// A gesture over walls and a door is told once for all of them, in words that fit both (review of ADR-0027: it named
+    /// the whole gesture after whichever piece came down last, "took down 3 doors").
+    /// </summary>
+    [Fact]
+    public void WallsAndADoorTakenDownInOneGestureAreToldAsThings()
+    {
+        World w = WorkTests.Only(1, "oren");
+        Character oren = Cast(w, "oren");
+        Works(oren, ("build", 1));
+        SetTimber(w, 4);
+        Point at = BuildPlanTests.Yard(w, 0, 2);
+        Plan(w, "wall", Tile(at.X - 1, at.Y), Tile(at.X + 1, at.Y));
+        Plan(w, "door", Tile(at));
+        Run(w, 10_000, () => w.Map.Structures.Count == 3);
+        Building.Mark(w, w.Map.Structures.Select(s => new BuiltRef(TargetKind.Structure, s.Id)).ToList(), marked: true);
+        Run(w, 10_000, () => w.Map.Structures.All(s => s.Removed));
+        SimEvent took = w.Log.All.Single(e => e.Key.StartsWith("event.work.took_down", StringComparison.Ordinal));
+        Assert.Equal("Oren took down 3 things.", EventText.Describe(w, took));
+    }
+
+    /// <summary>
+    /// Marked walls, some already down when the player leaves the rest standing: what came down is still told, once, and its
+    /// builder still sees it torn down (review of ADR-0027: the line, the blame and the story ending were lost).
+    /// </summary>
+    [Fact]
+    public void WallsLeftStandingAfterSomeCameDownStillTellWhatCameDown()
+    {
+        World w = WorkTests.Only(1, "oren", "sera");
+        Character oren = Cast(w, "oren"), sera = Cast(w, "sera");
+        Works(oren, ("build", 1));
+        Works(sera);
+        SetTimber(w, 3);
+        Point at = BuildPlanTests.Yard(w, 0, 2);
+        Plan(w, "wall", Tile(at), Tile(at.X + 1, at.Y), Tile(at.X + 2, at.Y));
+        Run(w, 10_000, () => w.Map.Structures.Count == 3);
+        List<BuiltRef> all = w.Map.Structures.Select(s => new BuiltRef(TargetKind.Structure, s.Id)).ToList();
+        Building.Mark(w, all, marked: true);
+        Run(w, 10_000, () => w.Map.Structures.Any(s => s.Removed));
+        Assert.DoesNotContain(w.Log.All, e => e.Key.StartsWith("event.work.took_down", StringComparison.Ordinal)); // told when the gesture is done
+        Building.Mark(w, all, marked: false); // the player leaves the rest standing
+        SimEvent took = w.Log.All.Single(e => e.Key.StartsWith("event.work.took_down", StringComparison.Ordinal));
+        Assert.Equal("Oren took down a wall.", EventText.Describe(w, took));
+        Assert.Contains(oren.Thoughts, t => t.DefId == "work_torn_down" && t.CauseEvent == took.Id);
+        Run(w, 3_000);
+        Assert.Equal(1, w.Map.Structures.Count(s => s.Removed)); // the rest stand
+        Assert.Single(w.Log.All, e => e.Key.StartsWith("event.work.took_down", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ABuilderClaimsTheBedTheyBuilt()
     {

@@ -76,17 +76,21 @@ public static partial class Building
     internal static void Mark(World w, IReadOnlyList<BuiltRef> targets, bool marked)
     {
         var newly = new List<(BuiltRef Ref, string DefId)>();
+        var lifted = new List<long>();
         foreach (BuiltRef t in targets)
         {
             if (!Markable(w, t, out string defId, out long current)) continue;
             if (!marked)
             {
+                if (t.Kind == TargetKind.Structure && current != 0 && !lifted.Contains(current)) lifted.Add(current);
                 SetMark(w, t, 0);
                 continue;
             }
             if (current != 0 || newly.Exists(n => n.Ref == t)) continue;
             newly.Add((t, defId));
         }
+        // Walls and doors left standing of a gesture some of which came down: what came down is told now (ADR-0027 review).
+        foreach (long mark in lifted) GestureLeftStanding(w, mark);
         if (newly.Count == 0) return;
         string first = newly[0].DefId;
         bool mixed = newly.Exists(n => n.DefId != first);

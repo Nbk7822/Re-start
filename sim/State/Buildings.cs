@@ -97,4 +97,7 @@ public sealed class Structure
     /// a wall run taken down is told once, with whoever built it, and who built what is not forgotten.
     /// </summary>
     public bool Removed { get; set; }
+
+    /// <summary>Who took it down; 0 while it stands. A gesture left part standing is still told, by one who took part of it down (ADR-0027 review).</summary>
+    public int TakenDownBy { get; set; }
 }

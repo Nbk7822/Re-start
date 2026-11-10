@@ -49,6 +49,7 @@
   "event.work.refused_to_shut_in": "{a} would not finish {one}: it would shut people in.",
   "event.work.took_down": "{a} took down {n} {many}.",
   "event.work.took_down_one": "{a} took down {one}.",
+  "event.work.took_down_mixed": "{a} took down {n} things.",
   "event.work.took_down_bed_of": "{a} took down {b}'s bed.",
   "event.work.took_down_bed_of_you_b": "{a} took down your bed.",
 

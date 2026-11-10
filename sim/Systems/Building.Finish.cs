@@ -203,14 +203,11 @@ public static partial class Building
                 Structure s = StructureById(w, id)!;
                 m.Set(s.Pos, s.Ground);
                 s.Removed = true;
+                s.TakenDownBy = c.Id;
                 m.Changed();
                 if (back > 0) Stock.Add(w, def.Material.Item, back, s.Pos);
                 if (m.Structures.Exists(x => !x.Removed && x.MarkedEvent == mark)) break; // more of this gesture still to come down
-                var gesture = m.Structures.FindAll(x => x.Removed && x.MarkedEvent == mark);
-                foreach (Structure x in gesture)
-                    if (Builder(x.BuiltBy) is int b and not 0 && !builders.Contains(b)) builders.Add(b);
-                e = w.Log.Emit(w, SystemTag.Work, "event.work.took_down", new[] { c.Id }, new[] { mark }, null,
-                    EventArg.Char("a", c.Id), EventArg.Num("n", gesture.Count), EventArg.Key("one", def.AKey), EventArg.Key("many", def.PluralKey));
+                e = TookDown(w, c.Id, mark, builders);
                 break;
             }
             case TargetKind.Bed:
@@ -250,6 +247,37 @@ public static partial class Building
         if (owner != 0) Blame(w, owner, "lost_bed", e.Id);
         foreach (int b in builders) Blame(w, b, "work_torn_down", e.Id);
         JobRunner.RollAccident(w, c, w.Content.WorkById("take_down"), e.Id);
+    }
+
+    /// <summary>
+    /// The walls and doors of one gesture that came down, told once: "Oren took down 13 walls.", or "... 3 things." when the
+    /// gesture held more than one kind (it used to be named after whichever piece came down last). Gathers their builders.
+    /// </summary>
+    private static SimEvent TookDown(World w, int taker, long mark, List<int> builders)
+    {
+        List<Structure> gesture = w.Map.Structures.FindAll(x => x.Removed && x.MarkedEvent == mark);
+        foreach (Structure x in gesture)
+            if (Builder(x.BuiltBy) is int b and not 0 && !builders.Contains(b)) builders.Add(b);
+        BuildingDef def = w.Content.BuildingById(gesture[0].DefId);
+        return gesture.Exists(x => x.DefId != def.Id)
+            ? w.Log.Emit(w, SystemTag.Work, "event.work.took_down_mixed", new[] { taker }, new[] { mark }, null,
+                EventArg.Char("a", taker), EventArg.Num("n", gesture.Count))
+            : w.Log.Emit(w, SystemTag.Work, "event.work.took_down", new[] { taker }, new[] { mark }, null,
+                EventArg.Char("a", taker), EventArg.Num("n", gesture.Count), EventArg.Key("one", def.AKey), EventArg.Key("many", def.PluralKey));
+    }
+
+    /// <summary>
+    /// The player left standing what was left of a gesture some of which had already come down: what came down is told now,
+    /// by one who took part of it down, and its builders see it torn down, as if the last piece had come down.
+    /// </summary>
+    private static void GestureLeftStanding(World w, long mark)
+    {
+        if (w.Map.Structures.Exists(x => !x.Removed && x.MarkedEvent == mark)) return;
+        Structure? last = w.Map.Structures.FindLast(x => x.Removed && x.MarkedEvent == mark);
+        if (last == null || last.TakenDownBy == 0) return;
+        var builders = new List<int>();
+        SimEvent e = TookDown(w, last.TakenDownBy, mark, builders);
+        foreach (int b in builders) Blame(w, b, "work_torn_down", e.Id);
     }
 
     /// <summary>The one who lost something thinks less of the player who marked it; past the grudge line, a grudge forms, as after insults.</summary>
