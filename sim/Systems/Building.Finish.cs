@@ -103,13 +103,31 @@ public static partial class Building
         return e;
     }
 
-    /// <summary>Loose items on a tile a wall or door is taking are moved aside, without an event.</summary>
+    /// <summary>
+    /// Loose items on a tile a wall or door is taking are moved aside, without an event. Moved onto a stockpile that keeps
+    /// them, they are stores, as goods put down there are (ADR-0028), and food that becomes stores is shared out at once.
+    /// </summary>
     private static void MoveAside(World w, Point tile)
     {
         Point aside = Places.Adjacent(w, tile, tile);
         if (aside == Point.None) return;
+        var stored = new List<ItemStack>();
         foreach (ItemStack s in w.Items)
-            if (s.Pos == tile) s.Pos = aside;
+        {
+            if (s.Pos != tile) continue;
+            s.Pos = aside;
+            if (s.Stored || !Zones.Accepts(w, aside, s.DefId)) continue;
+            s.Stored = true;
+            stored.Add(s);
+        }
+        // Once per item (only food is shared out), after every stack has moved, so the share-out counts all of it.
+        var shared = new List<string>();
+        foreach (ItemStack s in stored)
+        {
+            if (shared.Contains(s.DefId)) continue;
+            shared.Add(s.DefId);
+            Rations.AfterDeposit(w, s);
+        }
     }
 
     private static void InsertById<T>(List<T> list, T item, Func<T, int> id)
