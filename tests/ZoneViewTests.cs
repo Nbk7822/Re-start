@@ -185,7 +185,7 @@ public class ZoneViewTests
     public void TheListOffersTheHomeAreaAndRowsIt()
     {
         World w = WorldGen.Create(Content, 1);
-        Assert.Contains(StateApi.ZoneKinds(w), k => k.Id == "home" && k.Name == "Home area" && k.Hint == "After dark, only the night folk keep watch outside it" && k.Single);
+        Assert.Contains(StateApi.ZoneKinds(w), k => k.Id == "home" && k.Name == "Home area" && k.Hint == "Asks that after dark only the night folk keep watch outside it" && k.Single); // an ask, as the Chronicle says: tonight's defiers still keep watch outside it
         new MarkZone(w.Tick, 0, "home", Zones.FromRect(WorldGen.ClearingOf(w.Map.Shelter))).Apply(w);
         ZoneState home = StateApi.Zones(w).Single(z => z.Kind == "home");
         Assert.Equal("Home area by the hearth · 418 tiles", ZoneText.Row(home));

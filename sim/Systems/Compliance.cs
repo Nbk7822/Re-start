@@ -7,7 +7,8 @@ namespace Return.Sim.Systems;
 /// <summary>
 /// Who keeps the camp's rules (zones design 5.10; the founder's answer in ADR-0025 item 2; ADR-0028). One
 /// helper decides whether a person goes their own way under any rule the player set: the home area's
-/// curfew (zones step 3), and a change of hours or a waking for the watch (the Schedule), so breaking
+/// ask, rolled once a night, that nobody it binds keep watch outside it (zones step 3; its curfew waits
+/// for slice 2), and a change of hours or a waking for the watch (the Schedule), so breaking
 /// any rule reads alike and has one reason the Chronicle can name. How people feel about whoever set the
 /// rule decides how far it carries. It never applies to the player, nor to whoever set the rule.
 ///

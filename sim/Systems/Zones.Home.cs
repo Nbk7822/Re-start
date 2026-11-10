@@ -4,16 +4,17 @@ using Return.Sim.Core;
 namespace Return.Sim.Systems;
 
 /// <summary>
-/// The home area (zones step 3, ADR-0028; zones design 3.3, 5.5): the one area where the camp asks everyone to stay
-/// after dark. It is built on the Schedule's day (ADR-0029): the Schedule says when, the home area says where. These
-/// are its reads; the curfew itself (the nightly roll, the walk home, breaches) is in Zones.Curfew.cs.
+/// The home area (zones step 3, ADR-0028; zones design 3.3, 5.5): the one area the camp marks as home. In slice 1 it asks
+/// one thing, that after dark nobody but the night folk keep watch outside it; the curfew proper (keeping people inside it
+/// after dark) waits for slice 2. It is built on the Schedule's day (ADR-0029): the Schedule says when, the home area says
+/// where. These are its reads; who it binds and tonight's roll are in Zones.Curfew.cs, the watch's side in WatchSystem.
 /// </summary>
 public static partial class Zones
 {
-    /// <summary>The behaviour of the home area: after dark, people stay inside it.</summary>
+    /// <summary>The behaviour of the home area: after dark, only the night folk are asked to keep watch outside it.</summary>
     public const string HomeArea = "home";
 
-    /// <summary>The camp's home area (the first zone by id whose kind keeps people home), or null if it has none.</summary>
+    /// <summary>The camp's home area (the first zone by id whose kind has the home behaviour), or null if it has none.</summary>
     public static Zone? HomeOf(World w)
     {
         foreach (Zone z in w.Map.Zones)
