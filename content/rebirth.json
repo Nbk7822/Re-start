@@ -1,0 +1,26 @@
+{
+  "peoples": [
+    { "species": "human", "weight": 30, "openingKey": "rebirth.opening.human" },
+    { "species": "vampire", "weight": 14, "openingKey": "rebirth.opening.vampire" },
+    { "species": "undead", "weight": 14, "openingKey": "rebirth.opening.undead" },
+    { "species": "dryad", "weight": 14, "openingKey": "rebirth.opening.dryad" },
+    { "species": "djinn", "weight": 14, "openingKey": "rebirth.opening.djinn" },
+    { "species": "fae", "weight": 14, "openingKey": "rebirth.opening.fae" }
+  ],
+  "soulSpanYears": [40, 50],
+  "knots": {
+    "triggers": [
+      "event.incident.wanderer_arrives", "event.incident.undead_arrives", "event.incident.dryad_arrives",
+      "event.incident.djinn_arrives", "event.incident.fae_arrives",
+      "event.social.joined_promised_meal", "event.social.joined_promised_rest",
+      "event.needs.starving", "event.needs.blood_starved",
+      "event.combat.thief_spotted", "event.social.grudge_formed", "event.world.winter_begins"
+    ],
+    "quietAfterHours": 12,
+    "minHoursBetween": 2,
+    "maxPerDay": 6,
+    "safeHealthAtLeast": 400
+  },
+  "return": { "recentDays": 3, "tailPermille": 150, "minHoursBeforeDeath": 2 },
+  "memory": { "strengthPct": 50, "maxPerReturn": 4 }
+}

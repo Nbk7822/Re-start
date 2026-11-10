@@ -29,7 +29,7 @@ public class CultureHookTests
             lines.Add($"{{ \"id\": \"{c.Id}\", \"kind\": \"{c.Kind}\", \"params\": {{ {args} }} }}");
         }
         string mod = CultureContentTests.Mod(("customs.json", "[" + string.Join(",\n", lines) + "]"));
-        return ContentDb.Load(Path.Combine(TestPaths.Root, "content"), new[] { mod });
+        return ContentDb.Load(Path.Combine(TestPaths.Root, "content"), new[] { FateFixtures.HumanGiftless, mod });
     }
 
     /// <summary>A camp of only these people, fed and rested by the hearth, from the given content.</summary>

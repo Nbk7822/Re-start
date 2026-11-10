@@ -21,6 +21,9 @@ public sealed class SoakOptions
     public int Parallel { get; init; } = Environment.ProcessorCount;
 
     public ulong FirstSeed { get; init; } = 1;
+
+    /// <summary>Your people and gift chosen for testing, and --fates (ADR-0030).</summary>
+    public RunSetup Setup { get; init; } = RunSetup.Plain;
 }
 
 /// <summary>A key and how often it came up.</summary>
@@ -107,7 +110,7 @@ public static class Soak
 
         var results = new WorldResult[options.Worlds];
         Parallel.For(0, options.Worlds, new ParallelOptions { MaxDegreeOfParallelism = options.Parallel },
-            i => results[i] = RunWorld(content, options.FirstSeed + (ulong)i, options.Years, outDir));
+            i => results[i] = RunWorld(content, options.FirstSeed + (ulong)i, options.Years, outDir, options.Setup));
         clock.Stop();
 
         SoakSummary summary = Summarize(options, outDir, results, clock.Elapsed);
@@ -275,15 +278,15 @@ public static class Soak
     /// Runs one world on the calling thread and writes its log. A world that throws becomes a failure
     /// in the summary (its file says where it stopped) instead of ending the whole soak.
     /// </summary>
-    private static WorldResult RunWorld(ContentDb content, ulong seed, int years, string outDir)
+    private static WorldResult RunWorld(ContentDb content, ulong seed, int years, string outDir, RunSetup setup)
     {
         string path = Path.Combine(outDir, "world-" + Num(seed) + ".txt");
         Simulation? sim = null;
         try
         {
-            sim = Simulation.Create(content, seed);
+            sim = Simulation.Create(content, seed, setup.Choice);
             Autoplay.Begin(sim);
-            sim.Advance(StoryLog.TicksFor(content.World, years));
+            StoryLog.Run(sim, StoryLog.TicksFor(content.World, years), setup);
             World w = sim.World;
             LogAnalysis analysis = StoryLog.Analyze(w);
             var log = new StringWriter(Inv);

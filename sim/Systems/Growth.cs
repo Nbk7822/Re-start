@@ -143,6 +143,24 @@ public static class Growth
     {
         foreach (Character c in w.Characters)
             if (c.Status == CharStatus.Member) EnterWorld(w, c, 0);
+        OldAge(w);
+        Fate.SoulSpan(w);
+    }
+
+    /// <summary>
+    /// At dawn, anyone past their body's lifespan dies of old age (ADR-0030; the ageless have none). For a companion
+    /// it is an ordinary death, with its grief; for you it is the end of the run, the only death with no return.
+    /// </summary>
+    public static void OldAge(World w)
+    {
+        WorldDef def = w.Content.World;
+        if (w.Tick % def.TicksPerDay != (long)def.DawnHour * def.TicksPerHour) return;
+        for (int i = 0; i < w.Characters.Count; i++)
+        {
+            Character c = w.Characters[i];
+            if (c.Status == CharStatus.Member && c.OldAgeTick > 0 && w.Tick >= c.OldAgeTick)
+                Lifecycle.Die(w, c, SystemTag.Growth, "event.growth.died_old_age", 0);
+        }
     }
 
     /// <summary>The traits a person is born with: every one generated (their nature).</summary>

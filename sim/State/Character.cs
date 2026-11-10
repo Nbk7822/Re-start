@@ -78,6 +78,14 @@ public sealed class Character
     /// <summary>Needs that come from this person's nature (their species), beyond food, rest and company (ADR-0022).</summary>
     public List<NatureNeed> NatureNeeds { get; set; } = new();
 
+    /// <summary>When they were born (negative for anyone older than the world), from a Truth; and the dawn after which old age takes them, 0 for the ageless (ADR-0030).</summary>
+    public long BirthTick { get; set; }
+    public long OldAgeTick { get; set; }
+
+    /// <summary>Health a wound is costing them each hour until someone tends it, and the wound's event (ADR-0030).</summary>
+    public int Bleed { get; set; }
+    public long BleedCause { get; set; }
+
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;
 }

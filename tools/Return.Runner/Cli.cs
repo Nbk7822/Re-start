@@ -13,8 +13,10 @@ namespace Return.Runner;
 public static class Cli
 {
     public const string Usage =
-        "usage: return-runner run --seed <n> --years <y> [--out <file>]\n" +
-        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>]\n";
+        "usage: return-runner run --seed <n> --years <y> [--out <file>] [--people <id>] [--gift <id|none>] [--fates]\n" +
+        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--people <id>] [--gift <id|none>] [--fates]\n" +
+        "       --people and --gift choose who you are reborn as, for testing (the log says so); --fates kills you once\n" +
+        "       in your first timeline, on a day from 10 to 35 hashed from the seed, so every world shows a return.\n";
 
     /// <summary>UTF-8 without a byte-order mark, for every file the runner writes.</summary>
     internal static readonly Encoding Utf8 = new UTF8Encoding(false);
@@ -60,7 +62,8 @@ public static class Cli
     private static int RunWorld(RunArgs a, TextWriter stdout)
     {
         ContentDb content = LoadContent();
-        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years);
+        CheckChoice(content, a.Setup.Choice);
+        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years, a.Setup);
         var log = new StringWriter(CultureInfo.InvariantCulture);
         StoryLog.Write(sim, log);
         if (a.OutFile == null)
@@ -76,6 +79,7 @@ public static class Cli
     private static int RunSoak(SoakOptions options, TextWriter stdout)
     {
         ContentDb content = LoadContent();
+        CheckChoice(content, options.Setup.Choice);
         SoakSummary summary = Soak.Run(options, content);
         Soak.Report(summary, content.Loc, stdout);
         return summary.Failures.Count == 0 ? 0 : 1;
@@ -94,27 +98,47 @@ public static class Cli
         }
     }
 
-    private sealed record RunArgs(ulong Seed, int Years, string? OutFile);
+    private sealed record RunArgs(ulong Seed, int Years, string? OutFile, RunSetup Setup);
+
+    private static readonly string[] Flags = { "--fates" };
 
     private static RunArgs ParseRun(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out");
-        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"));
+        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out", "--people", "--gift", "--fates");
+        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"), Setup(o));
     }
 
     private static SoakOptions ParseSoak(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel");
+        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel", "--people", "--gift", "--fates");
         return new SoakOptions
         {
             Worlds = AtLeastOne(o, "--worlds"),
             Years = AtLeastOne(o, "--years"),
             OutDir = Required(o, "--out"),
             Parallel = o.ContainsKey("--parallel") ? AtLeastOne(o, "--parallel") : Environment.ProcessorCount,
+            Setup = Setup(o),
         };
     }
 
-    /// <summary>Reads the "--name value" pairs after the command. Every name must be allowed and given once.</summary>
+    /// <summary>Who you are reborn as, if chosen for testing, and whether --fates forces a death (ADR-0030).</summary>
+    private static RunSetup Setup(Dictionary<string, string> o)
+    {
+        string? people = o.GetValueOrDefault("--people"), gift = o.GetValueOrDefault("--gift");
+        RebirthChoice? choice = people == null && gift == null ? null : new RebirthChoice(people, gift);
+        return new RunSetup(choice, o.ContainsKey("--fates"));
+    }
+
+    /// <summary>A chosen people or gift must exist; a bad one is a usage error, not a crash mid-soak.</summary>
+    private static void CheckChoice(ContentDb content, RebirthChoice? choice)
+    {
+        if (choice?.People is { } p && content.Rebirth.People(p) == null)
+            throw new UsageException($"--people '{p}' is not a people you can be reborn as ({string.Join(", ", content.Rebirth.Peoples.Select(x => x.Species))})");
+        if (choice?.Gift is { } g && g != RebirthChoice.NoGift && content.TryGift(g) == null)
+            throw new UsageException($"--gift '{g}' is not a gift ({string.Join(", ", content.Gifts.Select(x => x.Id))}, or none)");
+    }
+
+    /// <summary>Reads the "--name value" pairs (and bare flags such as --fates) after the command. Every name must be allowed and given once.</summary>
     private static Dictionary<string, string> Options(string[] args, params string[] allowed)
     {
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -123,6 +147,12 @@ public static class Cli
             string name = args[i];
             if (Array.IndexOf(allowed, name) < 0) throw new UsageException($"unexpected argument '{name}'");
             if (options.ContainsKey(name)) throw new UsageException($"{name} is given twice");
+            if (Array.IndexOf(Flags, name) >= 0)
+            {
+                options[name] = "";
+                i--;
+                continue;
+            }
             if (i + 1 >= args.Length || args[i + 1].Length == 0 || args[i + 1].StartsWith("--", StringComparison.Ordinal))
                 throw new UsageException($"{name} needs a value");
             options[name] = args[i + 1];

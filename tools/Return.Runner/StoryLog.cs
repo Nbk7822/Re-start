@@ -28,13 +28,38 @@ public static class StoryLog
         Render(w, Analyze(w), writer);
     }
 
-    /// <summary>Creates the world for a seed, lets the stand-in player set its ration policy, and runs it for whole years. `run` and `soak` both use this.</summary>
-    internal static Simulation Simulate(ContentDb content, ulong seed, int years)
+    /// <summary>
+    /// Creates the world for a seed (your people and gift rolled, or chosen for testing), lets the stand-in player set
+    /// its ration policy, and runs it to the end of whole years. `run` and `soak` both use this.
+    /// </summary>
+    internal static Simulation Simulate(ContentDb content, ulong seed, int years, RunSetup? setup = null)
     {
-        Simulation sim = Simulation.Create(content, seed);
+        setup ??= RunSetup.Plain;
+        Simulation sim = Simulation.Create(content, seed, setup.Choice);
         Autoplay.Begin(sim);
-        sim.Advance(TicksFor(content.World, years));
+        Run(sim, TicksFor(content.World, years), setup);
         return sim;
+    }
+
+    /// <summary>
+    /// Steps the world until it reaches <paramref name="target"/> or your lifetime ends. A return sends the world back,
+    /// so this can take more steps than ticks (ADR-0030); a world that needs more than <see cref="RunSetup.StepsPerTickCap"/>
+    /// times as many is in a death loop and fails. Under --fates, you are killed once, in your first timeline, at the
+    /// seed's fate tick.
+    /// </summary>
+    internal static void Run(Simulation sim, long target, RunSetup setup)
+    {
+        long forceAt = setup.Fates ? RunSetup.FateTick(sim.World.Seed, sim.World.Content.World) : -1;
+        bool forced = false;
+        long cap = RunSetup.StepsPerTickCap * Math.Max(1, target);
+        for (long steps = 0; sim.World.Tick < target && !sim.World.Fate.Ended; steps++)
+        {
+            if (steps >= cap) throw new InvalidOperationException($"the world did not reach tick {target} within {cap} steps: a death loop");
+            World w = sim.World;
+            if (!forced && forceAt >= 0 && w.Fate.Timeline == 0 && w.Tick >= forceAt) forced = sim.ForceDeath();
+            Autoplay.Tick(sim);
+            sim.Step();
+        }
     }
 
     internal static long TicksFor(WorldDef def, int years) => years * def.TicksPerYear;
@@ -53,7 +78,8 @@ public static class StoryLog
             foreach (long id in s.Chain) inStory.Add(id);
         var notable = new List<SimEvent>();
         foreach (SimEvent e in all)
-            if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture || inStory.Contains(e.Id))
+            if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture
+                    or SystemTag.Fate or SystemTag.Gift || e.Key.StartsWith("event.fate.", StringComparison.Ordinal) || inStory.Contains(e.Id))
                 notable.Add(e);
         return new LogAnalysis(stories, notable);
     }
@@ -67,6 +93,7 @@ public static class StoryLog
         WriteCamp(w, loc, writer);
         WriteEvents(w, loc, analysis.Notable, writer);
         WriteStories(w, loc, analysis.Stories, writer);
+        WriteLostFutures(w, loc, writer);
         Line(writer, Format(loc, "log.counts",
             ("events", Num(w.Log.All.Count)), ("notable", Num(analysis.Notable.Count)), ("stories", Num(analysis.Stories.Count))));
     }
@@ -138,7 +165,21 @@ public static class StoryLog
         Line(o, Format(loc, "log.header.seed", ("seed", Num(w.Seed))));
         Line(o, Format(loc, "log.header.years", ("years", years)));
         Line(o, Format(loc, "log.header.calendar", ("days", Num(def.TicksPerYear / def.TicksPerDay))));
+        WriteRebirth(w, loc, o);
         Line(o);
+    }
+
+    /// <summary>Who you were reborn as, and with what gift (ADR-0030); whether that was chosen for testing; how many lives you lost.</summary>
+    private static void WriteRebirth(World w, LocTable loc, TextWriter o)
+    {
+        FateBook f = w.Fate;
+        if (f.PeopleId.Length == 0) return;
+        string people = loc.Get(w.Content.Rebirth.People(f.PeopleId)?.AsKey ?? "rebirth.as." + f.PeopleId);
+        Line(o, f.GiftId.Length == 0
+            ? Format(loc, "log.header.rebirth_giftless", ("people", people))
+            : Format(loc, "log.header.rebirth", ("people", people), ("gift", loc.Get(w.Content.GiftById(f.GiftId).NameKey))));
+        if (f.Chosen) Line(o, loc.Get("log.header.chosen"));
+        if (f.Returns > 0) Line(o, Format(loc, "log.header.lives_lost", ("n", Num(f.Returns))));
     }
 
     private static void WriteCast(World w, LocTable loc, TextWriter o)
@@ -149,7 +190,10 @@ public static class StoryLog
             if (!c.Named) continue;
             CharacterState s = StateApi.Character(w, c.Id);
             BelongingState b = s.Belonging;
-            string belongs = b.Culture.Length == 0 ? loc.Get("log.cast.outsider")
+            string belongs = c.Id == w.PlayerId && w.Fate.PeopleId.Length > 0
+                ? (w.Fate.GiftId.Length == 0 ? loc.Get("log.cast.reborn")
+                    : Format(loc, "log.cast.reborn_gift", ("gift", loc.Get(w.Content.GiftById(w.Fate.GiftId).NameKey))))
+                : b.Culture.Length == 0 ? loc.Get("log.cast.outsider")
                 : b.Faith.Length == 0 ? Format(loc, "log.cast.belongs_no_faith", ("culture", b.Culture))
                 : Format(loc, "log.cast.belongs", ("culture", b.Culture), ("faith", b.Faith));
             Line(o, Indent + Format(loc, "log.cast.line",
@@ -221,6 +265,11 @@ public static class StoryLog
                 int day = Calendar.Day(e.Tick, w.Content.World);
                 if (lastDay >= 0 && day != lastDay) Line(o);
                 lastDay = day;
+                if (e.Key == Sim.Systems.Fate.ReturnedKey && ReturnedFrom(w, e) is { } lost)
+                {
+                    Line(o);
+                    Line(o, Indent + Format(loc, "log.events.returned", ("death", EventText.When(w, lost.DeathTick)), ("back", EventText.When(w, lost.KnotTick))));
+                }
                 Line(o, Indent + Format(loc, "log.events.line", ("when", EventText.When(w, e.Tick)), ("text", EventText.Describe(w, e))));
             }
             if (repeats > 1)
@@ -232,6 +281,41 @@ public static class StoryLog
                 lastDay = Calendar.Day(last.Tick, w.Content.World);
             }
             k += unit * repeats;
+        }
+        Line(o);
+    }
+
+    /// <summary>The lost future a return event in the final log came from (its "future" argument).</summary>
+    private static LostFuture? ReturnedFrom(World w, SimEvent e)
+    {
+        foreach (EventArg a in e.Args)
+            if (a.Name == "future" && int.TryParse(a.Value.AsSpan(2), NumberStyles.Integer, CultureInfo.InvariantCulture, out int i)
+                && i >= 0 && i < w.Fate.LostFutures.Count)
+                return w.Fate.LostFutures[i];
+        return null;
+    }
+
+    /// <summary>
+    /// The Chronicle of Lost Futures (ADR-0030), after the log: each timeline you lost, oldest first, with when it ran
+    /// from and to, how many stories ended in it, and its lines in order (growth beats marked as such, your death last).
+    /// Nothing is written for a run without a return.
+    /// </summary>
+    private static void WriteLostFutures(World w, LocTable loc, TextWriter o)
+    {
+        List<LostFuture> futures = w.Fate.LostFutures;
+        if (futures.Count == 0) return;
+        Heading(o, loc.Get("log.lost.heading"), '-');
+        for (int n = 0; n < futures.Count; n++)
+        {
+            LostFuture f = futures[n];
+            if (n > 0) Line(o);
+            Line(o, Indent + Format(loc, "log.lost.future", ("from", EventText.When(w, f.KnotTick)), ("to", EventText.When(w, f.DeathTick)), ("n", Num(f.StoriesFound))));
+            for (int i = 0; i < f.Lines.Count; i++)
+            {
+                string text = EventText.Describe(w, f.Lines[i]);
+                if (f.GrowthLines.Contains(i)) text = Format(loc, "log.lost.growth", ("text", text));
+                Line(o, Indent + Indent + Format(loc, "log.lost.line", ("when", EventText.When(w, f.Lines[i].Tick)), ("text", text)));
+            }
         }
         Line(o);
     }

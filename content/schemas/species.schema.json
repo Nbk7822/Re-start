@@ -27,11 +27,17 @@
       "arrivalKey": { "description": "How their arrival reads (a loc key with {a}); omit for the wanderer's line", "$ref": "#/$defs/locKey" },
       "refusesWork": { "description": "Work their nature will not do, whatever their priorities say", "type": "array", "items": { "$ref": "#/$defs/id" } },
       "cannotLie": { "description": "They say hard truths where others insult, and repay what they owe before anything else", "type": "boolean" },
-      "grudgeDecayEveryDays": { "description": "Grudges they hold fade a point only every this many days", "type": "integer", "minimum": 1 }
-    }
+      "grudgeDecayEveryDays": { "description": "Grudges they hold fade a point only every this many days", "type": "integer", "minimum": 1 },
+      "adultAtYears": { "description": "[min, max] age in years when the world begins (a Truth per person); a people without age fields ages as a human (ADR-0030)", "$ref": "#/$defs/pair" },
+      "lifespanYears": { "description": "[min, max] years a body lasts (a Truth per person); old age comes at dawn after it", "$ref": "#/$defs/pair" },
+      "ageless": { "description": "The body never ages (no lifespanYears); only the soul's span ends their life", "type": "boolean" }
+    },
+    "if": { "required": ["ageless"], "properties": { "ageless": { "const": true } } },
+    "then": { "not": { "required": ["lifespanYears"] } }
   },
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+    "pair": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0 } }
   }
 }

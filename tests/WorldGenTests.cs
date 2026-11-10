@@ -165,6 +165,13 @@ public class WorldGenTests
 
 internal static class TestContent
 {
-    private static readonly Lazy<ContentDb> Lazy = new(() => ContentDb.Load(Path.Combine(TestPaths.Root, "content")));
+    private static readonly Lazy<ContentDb> Lazy = new(() => ContentDb.Load(Path.Combine(TestPaths.Root, "content"), new[] { FateFixtures.HumanGiftless }));
+
+    /// <summary>The shipped content with you reborn human and giftless: the world every seeded test before ADR-0030 was written for.</summary>
     public static ContentDb Db => Lazy.Value;
+
+    private static readonly Lazy<ContentDb> LazyRolled = new(() => ContentDb.Load(Path.Combine(TestPaths.Root, "content")));
+
+    /// <summary>The shipped content as the game loads it: your people and gift are rolled (ADR-0030).</summary>
+    public static ContentDb Rolled => LazyRolled.Value;
 }

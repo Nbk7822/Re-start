@@ -16,7 +16,7 @@ namespace Return.Tests;
 public class GameViewTests
 {
     private static readonly string ContentDir = Path.Combine(TestPaths.Root, "content");
-    private static readonly ContentDb Content = ContentDb.Load(ContentDir);
+    private static readonly ContentDb Content = TestContent.Db; // you as a human with no gift, as these seeded views were written (ADR-0030)
 
     public GameViewTests()
     {

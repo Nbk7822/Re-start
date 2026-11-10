@@ -19,6 +19,7 @@ public static class Lifecycle
         Relations.DropGrudgesHeldBy(w, c);
         SimEvent e = w.Log.Emit(w, system, key, new[] { c.Id }, new[] { cause },
             new[] { new Effect { Kind = EffectKind.Death, A = c.Id } }, EventArg.Char("a", c.Id));
+        if (c.Id == w.PlayerId) Fate.OnPlayerDied(w, e); // your death is answered at the end of the tick: a return, or the end of the run (ADR-0030)
         if (!wasMember) return e;
         foreach (Character m in w.Members())
         {

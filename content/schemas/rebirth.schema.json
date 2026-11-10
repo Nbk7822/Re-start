@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rebirth: the peoples you can be reborn as, your soul's span, and how fate knots and returns work (ADR-0030)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["peoples", "soulSpanYears", "knots", "return", "memory"],
+  "properties": {
+    "peoples": {
+      "description": "Who you can be, drawn once per world by weight (a Truth). Mods add peoples by species id; a weight of 0 takes one out of the roll.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["species", "weight", "openingKey"],
+        "properties": {
+          "species": { "$ref": "#/$defs/id" },
+          "weight": { "type": "integer", "minimum": 0 },
+          "openingKey": { "description": "The opening card's words for waking as this people", "$ref": "#/$defs/locKey" }
+        }
+      }
+    },
+    "soulSpanYears": { "description": "[min, max] years your soul lasts from arrival, whatever the body", "$ref": "#/$defs/pair" },
+    "knots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["triggers", "quietAfterHours", "minHoursBetween", "maxPerDay", "safeHealthAtLeast"],
+      "properties": {
+        "triggers": { "description": "Event keys after which the director ties a knot (a turn in the story)", "type": "array", "items": { "$ref": "#/$defs/locKey" } },
+        "quietAfterHours": { "description": "At dawn, a knot is tied if none has been for this many hours", "type": "integer", "minimum": 1 },
+        "minHoursBetween": { "type": "integer", "minimum": 0 },
+        "maxPerDay": { "type": "integer", "minimum": 1 },
+        "safeHealthAtLeast": { "description": "No knot while your health is below this", "type": "integer", "minimum": 0, "maximum": 1000 }
+      }
+    },
+    "return": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recentDays", "tailPermille", "minHoursBeforeDeath"],
+      "properties": {
+        "recentDays": { "description": "Knots from this many days before a death are recent; the rest are old", "type": "integer", "minimum": 1 },
+        "tailPermille": { "description": "The chance a return reaches into the deep past (an old knot)", "type": "integer", "minimum": 0, "maximum": 1000 },
+        "minHoursBeforeDeath": { "description": "A knot must be at least this long before the death to be picked", "type": "integer", "minimum": 0 }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strengthPct", "maxPerReturn"],
+      "properties": {
+        "strengthPct": { "description": "A remembered feeling carries this share of what you felt in the lost future", "type": "integer", "minimum": 0, "maximum": 100 },
+        "maxPerReturn": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+    "pair": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0 } }
+  }
+}

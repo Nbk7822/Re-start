@@ -71,6 +71,18 @@ public sealed class SpeciesDef
     /// <summary>Grudges they hold fade a point only every this many days: slights are remembered long (the fae).</summary>
     public int GrudgeDecayEveryDays { get; init; } = 1;
 
+    /// <summary>[min, max] age in years when the world begins (a Truth per person); empty = ages as a human (ADR-0030).</summary>
+    public int[] AdultAtYears { get; init; } = Array.Empty<int>();
+
+    /// <summary>[min, max] years a body lasts (a Truth per person); empty with <see cref="Ageless"/> false = ages as a human.</summary>
+    public int[] LifespanYears { get; init; } = Array.Empty<int>();
+
+    /// <summary>The body never ages; only the soul's span ends their life (vampires, the undead, the fae).</summary>
+    public bool Ageless { get; init; }
+
+    /// <summary>Whether this species sets its own ages (otherwise it ages as a human).</summary>
+    public bool HasAges => AdultAtYears.Length == 2 && (Ageless || LifespanYears.Length == 2);
+
     public bool DrinksBlood => FoodSource == "blood";
 
     /// <summary>foodSource "none": they eat nothing from the stores and never go hungry (ADR-0022).</summary>

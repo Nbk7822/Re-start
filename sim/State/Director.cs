@@ -26,4 +26,11 @@ public sealed class Arrival
     public int CharacterId { get; set; }
     public long Tick { get; set; }
     public bool Done { get; set; }
+
+    /// <summary>The days (0-based) this arrival's slot may fall on: a return re-draws who comes and when within them (ADR-0030).</summary>
+    public int FirstDay { get; set; }
+    public int LastDay { get; set; }
+
+    /// <summary>A shuffled wanderer's slot (another wanderer may take it on a return), not someone's own season.</summary>
+    public bool Shuffled { get; set; }
 }

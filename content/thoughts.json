@@ -70,5 +70,14 @@
   { "id": "courtesy_starved", "textKey": "thought.courtesy_starved", "mood": -14, "durationHours": 1, "emote": "gloom" },
   { "id": "spoke_truth", "textKey": "thought.spoke_truth", "mood": 2, "durationHours": 12 },
   { "id": "told_hard_truth", "textKey": "thought.told_hard_truth", "mood": -5, "opinion": -4, "durationHours": 48, "emote": "anger", "stackLimit": 2 },
-  { "id": "heard_hard_truth", "textKey": "thought.heard_hard_truth", "mood": 0, "opinion": -12, "durationHours": 72, "emote": "question", "stackLimit": 2 }
+  { "id": "heard_hard_truth", "textKey": "thought.heard_hard_truth", "mood": 0, "opinion": -12, "durationHours": 72, "emote": "question", "stackLimit": 2 },
+
+  { "id": "remembered_wrong", "textKey": "thought.remembered_wrong", "mood": -4, "durationHours": 240, "emote": "anger" },
+  { "id": "remembered_kindness", "textKey": "thought.remembered_kindness", "mood": 3, "durationHours": 240, "emote": "hearts" },
+  { "id": "remembered_death", "textKey": "thought.remembered_death", "mood": -6, "durationHours": 240, "emote": "gloom" },
+  { "id": "saw_vanish", "textKey": "thought.saw_vanish", "mood": -2, "opinion": -3, "durationHours": 24, "emote": "question" },
+  { "id": "ate_from_nowhere", "textKey": "thought.ate_from_nowhere", "mood": -6, "opinion": -15, "durationHours": 48, "emote": "anger", "stackLimit": 3 },
+  { "id": "ill_luck", "textKey": "thought.ill_luck", "mood": -4, "opinion": -8, "durationHours": 240, "emote": "anger", "stackLimit": 3 },
+  { "id": "familiar", "textKey": "thought.familiar", "mood": 2, "durationHours": 48, "emote": "question" },
+  { "id": "uneasy_familiar", "textKey": "thought.uneasy_familiar", "mood": -2, "durationHours": 48, "emote": "question" }
 ]

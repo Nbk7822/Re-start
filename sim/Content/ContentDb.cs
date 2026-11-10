@@ -84,6 +84,7 @@ public sealed partial class ContentDb
         db._cast = Index(db.Cast, d => d.Key);
         db._wants = Index(db.Wants, d => d.Id);
         db.LoadCulture(dirs);
+        db.LoadFate(dirs);
         db._needs = Index(db.Needs, d => d.Id);
         db.Validate();
         return db;
@@ -183,6 +184,7 @@ public sealed partial class ContentDb
 
         ValidateWants();
         ValidateCulture();
+        ValidateFate();
     }
 
     /// <summary>

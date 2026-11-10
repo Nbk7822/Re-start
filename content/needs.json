@@ -49,6 +49,7 @@
     "lowEventKey": "event.needs.restless",
     "criticalEventKey": "event.needs.unbound",
     "leavesAfterCriticalHours": 30,
+    "deathKey": "event.needs.died_contract",
     "bondWorks": ["keep_watch", "forage"],
     "bondItems": ["timber", "berries"],
     "params": {
@@ -69,6 +70,7 @@
     "lowEventKey": "event.needs.courtesy_low",
     "criticalEventKey": "event.needs.courtesy_critical",
     "leavesAfterCriticalHours": 24,
+    "deathKey": "event.needs.died_courtesy",
     "params": {
       "brokenWordLoss": 250, "brokenWordHurt": 50, "keptWordGain": 100, "chatGain": 15, "deepTalkGain": 50, "slightLoss": 120,
       "truthEasesGrudge": 10, "witnessGrudgeIntensity": 20, "grudgeIntensity": 25

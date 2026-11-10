@@ -88,6 +88,23 @@ public static class RequiredContent
         return moments;
     }
 
+    /// <summary>The thoughts of the player design (ADR-0030): memories carried back, and how people take your gift.</summary>
+    public static readonly IReadOnlyList<string> FateThoughts = new[]
+    {
+        "remembered_wrong", "remembered_kindness", "remembered_death", "saw_vanish", "ate_from_nowhere", "ill_luck", "familiar", "uneasy_familiar",
+    };
+
+    /// <summary>
+    /// Every gift the simulation has behaviour for (ADR-0030), with the numbers that behaviour reads (GiftDef.Num, at the
+    /// first stage or the gift's own params) and the order choices it acts on.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Id, string[] Params, string[] Choices)> Gifts = new (string, string[], string[])[]
+    {
+        ("satchel", new[] { "capacity", "sight" }, new[] { "keep", "share", "empty" }),
+        ("fortunes_favourite", new[] { "reach", "deathPasses", "sight", "witnessPct" }, Array.Empty<string>()),
+        ("familiar_faces", new[] { "echoPct", "echoAtLeast", "withinDays" }, Array.Empty<string>()),
+    };
+
     /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>
     public static readonly IReadOnlyList<(string Id, string[] Params)> Needs = new (string, string[])[]
     {

@@ -14,4 +14,9 @@ internal static class Autoplay
     internal static RationPolicy PolicyFor(ulong seed) => Policies[(int)(seed % (ulong)Policies.Length)];
 
     internal static void Begin(Simulation sim) => sim.Enqueue(new SetRationPolicy(sim.World.Tick, PolicyFor(sim.World.Seed)));
+
+    /// <summary>Before each step: anything the stand-in player decides as the run unfolds.</summary>
+    internal static void Tick(Simulation sim)
+    {
+    }
 }
