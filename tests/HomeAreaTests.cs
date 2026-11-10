@@ -493,4 +493,141 @@ public class HomeAreaTests
         }
         Assert.InRange(defiant, 40, 80);
     }
+
+    // ---- The watch (design 5.5; Schedule's WatchSystem) ----
+
+    /// <summary>A camp of these people (fed, rested, of no people) with the stand-in's short home area: the clearing without the rows from the watch post down.</summary>
+    private static Simulation ShortHome(params string[] keys)
+    {
+        Simulation s = ScheduleCommandTests.Camp(1, keys);
+        World w = s.World;
+        foreach (Character c in w.Members()) c.Traits = new List<string> { "practical" };
+        Rect clearing = Clearing(w);
+        Apply(s, new MarkZone(0, 0, "home", Zones.FromRect(new Rect(clearing.X, clearing.Y, clearing.W, w.Map.WatchPost.Y - clearing.Y))));
+        Assert.False(Zones.InHome(w, w.Map.WatchPost));
+        return s;
+    }
+
+    private static void IdleAt(World w, Character c, Point p)
+    {
+        c.Pos = p;
+        c.Path.Clear();
+        c.Asleep = false;
+        c.Job = new Job { Kind = JobKind.Wander, Target = p, TargetId = 3_000, StartedTick = w.Tick };
+    }
+
+    [Fact]
+    public void WithThePostOutsideTheHomeAreaNobodyBoundIsAskedAndTheEmptyPostSaysWhy()
+    {
+        Simulation s = ShortHome("you", "mira", "oren");
+        World w = s.World;
+        w.Tick = w.Content.World.TicksPerDay + Hours(w, 19) + 30;
+        Character mira = Cast(w, "mira"), oren = Cast(w, "oren"), you = Cast(w, "you");
+        int i = 0;
+        foreach (Character c in new[] { you, mira, oren }) IdleAt(w, c, new Point(w.Map.Hearth.X - 1 + i++, w.Map.Hearth.Y + 1));
+        for (int t = 0; t < 120; t++) s.Step();
+
+        SimEvent stayed = Assert.Single(w.Log.All, e => e.Key == "event.work.stayed_in_watch");
+        Assert.Equal(new[] { Zones.HomeOf(w)!.MadeEvent }, stayed.Causes);
+        Assert.Equal(stayed.Id, w.Watch.GapEvent);
+        Assert.Equal(0, w.Watch.WatcherId);
+        Assert.DoesNotContain(w.Members(), c => c.Job is { Kind: JobKind.KeepWatch or JobKind.WakeForWatch });
+        Assert.DoesNotContain(w.Members(), c => c.Thoughts.Any(x => x.DefId == "woken"));
+        Assert.DoesNotContain(w.Log.All, e => e.Key.StartsWith("event.social.watch_refused", StringComparison.Ordinal) || e.Key == "event.work.covered_watch");
+        Assert.Matches("^(You|Mira|Oren) would not keep watch outside the home area after dark\\.$", EventText.Describe(w, stayed));
+
+        // A thief who comes now finds the post empty, and the theft says why.
+        Stock.Add(w, "berries", 4, w.Map.StartStockpile.Center);
+        IncidentSystem.Fire(w, "night_thief");
+        SimEvent? stolen = null;
+        for (int t = 0; t < 6_000 && stolen == null; t++)
+        {
+            s.Step();
+            stolen = w.Log.All.LastOrDefault(e => e.Key.StartsWith("event.incident.stolen", StringComparison.Ordinal));
+        }
+        Assert.Equal("event.incident.stolen_unwatched", stolen?.Key);
+        Assert.Contains(stayed.Id, stolen!.Causes);
+        Assert.Single(w.Log.All, e => e.Key == "event.work.stayed_in_watch"); // once a night for the camp
+    }
+
+    [Fact]
+    public void TheNightFolkStillKeepAPostOutsideTheHomeArea()
+    {
+        Simulation s = ShortHome("you", "mira", "vale");
+        World w = s.World;
+        w.Tick = w.Content.World.TicksPerDay + Hours(w, 19) + 30;
+        Character vale = Cast(w, "vale");
+        int i = 0;
+        foreach (Character c in w.Members()) IdleAt(w, c, new Point(w.Map.Hearth.X - 1 + i++, w.Map.Hearth.Y + 1));
+        SimEvent? took = null;
+        for (int t = 0; t < 3_000 && took == null; t++)
+        {
+            s.Step();
+            took = w.Log.All.FirstOrDefault(e => e.Key == "event.work.took_watch");
+        }
+        Assert.Equal(vale.Id, took?.Actors[0]);
+        Assert.DoesNotContain(w.Log.All, e => e.Key == "event.work.stayed_in_watch");
+        Assert.DoesNotContain(w.Log.All, e => e.Key.StartsWith("event.work.out_after_dark", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AWatcherAtThePostKeepsTheTurnAndAtTheHandoverNobodyBoundIsWoken()
+    {
+        Simulation s = ShortHome("you", "mira", "oren");
+        World w = s.World;
+        Character you = Cast(w, "you"), mira = Cast(w, "mira"), oren = Cast(w, "oren");
+        w.Tick = w.Content.World.TicksPerDay + Hours(w, 23);
+        WatchTests.Asleep(w, mira);
+        WatchTests.Asleep(w, oren);
+        SimEvent began = WatchTests.OnWatch(w, you, w.Tick + Hours(w, 1)); // already at the post: the turn is theirs to finish
+        for (int t = 0; t < (int)Hours(w, 0.9); t++) s.Step();
+        Assert.Equal(you.Id, w.Watch.WatcherId);
+        Assert.Equal(JobKind.KeepWatch, you.Job?.Kind);
+
+        SimEvent left = RunUntilKey(s, "event.work.left_watch_unrelieved", (int)Hours(w, 1))!;
+        SimEvent stayed = w.Log.All.Single(e => e.Key == "event.work.stayed_in_watch");
+        Assert.Contains(stayed.Id, left.Causes);
+        Assert.Contains(began.Id, left.Causes);
+        Assert.Equal(left.Id, w.Watch.GapEvent);
+        Assert.DoesNotContain(w.Log.All, e => e.Key == "event.work.went_to_wake");
+        Assert.True(mira.Asleep && oren.Asleep);
+        Assert.DoesNotContain(new[] { mira, oren }, c => c.Thoughts.Any(x => x.DefId == "woken"));
+        Assert.DoesNotContain(w.Debts, d => d.Kind == DebtKind.Watch);
+    }
+
+    [Fact]
+    public void ADefierStillTakesAPostOutsideAndHasGoneOutAfterDark()
+    {
+        Simulation s = ShortHome("you", "sera", "oren");
+        World w = s.World;
+        Character you = Cast(w, "you"), sera = Cast(w, "sera"), oren = Cast(w, "oren");
+        w.Tick = w.Content.World.TicksPerDay + Hours(w, 19) + 30;
+        sera.Traits = new List<string> { "independent" };
+        oren.Traits = new List<string> { "oathbound" };
+        foreach (Character c in new[] { you, oren }) IdleAt(w, c, new Point(w.Map.Hearth.X - 2, w.Map.Hearth.Y + 1));
+        IdleAt(w, sera, new Point(w.Map.Hearth.X - 1, w.Map.Hearth.Y + 1));
+        Defiant(w, sera);
+        SimEvent? took = null;
+        for (int t = 0; t < 3_000 && took == null; t++)
+        {
+            s.Step();
+            took = w.Log.All.FirstOrDefault(e => e.Key == "event.work.took_watch");
+        }
+        Assert.Equal(sera.Id, took?.Actors[0]);
+        SimEvent breach = w.Log.All.Single(e => e.Key == "event.work.out_after_dark_own_way");
+        Assert.Equal(sera.Id, breach.Actors[0]);
+        Assert.Contains(oren.Thoughts, x => x.DefId == "saw_rule_broken" && x.AboutId == sera.Id); // he saw her go from the fire
+    }
+
+    private static SimEvent? RunUntilKey(Simulation s, string key, int maxTicks)
+    {
+        int seen = s.World.Log.All.Count;
+        for (int t = 0; t < maxTicks; t++)
+        {
+            s.Step();
+            for (; seen < s.World.Log.All.Count; seen++)
+                if (s.World.Log.All[seen].Key == key) return s.World.Log.All[seen];
+        }
+        return null;
+    }
 }

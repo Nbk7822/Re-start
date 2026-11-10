@@ -54,6 +54,9 @@ public sealed class World
     /// <summary>The night "would not keep watch outside the home area" was last said (once a night for the camp; zones step 3, ADR-0028); −1 for never.</summary>
     public int HomeWatchNight { get; set; } = -1;
 
+    /// <summary>That line's event, which tonight's lines about refusals and an empty post cite with them.</summary>
+    public long HomeWatchEvent { get; set; }
+
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;
 

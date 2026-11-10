@@ -305,7 +305,9 @@ public static class WatchSystem
     /// <summary>Asks the next person for the watch: someone awake comes, a sleeper is walked to; with nobody left, the asker stays or leaves.</summary>
     private static void AskNext(World w, WatchState s, Character asker)
     {
-        foreach (Character next in Candidates(w, s, asker, awakeOnly: false))
+        List<Character> candidates = Candidates(w, s, asker, awakeOnly: false, out Character? keptIn);
+        if (candidates.Count == 0 && keptIn != null) StayedIn(w, s, keptIn);
+        foreach (Character next in candidates)
         {
             if (!next.Asleep)
             {
@@ -366,7 +368,7 @@ public static class WatchSystem
         if (!stays)
         {
             SimEvent left = w.Log.Emit(w, SystemTag.Work, "event.work.left_watch_unrelieved", new[] { asker.Id },
-                new[] { s.Refusals.Count > 0 ? s.Refusals[^1].Event : s.TurnEvent }, null, EventArg.Char("a", asker.Id));
+                new[] { s.Refusals.Count > 0 ? s.Refusals[^1].Event : s.TurnEvent, KeptInTonight(w) }, null, EventArg.Char("a", asker.Id));
             s.GapEvent = left.Id;
             OffDuty(w, asker);
             if (s.WatcherId == asker.Id) Vacate(w, s);
@@ -375,7 +377,7 @@ public static class WatchSystem
         SimEvent e = owed != null
             ? Cover(w, asker, owed, 0)
             : w.Log.Emit(w, SystemTag.Work, "event.work.stayed_on_watch", new[] { asker.Id },
-                new[] { s.Refusals.Count > 0 ? s.Refusals[^1].Event : s.TurnEvent }, null, EventArg.Char("a", asker.Id));
+                new[] { s.Refusals.Count > 0 ? s.Refusals[^1].Event : s.TurnEvent, KeptInTonight(w) }, null, EventArg.Char("a", asker.Id));
         CoveredFor(w, s, asker);
         // An extra turn, not a new one: those who refused tonight are not woken twice.
         s.Extended = true;
@@ -450,12 +452,14 @@ public static class WatchSystem
     /// </summary>
     private static void EmptyPost(World w, WatchState s)
     {
+        List<Character> candidates = Candidates(w, s, null, awakeOnly: true, out Character? keptIn, offWatchSince: NightStart(w));
+        if (candidates.Count == 0 && keptIn != null) StayedIn(w, s, keptIn);
         long cause = !s.FirstTurnTaken && w.WatchEvent != 0 ? w.WatchEvent : s.GapEvent;
-        foreach (Character c in Candidates(w, s, null, awakeOnly: true, offWatchSince: NightStart(w)))
+        foreach (Character c in candidates)
             if (SendToPost(w, s, c, cause)) return;
         if (s.GapEvent != 0 || s.UnkeptSaid || s.EmptySinceTick < 0 || w.Tick - s.EmptySinceTick < w.Content.World.TicksPerHour) return;
         SimEvent e = w.Log.Emit(w, SystemTag.Work, "event.work.watch_unkept", Array.Empty<int>(),
-            new[] { s.Refusals.Count > 0 ? s.Refusals[^1].Event : 0 }, null);
+            new[] { s.Refusals.Count > 0 ? s.Refusals[^1].Event : 0, KeptInTonight(w) }, null);
         s.GapEvent = e.Id;
         s.UnkeptSaid = true;
     }
@@ -465,10 +469,15 @@ public static class WatchSystem
     /// priority, 1 first; longest since their last watch; whoever the asker thinks least of (only among the equally
     /// due); id. Never the downed, anyone who refused tonight, the asker, those the sun keeps in, or those who never
     /// keep watch. An awake person in no state for it (hurt, tired, hungry, or bearing the asker a grudge) is not sent.
+    /// After dark, with the post outside the home area, those it binds who are not going their own way tonight are not
+    /// asked at all (zones step 3): nobody is woken for it, so no refusal, cover or debt; <paramref name="keptIn"/> is the
+    /// first of them in this same order, or null.
     /// </summary>
-    private static List<Character> Candidates(World w, WatchState s, Character? asker, bool awakeOnly, long offWatchSince = long.MaxValue)
+    private static List<Character> Candidates(World w, WatchState s, Character? asker, bool awakeOnly, out Character? keptIn, long offWatchSince = long.MaxValue)
     {
         var found = new List<(Character C, int Asleep, int Nature, int Priority, long Since, int Opinion)>();
+        var skipped = new List<(Character C, int Asleep, int Nature, int Priority, long Since, int Opinion)>();
+        bool postOutside = Zones.IsDark(w) && Zones.HomeOf(w) != null && !Zones.InHome(w, w.Map.WatchPost);
         foreach (Character c in w.Characters)
         {
             if (c.Status != CharStatus.Member || c.Downed || c.Id == asker?.Id || c.Id == s.WatcherId || c.Id == s.IncomingId || c.Id == s.WakerId) continue;
@@ -479,10 +488,12 @@ public static class WatchSystem
             bool asleep = c.Asleep && c.Job is { Kind: JobKind.Sleep };
             bool awake = !c.Asleep && Idle(c);
             if (awake ? Refusal(w, c, asker, draw: false) != null : !asleep || awakeOnly) continue;
-            found.Add((c, asleep ? 1 : 0, NatureNeeds.WorkBias(w, c, WorkId) > 0 ? 0 : 1, priority, c.LastWatchEndTick,
-                asker == null ? 0 : Relations.Opinion(w, asker.Id, c.Id)));
+            var entry = (c, asleep ? 1 : 0, NatureNeeds.WorkBias(w, c, WorkId) > 0 ? 0 : 1, priority, c.LastWatchEndTick,
+                asker == null ? 0 : Relations.Opinion(w, asker.Id, c.Id));
+            if (postOutside && Zones.CurfewBinds(w, c)) skipped.Add(entry);
+            else found.Add(entry);
         }
-        found.Sort((a, b) =>
+        Comparison<(Character C, int Asleep, int Nature, int Priority, long Since, int Opinion)> order = (a, b) =>
         {
             int k = a.Asleep.CompareTo(b.Asleep);
             if (k == 0) k = a.Nature.CompareTo(b.Nature);
@@ -490,11 +501,31 @@ public static class WatchSystem
             if (k == 0) k = a.Since.CompareTo(b.Since);
             if (k == 0) k = a.Opinion.CompareTo(b.Opinion);
             return k != 0 ? k : a.C.Id.CompareTo(b.C.Id);
-        });
+        };
+        found.Sort(order);
+        skipped.Sort(order);
+        keptIn = skipped.Count > 0 ? skipped[0].C : null;
         var list = new List<Character>(found.Count);
         foreach (var f in found) list.Add(f.C);
         return list;
     }
+
+    /// <summary>
+    /// The home area left nobody to ask (zones step 3): "Oren would not keep watch outside the home area after dark.", naming the
+    /// first person it kept in, once a night for the camp, citing the home area's marking. While the post stands empty it is why.
+    /// </summary>
+    private static void StayedIn(World w, WatchState s, Character keptIn)
+    {
+        int night = Zones.Tonight(w);
+        if (w.HomeWatchNight == night || Zones.HomeOf(w) is not { } home) return;
+        SimEvent e = w.Log.Emit(w, SystemTag.Work, "event.work.stayed_in_watch", new[] { keptIn.Id }, new[] { home.MadeEvent }, null, EventArg.Char("a", keptIn.Id));
+        w.HomeWatchNight = night;
+        w.HomeWatchEvent = e.Id;
+        if (s.WatcherId == 0 && s.IncomingId == 0) s.GapEvent = e.Id;
+    }
+
+    /// <summary>Tonight's "would not keep watch outside the home area", which the lines about tonight's refusals cite with them; 0 if none.</summary>
+    private static long KeptInTonight(World w) => w.HomeWatchNight == Zones.Tonight(w) ? w.HomeWatchEvent : 0;
 
     /// <summary>Sends someone to take the next turn (they leave whatever idle thing they were doing); false if they cannot reach the post.</summary>
     private static bool SendToPost(World w, WatchState s, Character c, long cause)
@@ -502,6 +533,7 @@ public static class WatchSystem
         if (!Post(w, c, cause)) return false;
         s.IncomingId = c.Id;
         s.IncomingCause = cause;
+        Zones.Started(w, c, c.Job!); // going their own way tonight to a post outside the home area is a breach like any other (zones step 3)
         return true;
     }
 
