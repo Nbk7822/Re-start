@@ -88,9 +88,11 @@ public sealed partial class Simulation
         long deathTick = dying.Log.Get(deathEvent)?.Tick ?? dying.Tick;
         var eligible = f.Knots.FindAll(k => _archive.Exists(a => a.Id == k.Id));
         KnotRecord? knot = Fate.Pick(eligible, deathTick, content.Rebirth.Return, content.World, dying.Rng.Dice[DiceSystem.Fate]);
+        // None far enough back (only a world restored without its knots, dying soon after tying a fresh one): the oldest there is.
+        knot ??= eligible.Count > 0 ? eligible[0] : null;
         if (knot == null)
         {
-            // No knot to go back to (a world restored without its archive, dying before any knot): this death stands.
+            // No knot at all to go back to (dying before the first tick ends): this death stands.
             f.Ended = true;
             f.EndKind = "no_return";
             f.EndTick = dying.Tick;

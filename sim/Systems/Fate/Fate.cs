@@ -94,8 +94,15 @@ public static class Fate
         FateBook f = w.Fate;
         KnotRulesDef rules = w.Content.Rebirth.Knots;
         WorldDef def = w.Content.World;
-        // The arrival knot is tied on the first tick whatever your state: there must always be somewhere to go back to.
-        if (f.Knots.Count == 0) return w.Find(w.PlayerId) is { Status: CharStatus.Member } ? (true, KnotReason.Arrival, 0, "") : default;
+        if (f.Knots.Count == 0)
+        {
+            if (w.Find(w.PlayerId) is not { Status: CharStatus.Member }) return default;
+            // The arrival knot is tied on the first tick whatever your state: there must always be somewhere to go back to.
+            if (w.Tick <= 1) return (true, KnotReason.Arrival, 0, "");
+            // A world restored without its knots ties a fresh one as soon as you are safe. It is not the arrival knot,
+            // so it never qualifies inside the last hours before a death (that would loop).
+            return Safe(w) ? (true, KnotReason.Quiet, 0, "") : default;
+        }
         if (!Safe(w)) return default;
         long last = f.Knots[^1].Tick;
         if (w.Tick - last < (long)rules.MinHoursBetween * def.TicksPerHour) return default;

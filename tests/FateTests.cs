@@ -504,6 +504,31 @@ public class FateTests
         }
     }
 
+    /// <summary>
+    /// A bare world snapshot carries no knot archive: restored, it forgets its knots and ties a fresh one once you are
+    /// safe. That knot is not the arrival knot, so it never qualifies within two hours of a death; a death that soon
+    /// still goes back (to the oldest knot there is) rather than ending the run.
+    /// </summary>
+    [Fact]
+    public void ABareWorldSnapshotTiesAFreshKnotThatIsNotTheArrival()
+    {
+        var sim = Simulation.Create(TestContent.Db, 19);
+        sim.Advance(Day + 9 * Hour);
+        Simulation bare = Simulation.Restore(TestContent.Db, SnapshotSerializer.Save(sim.World));
+        Assert.Empty(bare.World.Fate.Knots);
+        for (int i = 0; i < Day && bare.World.Fate.Knots.Count == 0; i++) bare.Step();
+        KnotRecord fresh = Assert.Single(bare.World.Fate.Knots);
+        Assert.Equal(KnotReason.Quiet, fresh.Reason);
+        Assert.True(fresh.Tick > 1);
+        Assert.Null(Fate.Pick(bare.World.Fate.Knots, fresh.Tick + Hour, TestContent.Db.Rebirth.Return, TestContent.Db.World,
+            DiceRng.FromSeed(1)[DiceSystem.Fate]));
+        Assert.True(bare.ForceDeath());
+        bare.Step();
+        Assert.Equal(1, bare.World.Fate.Returns);
+        Assert.False(bare.World.Fate.Ended);
+        Assert.Equal(fresh.Tick, bare.World.Tick);
+    }
+
     [Fact]
     public void ASnapshotAfterAReturnRestoresToTheSameFuture()
     {
