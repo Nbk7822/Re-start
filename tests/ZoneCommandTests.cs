@@ -215,6 +215,38 @@ public class ZoneCommandTests
     }
 }
 
+/// <summary>A mod hook changes zones through the same rules as the player (design 7.5): the cache and the Chronicle stay right.</summary>
+public class ZoneHookTests
+{
+    private sealed class DryStoresMod : Return.Sim.Modding.IModHook
+    {
+        public void OnWorldCreated(World w) { }
+
+        public void OnEvent(World w, SimEvent e)
+        {
+            if (e.Key != "event.world.ration_policy") return;
+            Zones.Mark(w, 0, "stockpile", Zones.FromRect(w.Map.CoveredRuins), new[] { "berries" });
+            Zones.Remove(w, w.Map.Zones.First(z => z.Kind == "stockpile").Id); // refused: the only one keeping timber
+        }
+    }
+
+    [Fact]
+    public void AHookMarksAZoneByTheSameRulesAndTheCampSeesItAtOnce()
+    {
+        var sim = Simulation.Create(TestContent.Db, 2);
+        World w = sim.World;
+        sim.AddHook(new DryStoresMod());
+        sim.Enqueue(new SetRationPolicy(5, RationPolicy.SelfFirst));
+        sim.Advance(10);
+        Assert.True(Zones.Accepts(w, w.Map.CoveredRuins.Center, "berries"));
+        Assert.False(Zones.Accepts(w, w.Map.CoveredRuins.Center, "timber"));
+        Assert.Equal(3, w.Map.Zones.Count);
+        Assert.Contains(w.Log.All, e => e.Key == "event.world.zone_marked");
+        Assert.Contains(w.Log.All, e => e.Key == "event.world.zone_items_not");
+        Assert.DoesNotContain(w.Log.All, e => e.Key == "event.world.zone_removed");
+    }
+}
+
 /// <summary>Zone commands are inputs like any other: replayable, snapshotted, part of the hash (ADR-0004, ADR-0028).</summary>
 public class ZoneDeterminismTests
 {

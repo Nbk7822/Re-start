@@ -174,6 +174,22 @@ public static partial class Zones
         }
     }
 
+    // ================= for mod hooks (design 7.5) =================
+
+    /// <summary>
+    /// Marks a zone now, by the same rules and with the same Chronicle line as the player's command: for a
+    /// mod hook, which holds the World but not the Simulation. Never edit Map.Zones directly: the cache,
+    /// Map.Revision and the stores would fall out of step.
+    /// </summary>
+    public static void Mark(World w, int zoneId, string kind, IReadOnlyList<TileRun> tiles, IReadOnlyList<string>? items = null) =>
+        new MarkZone(w.Tick, zoneId, kind, tiles, items).Apply(w);
+
+    /// <summary>Takes a zone away now, as <see cref="RemoveZone"/> does (the last stockpile of an item stays).</summary>
+    public static void Remove(World w, int zoneId) => new RemoveZone(w.Tick, zoneId).Apply(w);
+
+    /// <summary>Sets what a stockpile keeps now, as <see cref="SetZoneItems"/> does.</summary>
+    public static void Keep(World w, int zoneId, IReadOnlyList<string> items) => new SetZoneItems(w.Tick, zoneId, items).Apply(w);
+
     // ================= commands =================
 
     internal static void ApplyMark(World w, MarkZone cmd)
