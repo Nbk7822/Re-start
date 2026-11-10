@@ -35,6 +35,19 @@ public sealed class RoofSection
     public Rect Area { get; set; }
     public bool Sound { get; set; }
     public int Progress { get; set; }
+
+    // The Build menu (ADR-0027). New sections are appended; one taken down stays in the list, unsound and
+    // Removed, so Index stays its position.
+    public int Id { get; set; }
+    /// <summary>Who raised it, whoever finished it first; empty for the old camp's sections.</summary>
+    public List<int> BuiltBy { get; set; } = new();
+    public long BuiltEvent { get; set; }
+    /// <summary>The last person to repair it; 0 if nobody has.</summary>
+    public int MendedBy { get; set; }
+    /// <summary>The event that marked it to be taken down; 0 if it is not marked.</summary>
+    public long MarkedEvent { get; set; }
+    /// <summary>Taken down: never repaired, never counted, gives no cover.</summary>
+    public bool Removed { get; set; }
 }
 
 public sealed class Bed
@@ -42,6 +55,17 @@ public sealed class Bed
     public int Id { get; set; }
     public Point Pos { get; set; }
     public int OwnerId { get; set; }
+
+    // The Build menu (ADR-0027). New beds are appended; one taken down is removed.
+    /// <summary>Who built it, whoever finished it first; empty for the old camp's bedrolls.</summary>
+    public List<int> BuiltBy { get; set; } = new();
+    public long BuiltEvent { get; set; }
+    /// <summary>The event in which its owner claimed it; 0 while unclaimed.</summary>
+    public long ClaimEvent { get; set; }
+    /// <summary>Whose it was, once its owner left or died; 0 if nobody's.</summary>
+    public int PrevOwnerId { get; set; }
+    /// <summary>The event that marked it to be taken down; 0 if it is not marked.</summary>
+    public long MarkedEvent { get; set; }
 }
 
 /// <summary>
@@ -65,6 +89,19 @@ public sealed class Map : IJsonOnDeserialized
     public Rect Stockpile { get; set; }
     public Point Hearth { get; set; }
     public Point WatchPost { get; set; }
+
+    /// <summary>Walls and doors built in this playthrough (graves later), in id order (ADR-0027).</summary>
+    public List<Structure> Structures { get; set; } = new();
+
+    /// <summary>Goes up whenever terrain, roofs, beds or structures change: the view watches it, and blocked plans try again (ADR-0027).</summary>
+    public int Revision { get; set; }
+
+    /// <summary>Records a change to terrain, roofs, beds or structures: bumps <see cref="Revision"/> and rebuilds the passability caches.</summary>
+    public void Changed()
+    {
+        Revision++;
+        RebuildCaches();
+    }
 
     public bool InBounds(Point p) => p.X >= 0 && p.Y >= 0 && p.X < Width && p.Y < Height;
 

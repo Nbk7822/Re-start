@@ -12,8 +12,8 @@ namespace Return.Sim;
 /// </summary>
 public sealed class World
 {
-    /// <summary>Bump when the snapshot shape changes incompatibly.</summary>
-    public int SchemaVersion { get; set; } = 2;
+    /// <summary>Bump when the snapshot shape changes incompatibly (3: plans, structures and the built camp, ADR-0027).</summary>
+    public int SchemaVersion { get; set; } = 3;
     public long Tick { get; set; }
     public ulong Seed { get; set; }
     public int NextId { get; set; } = 1;
@@ -26,6 +26,8 @@ public sealed class World
     public List<Debt> Debts { get; set; } = new();
     /// <summary>Bargains struck with the camp (a djinn's), first-class like debts (ADR-0022).</summary>
     public List<Contract> Contracts { get; set; } = new();
+    /// <summary>Plans on the grid, in id order (ADR-0027).</summary>
+    public List<Blueprint> Blueprints { get; set; } = new();
     public RationPolicy Policy { get; set; } = RationPolicy.Hungriest;
     public DirectorState Director { get; set; } = new();
     public WeatherState Weather { get; set; } = new();

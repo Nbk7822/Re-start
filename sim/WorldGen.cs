@@ -39,6 +39,8 @@ public static class WorldGen
         ScheduleArrivals(w);
         FormStartersWants(w);
         Systems.Culture.CultureGen.Seed(w);
+        // The old roof's sections take their ids after everything else is made, so no other id moved (ADR-0027).
+        foreach (RoofSection r in w.Map.Roof) r.Id = w.NewId();
         return w;
     }
 
