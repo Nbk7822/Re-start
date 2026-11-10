@@ -330,3 +330,89 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
   4. **You may direct your own moves**: go to, stay at, seek out. These are intentions for your own character only, and needs can still interrupt them. Everyone else is only ever asked.
   5. **Every other question in the three documents** takes the document's recommended answer. These include the schema and determinism changes of each first slice; war that plunders and burns and kills named people but has no massacres and no slavery; money as goods (silver or salt per world, coin only when a civilization mints one); storied things with a will of their own, kept to blades and a few authored relics; and no food sold to the camp before the food milestone.
 - **Consequences:** ADR-0024's two open points are closed: domination is measurable, and the ageless run on the soul's span. The player design's slice 1 becomes the next big piece after Build, Zones and Schedule slice 1, because it makes Return by Death real.
+
+## ADR-0031 — What Return is best at, and what gets built next
+- **Status:** accepted in principle (2026-11-09). The founder asked what would make Return the best fantasy simulation sandbox, was given seven recommendations and answered "i agree with all". The seven are his decision (items 2 to 8 below, in the order given). How each is expanded here is the lead's, for founder review. This ADR builds nothing: whatever reverses an earlier sign-off, changes a schema or touches determinism is named under "Consequences" and "For the founder", and is built only from its own signed design. Numbered 0031 because 0027, 0028 and 0030 are in use on branches not yet merged (Build, Zones, and Who you are and Return by Death) and 0029 is left for Schedule.
+- **Context:**
+  - **The founder's goal, added the same day, in his words:** "the goal is for this game to be infinitely replayable and every playthrough is a story that is so unique and chaotic but fun that the player can't forget".
+  - **Where Return stands beside other games.**
+    - RimWorld paces readable drama, but its colonists are people stories happen to. In Return you are a person in the story, and a death is a move, not the end.
+    - Dwarf Fortress has the deepest history of any game, but no protagonist, goal or clock.
+    - Crusader Kings rules through characters, but they are portraits and events. Return's court lives a daily life the player watches, from a camp of five upward.
+    - Kenshi and Mount & Blade go from nobody to ruler, with followers who have no natures, wants or memories.
+    - Outer Wilds and Deathloop make knowledge the thing you carry through a loop, in a scripted world.
+    - **The claim:** Return puts the loop inside a living simulation. Natures are Truths and survive a return; events are Dice and do not (fixed decision 4). So what the player carries back is knowledge of people, not of a script. The lead knows of no game that does this.
+    - Two strengths already work: every event records its cause (ADR-0006), so the game can say why something happened; and peoples differ by need (fixed decision 5), which makes stories with no villain (STORIES.md, "The djinn's fire and the dryad's tree").
+  - **What the evidence says today.**
+    - milestone-0 holds one camp for one year, with the same fourteen named people and the same six incidents in every world. It makes 14.26 stories a world-year (measured as ADR-0030's merge base), and 8 of 8 fresh readers retold a story from a raw log (STORIES.md).
+    - Return by Death is built but not merged and not played: ADR-0030, on `worktree-wf_bafd34a6-140-1` (read at 479ee5b, still under review). There you die on your own in 23 of 100 one-year worlds (25.3% of 300). A year is 4 hours of play at ×1 and 40 minutes at ×6, so under the soak's stand-in player three first years in four pass without one death. When every world is made to return (`--fates`), a story that crosses the return reaches the final log in 28 of 100 worlds against a bar of 50. Its stranger check was not run.
+    - Stories bunch in winter's last ten days (ADR-0018, seams), and the world goes quiet after year one: over five years promises fall from 39 broken and 41 kept to none, fellings from 308 to 0, and the camps from 764 members to 554 (ADR-0023, results).
+    - Growth is data only: nothing calls `Growth.ChangeTrait` or `Growth.AdvanceArc` (ADR-0021).
+    - The lasting records between people are grudges, debts, promises and bargains (`EffectKind`). Friendship, love and loyalty have none.
+    - Eight design documents (6,577 lines, all dated 2026-11-09) stand against 9,024 lines of simulation, and four slices were built on branches the same day. STORIES.md records soaks, readers of logs and two looks at the map. It has no account of a person playing a session.
+- **Decision:**
+  1. **The aim.** Return does not try to be deeper than Dwarf Fortress or smoother than RimWorld. It aims to be the best at one thing: a world of people you know better every time you die.
+     - **The test every feature takes**, beside fixed decision 1's: it must give the player something worth knowing next time, or someone worth losing.
+     - **Chaos is fun when it is fair.** Because a death is a return, the storyteller may strike harder than RimWorld's does: it may burn the camp, or kill the person you lean on most. A heavy blow is fair when three things hold. Its cause can be read: any grudge, departure or death opens the chain behind it, which ADR-0006 already stores. A knot was tied before it, so a return can answer it. And it rests on at least one Truth, so there is something to learn.
+  2. **The return merges first and is played first.**
+     - ADR-0030's branch merges into milestone-0 before Build, Zones and Schedule, once its review ends. Those three finish their reviews and merge after it, in the order their designs set; whichever lands second writes the seam, as now. Nothing already built is thrown away.
+     - No further slice of any design starts until item 8's play check has been held on the return.
+  3. **The opening act: your first death comes in the first season.**
+     - **Why:** the return is the game's signature, and a first-time player must meet it in their first sitting. At ADR-0030's pace most would not.
+     - **Target** (lead's starting numbers, tuned by soak and then by play): in at least 75% of rolled worlds, over 300 seeds, your first death on your own falls between Day 3 and the end of Day 12. The end of Day 12 is 72 minutes of play at ×1 and 24 minutes at ×3.
+     - **From the second death on, ADR-0026's pace stands:** about once in three years, 12 to 20 returns in a life.
+     - **The danger is aimed at you, not at the camp** (lead's call). Companions already die 1.87 times a world-year against a bar of 2, and 2.25 times in human worlds (ADR-0030), so making every wound deadlier is not the lever.
+     - **It teaches the loop.** A knot is tied before the danger, and what killed you is something a return lets you act on.
+     - **Two steps.** First a small version from what the sim already has (the thief, accidents, wounds that bleed), built on top of ADR-0030, because without it the play check would mostly never see a death. Later, with its own design: every world has a first peril that is a Truth (what it is and where it comes from) and whose hour is Dice, so that dying to it once is how you learn it.
+     - **Guards:** no death loops (ADR-0030's: no world dies four times in three days); companions' deaths no higher than ADR-0030 measured; stories per world-year no lower than the merge base.
+  4. **Every world its own people, and every run a premise.**
+     - **People are generated per world from Truths:** name (from the world's own cultures, ADR-0025), people (from those the world holds), signature and second trait, role, age, want and belonging. Within a playthrough they are Truths (fixed decision 4), so the same people are there after every return. Across playthroughs they differ.
+     - **Keys stay stable.** Each person is keyed by a slot and created in slot order, so what is keyed by cast key today should keep working and ids stay stable for lost futures (ADR-0030 #8). This is the lead's reading of the documents; the design checks it against the code.
+     - **Limits that stand:** 5 to 20 companions (fixed decision 2); recruits lean toward roles nobody fills (BIBLE 5.1.4); no real-language name lists (ADR-0025).
+     - **The authored fourteen are kept** as the fixed camp tests run on and as a scenario of their own (lead's call), as ADR-0030 keeps a human, giftless fixture. The demo's stories stay a regression target (ADR-0011).
+     - **The view** draws anyone from their nature and a hash, as it must for hybrids (ADR-0022, the look, #1).
+     - **A premise** is one line that fits no other run: your people, your gift, the camp you woke among, the storyteller's hidden personality (fixed decision 8) and, later, where you woke (world design §4.2). ADR-0030 already rolls the first two.
+     - **Acceptance its design must carry:** in a 100-world soak no two worlds open with the same camp (the peoples and signature traits of those present by Day 7); the demo's stories (a stolen meal, a broken promise that drives someone away, blood given and owed) still appear in soaks; four fresh readers, each given the first ten days of two worlds, say unprompted how the worlds differ beyond names.
+  5. **What you know is what you keep.** The return pays only if there is something to learn, learning it costs something, and knowing it changes what you can do.
+     - **Secrets.** Each person carries at least one Truth that no panel shows until an event reveals it: what breaks them, what they will not forgive, what they did before they came. Secrets are content, and each must change behaviour in at least two systems (the cut rule). Later the same holds for rulers (their price), gods (whether they stir; culture-faith M3) and rivals (who they are). This is the player's half of the knowledge layer the peoples design leaves to batch 4, brought forward.
+     - **A memory of what you learned.** `World.Fate` (ADR-0030) gains what you know: each fact, about whom, and the event that taught it. It crosses a return, as learned customs and whom you met already do. A fact learned in a lost future is marked as remembered.
+     - **Nature is learned, not shown** (recommended; question 1). The inspector shows what you have learned of someone's traits, want, chemistry and bindings, not everything that is true: a trait appears the first time it acts where you can see it. Needs, mood and what people do stay in plain sight, and every event still says its cause. Each death then visibly fills in the people around you. The text-state API still reads everything; the view reads through what you know.
+     - **Knowing opens asking.** The first ask that needs knowledge is a warning: you tell someone what you learned in a lost future. Whether they heed it turns on what they think of you and on their nature, and if it comes true they remember that you knew. Asks arrive with the world design's W2; this one may come sooner.
+     - **Lost futures that hurt.** A companion's panel carries the strongest thing a lost future holds about them, built from stored lines only (fixed decision 10): "In a lost future, Mira died keeping the thief from you. She does not know." ADR-0030 shows such lines only on your own panel and in the Chronicle's tab.
+     - **Measures:** ADR-0030's missed bar becomes this work's (a story that crosses a return in at least 50 of 100 worlds); its stranger check (two of four readers retell such a story); and, in the play check, a player doing something differently because of what they remembered.
+  6. **A long life needs stories that hunger does not write.**
+     - **First, worlds that last:** arrivals after year one and trees that regrow (ADR-0022, seams; player design §12.2), with ADR-0030's aging. Multi-year soaks become the norm.
+     - **Then Growth M1** as BIBLE 5.3 scopes it: wants meet obstacles, arcs advance, traits change through what happens. BIBLE 5.4's acceptance stands.
+     - **Then bonds:** friendship, love and loyalty as records of their own, each formed and broken by an event with a cause, and each a story ending, so that stories can end in something gained. Friends share, defend, grieve and leave together; love brings jealousy and, later, marriages and hybrids (fixed decision 5). Sworn loyalty is the world design's `Oath`. The name must not collide with `EffectKind.BondSevered`, which is a dryad's tree.
+     - **Measures**, each taken at the merge base before its bar is set: stories per world-year in years 2 to 5 against year 1; the share of stories ending before winter; the share ending in something gained (a bond, a debt repaid, a word kept, an arc resolved, a grudge set down).
+  7. **One verb at every scale.** From a camp of five to a realm, what the player does is the same: ask a named person, and live with how their nature does it. A roof, a town, a war.
+     - Every act beyond your own body is asked of someone, who may refuse (fixed decision 2). How it goes depends on their traits, wants, grudges and bonds, and it lands in the same log with its causes.
+     - No screen shows a realm's quantity without the person answerable for it.
+     - A design for a larger scale (world W2 and W3; stewards, marshals, a master builder) passes when its stories name a companion and run through at least one camp-scale system (needs, mood or social), as W1b's acceptance already asks of raids.
+     - If ruling needs a verb the camp does not have, the design is wrong.
+  8. **Play before more design.**
+     - **The play check** joins the soak and the stranger check in every slice's acceptance. Someone plays for two hours at any speed. Afterwards they are asked, as openly as possible: did they die and come back, and did they want to go on; can they name a companion and say what that person is like; did they do anything differently because of what they remembered; how would they sum up their run in one line. The founder plays first, then at least two people who have never seen the game. What they say goes into STORIES.md, misses included.
+     - A slice is done when it has been played, not when its soak passes.
+     - No new design document is written, and no shelved slice is started, until the play check on the return is in STORIES.md. After that it is one design at a time, each written after the slice before it has been played.
+     - The eight existing designs stand as written. Before any unbuilt slice of theirs is started, it is re-read against item 1's test.
+     - ADR-0030's stranger check, not yet run, is run after the opening act lands, since that changes every world.
+- **Order of work** (the play check may change everything after step 3):
+  1. Merge ADR-0030's branch; then Build, Zones and Schedule as their reviews end.
+  2. The opening act's small version, then ADR-0030's stranger check.
+  3. The play check on the return.
+  4. What you know (item 5): the smallest piece, and it sharpens the one thing only Return does.
+  5. A long life (item 6): what a player needs after their third hour.
+  6. Every world its own people (item 4): what a player needs for their second run.
+  7. Everything else (world W1 onward, loot, peoples batch 2, culture slice 2, the rest of Build, Zones and Schedule), ordered by what play has shown.
+- **Consequences:**
+  - **Earlier answers this replaces.** ADR-0026's "after Build, Zones and Schedule slice 1" and ADR-0025's start order for those three (item 2). The peoples design's question 2 as ADR-0025 #5 answered it, "the M0 ten are in every world ... nobody in the cast is replaced" (item 4). The player design's §8.5 line "Nothing new is aimed at you", for the opening only (item 3). BIBLE §2's inspector line, if question 1 is answered yes (item 5). The design documents are not edited; where they differ, this ADR governs.
+  - Items 3 to 6 need schema changes and new draws. None is approved here; each comes with its design.
+  - Items 3 to 6 each change every world, so each records a new soak baseline, as ADR-0030's step 4 did.
+  - Nothing in the sim, the content or the view changes with this ADR, so no tests or soak were run for it.
+- **Changes to CLAUDE.md this asks for, not made** (ADR-0001: changes to the source of truth are proposed here first):
+  1. Main principle: add the founder's sentence on replayability beneath it, dated.
+  2. Fixed decision 10: "... a relationship graph where grudges, debts, oaths, ambitions and bonds (friendship, love, loyalty) are first-class objects."
+  3. How we work: add item 1's test, and "a slice is done when it has been played".
+- **For the founder** (each with a recommended answer):
+  1. **May the inspector show only what you have learned of a person's nature?** Today it shows every trait and want at first sight. *Recommended:* yes, as item 5 describes, with needs, mood and causes always in plain sight. *Why it matters:* it is what makes a death pay, and it changes what every player sees on every panel, so it should not arrive unasked.
+  2. **May CLAUDE.md take the three changes above?** *Recommended:* yes. The second amends a fixed decision, which only the founder can do.
