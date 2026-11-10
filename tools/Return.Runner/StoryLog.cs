@@ -87,62 +87,10 @@ public static class StoryLog
             ("events", Num(w.Log.All.Count)), ("notable", Num(analysis.Notable.Count)), ("stories", Num(analysis.Stories.Count))));
     }
 
-    /// <summary>
-    /// The run of identical steps starting at <paramref name="start"/>: a unit of one or two events that
-    /// repeats with only one character changing (Ilex asks Nia, Nia refuses; Ilex asks Mira, Mira
-    /// refuses...). Returns the unit length, how many times it occurs (1 = no run worth folding) and
-    /// the placeholder that changes. A run is folded only from three occurrences on.
-    /// </summary>
-    internal static (int Unit, int Repeats, string Arg) Repetition(IReadOnlyList<SimEvent> chain, int start)
-    {
-        for (int unit = 1; unit <= 2; unit++)
-        {
-            if (start + 3 * unit > chain.Count) break;
-            string? arg = ChangingArg(chain, start, start + unit, unit);
-            if (arg == null || !AboutOnePerson(chain, start, unit, arg) || !AboutOnePerson(chain, start + unit, unit, arg)) continue;
-            int repeats = 2;
-            while (start + (repeats + 1) * unit <= chain.Count && ChangingArg(chain, start, start + repeats * unit, unit) == arg
-                   && AboutOnePerson(chain, start + repeats * unit, unit, arg)) repeats++;
-            if (repeats >= 3) return (unit, repeats, arg);
-        }
-        return (1, 1, "");
-    }
+    /// <summary>The run of identical steps starting at <paramref name="start"/>, as the Chronicle folds it too (EventFold).</summary>
+    internal static (int Unit, int Repeats, string Arg) Repetition(IReadOnlyList<SimEvent> chain, int start) => EventFold.Repetition(chain, start);
 
-    /// <summary>The one character placeholder whose value differs between two units (the same one in every event of the unit), or null.</summary>
-    private static string? ChangingArg(IReadOnlyList<SimEvent> chain, int a, int b, int unit)
-    {
-        string? changing = null;
-        for (int u = 0; u < unit; u++)
-        {
-            SimEvent x = chain[a + u], y = chain[b + u];
-            if (x.Key != y.Key || x.Args.Count != y.Args.Count) return null;
-            for (int i = 0; i < x.Args.Count; i++)
-            {
-                if (x.Args[i].Name != y.Args[i].Name) return null;
-                if (x.Args[i].Value == y.Args[i].Value) continue;
-                if (!x.Args[i].Value.StartsWith("c:", StringComparison.Ordinal)) return null;
-                if (changing != null && changing != x.Args[i].Name) return null;
-                changing = x.Args[i].Name;
-            }
-        }
-        return changing;
-    }
-
-    /// <summary>Every event in the unit names the same person in the changing placeholder ("Ilex asked Nia", "Nia refused").</summary>
-    private static bool AboutOnePerson(IReadOnlyList<SimEvent> chain, int start, int unit, string arg)
-    {
-        string first = ArgValue(chain[start], arg);
-        for (int u = 1; u < unit; u++)
-            if (ArgValue(chain[start + u], arg) != first) return false;
-        return true;
-    }
-
-    private static string ArgValue(SimEvent e, string name)
-    {
-        foreach (EventArg a in e.Args)
-            if (a.Name == name) return a.Value;
-        return "";
-    }
+    private static string ArgValue(SimEvent e, string name) => EventFold.ArgValue(e, name);
 
     internal static string SystemKey(SystemTag system) => "log.system." + Names.Snake(system.ToString());
 

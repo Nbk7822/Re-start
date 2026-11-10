@@ -88,6 +88,7 @@
   "ui.people.empty": "Nobody lives in the camp.",
   "ui.chronicle.title": "Chronicle",
   "ui.chronicle.entry": "{when} — {text}",
+  "ui.chronicle.repeat": "    … and the same with {names}, until {when}.",
   "ui.chronicle.empty": "Nothing has happened yet.",
 
   "ui.inspector.close": "×",

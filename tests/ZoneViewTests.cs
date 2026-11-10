@@ -192,5 +192,25 @@ public class ZoneViewTests
         Assert.True(Zones.CanRemove(w, w.Map.Zones, home.Id));
         Assert.Equal("Take this zone away", ZoneText.RemoveHint(w, home, allowed: true));
     }
+
+    /// <summary>The Chronicle folds a run of the same line that differs only in one person, as the story log does (zones design 5.6), newest first.</summary>
+    [Fact]
+    public void TheChronicleFoldsANightOfTheSameLineIntoOneEntry()
+    {
+        World w = WorkTests.Only(1, "oren", "nia", "wren", "mira");
+        w.Tick = w.Content.World.TicksPerDay + 23L * w.Content.World.TicksPerHour;
+        foreach (string key in new[] { "oren", "nia", "wren" })
+        {
+            int id = w.Characters.First(c => c.CastKey == key).Id;
+            w.Log.Emit(w, Return.Sim.Events.SystemTag.Work, "event.work.out_after_dark_starving", new[] { id }, Array.Empty<long>(), null, Return.Sim.Events.EventArg.Char("a", id));
+            w.Tick += 60;
+        }
+        int mira = w.Characters.First(c => c.CastKey == "mira").Id;
+        w.Log.Emit(w, Return.Sim.Events.SystemTag.Work, "event.work.out_after_dark_help", new[] { mira, mira }, Array.Empty<long>(), null,
+            Return.Sim.Events.EventArg.Char("a", mira), Return.Sim.Events.EventArg.Char("b", w.Characters.First(c => c.CastKey == "oren").Id));
+        IReadOnlyList<string> lines = ViewText.Chronicle(w);
+        Assert.Equal("Day 2, 23:36 — Mira went out after dark to help Oren.", lines[0]);
+        Assert.Equal("Day 2, 23:00 — Oren, starving, went out after dark to find food.\n    … and the same with Nia, Wren, until Day 2, 23:24.", lines[1]);
+    }
 }
 
