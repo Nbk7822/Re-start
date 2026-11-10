@@ -48,6 +48,7 @@ Fixed tick. `content/world.json` sets the calendar (300 ticks per hour, 24 hours
 | Combat (simple melee) | traits, social, travel | needs (health), mood, social (rescue debts, abandonment grudges) |
 | Growth (wants, arcs, trait origins; section 5) | traits, species, roles, social (chemistry), incidents (arrivals) | in M0 only the story log, the inspector and the text-state API; from M1, traits (and through them needs, mood, social, work, combat) |
 | Culture and faith (customs, gods, omens; section 6) | social, needs, incidents, work, map | mood, social (warmth, consent, grudges ended), work (feasts, guest-bread, repayments), rations (who goes without) |
+| Zones (stockpiles, meeting places; section 7) | work (who carries what), map (cover), items, social (opinions, grudges) | needs and rations (where food lies and is eaten), incidents (the damp, what a thief can take), combat (where the watch must look), work (where the idle go), mood (sitting apart) |
 
 Every system touches at least two others; that is the cut rule from CLAUDE.md. Growth is the one exception for now: by the founder's M0 scope for fixed decision 12 (section 5.3) it reads three systems (traits, social chemistry, incidents) but writes back only beats, and M1's trait changes close the loop.
 
@@ -195,3 +196,32 @@ Gods are believed in, not proven: in slice 1 they act only through the people wh
 ### 6.5 Not yet
 
 Death rites, holy days and fasting, kin following kin, devotion that drifts and conversion, gods who stir, shrines, food taboos, the four peoples' customs and stances (a content follow-up once they merge), and any player lever of culture's own (the culture-and-faith design, sections 5 and 9).
+
+## 7. Zones
+
+Slice 1, steps 1 and 2 of the zones design (ADR-0028). A zone is a painted area on the grid and an intention, never an order: people read it and decide.
+
+### 7.1 Stockpiles
+
+- The camp starts with the demo's stockpile as a zone that keeps every item. The player can move it, add more anywhere open and passable, and say what each keeps (berries, timber, or both); the camp must always have somewhere to keep each item.
+- Goods put down where a stockpile keeps them are the camp's **stores**, and stay stores wherever they lie: move a stockpile and its goods wait where they were, still eaten, shared out and stolen there, until haulers carry them over. Nobody starves through bookkeeping.
+- A carrier puts goods down on the nearest stockpile tile that already holds them. Eaters, roofers and anyone fetching a berry take from the stores where they stand.
+- **The damp** spoils only stores lying in the open: a sound roof or the covered ruins keep food dry.
+- **A thief** carries off only the pile it reached. One that gets past the watch unseen says so ("…out of sight of Vale on watch"), and a stockpile the player put there is on its chain.
+
+### 7.2 The meeting place
+
+- The camp starts with a meeting place on the open ground round the hearth. The idle go there: to the meeting place where the people they like best are sitting.
+- Someone who holds a grudge against a person sitting there keeps away, sits apart near where they sleep, and says so once a day ("Sera kept away from the fire while Oren sat there."). Newcomers are received there.
+
+### 7.3 One rule for who keeps the camp's rules
+
+How people feel about whoever set a rule decides how far it carries (the founder's answer, ADR-0025). One helper gives the odds that someone goes their own way, from their nature (the Independent), their feeling for whoever set the rule (dislike adds, liking takes away), a black mood and their people's lean on the Oathbound–Free axis; the largest names the reason the Chronicle gives. It never applies to the player. The Oathbound, and those whose ways hold oaths heaviest, think less of a breaker they see. The home area and the Schedule are its first users.
+
+### 7.4 Where it shows
+
+Zones on the bottom bar opens a short list (the kinds to mark, Unmark, the camp's zones with what each keeps) and a marking tool (drag a box; right-click or Esc stops) whose hint says how many tiles, where, whether a stockpile is dry and whether the watch can see it. On the map, stockpiles and meeting places show a dashed edge; while zones are shown, a faint fill, their names and see-through roofs; a choice made while paused is hatched until time moves. The tile tooltip names the zone and what it keeps, and goods waiting to be carried.
+
+### 7.5 Not yet
+
+The home area (step 3, on the Schedule's day and watch); keep-out and leave-be ground, the burial ground and thieves who waylay people in the dark (slice 2); growing plots (after the items milestone) and grazing (after animals).

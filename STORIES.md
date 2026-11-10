@@ -140,3 +140,25 @@ Winter came on Day 31 and the frost took the berries from the bushes. Varrow, bo
 
 The earlier playtest entries describe the build before this review, and the histories have moved. Seed 10's Varrow no longer meets the thief; their grave dust beside the thief's blood now shows in seed 11, on Day 33 at 19:00, near (20, 28). Seed 13's bound tree falls on Day 25, to Oren. The djinn now reads as living flame: a low warmth and wavering flame-light, with no smoke.
 
+## 2026-11-09 — Zones slice 1: stockpiles and the meeting place (ADR-0028; soak 100 worlds × 1 year)
+
+With no zones marked, 1,423 stories (14.23 per world; 1,426 at the merge base). With the stand-in's `--zones dry` plan (the stockpile moved into the covered ruins on the first morning), 1,313: nothing spoils in the damp, but the ruins sit in the middle of the camp, where the watch and the Protective see most thieves coming, so thefts fall too and the move rarely heads a story (4 stories in 3 worlds). People kept away from the fire in 98 worlds.
+
+### The dry stores (seed 91, soak `--zones dry`; policy "promised meals come first")
+On the first morning you marked a stockpile in the covered ruins and took away the one by the hearth; nothing spoiled in the damp all year. Late on Day 35 a thief crept in and made off with 3 berries from the stockpile, out of sight of Ilex on watch. By the next evening Nia and Wren were hungry, by midnight starving, and at the 02:18 share-out on Day 37 both went without so others could eat. At 02:31 Wren took the meal set aside for Bram, and at 02:51 Nia did the same. Bram held a grudge against them both, and that evening he left the camp.
+- Chains: stockpile marked (World) → theft out of the watch's sight (Incident) → hungry, starving, went without (Needs) → took the meal → grudge (Social), once for each thief of a meal; Wren's runs on to Bram leaving.
+- Why it matters: the zones design's story 1, arising unprompted. The player's tidy-up of the stores is the first link of a feud five weeks later, and nobody in it is a villain. It is rare (see ADR-0028 on why the ruins are safer than they look).
+
+### Out of your sight (seed 30, soak `--zones dry`; policy "the hungriest eat first")
+You moved the stores into the ruins on the first morning. On Day 20, while you kept the night watch, a thief made off with 3 berries from the stockpile, out of your sight. By six you were getting hungry, and at 06:38 Sennet, one of the Good Folk, brought you a meal: the welcome they had sworn to repay.
+- Chain: stockpile marked (World) → theft out of the watch's sight (Incident) → hungry (Needs) → brought a meal (Work) → word kept (Social).
+
+### The fire they would not share (seed 27, soak, no zones marked; policy "the hungriest eat first")
+On the first night Oren felled a tree for timber: the old tree sacred to the Old Roots. Mira, who follows the Old Roots, held a grudge against him from that hour, and from then on the two never sat at the fire together. Day after day one of them came to the fire, found the other there and went to sit alone by the shelter: "Mira kept away from the fire while Oren sat there", and, once she had insulted him on Day 6 and he had taken a grudge of his own, "Oren kept away from the fire while Mira sat there", 27 times between them in sixteen days. On Day 17 you insulted Mira, and within the hour, holding two grudges and sour from sitting apart, she left the camp. You took her place: you had held a grudge against Oren since Day 9, and for ten more days you kept away from the fire while he sat there, until on Day 27 he held a grudge against you too and left at dusk, the evening before the Old Roots lit their harvest fire.
+- Chain the analyzer found: felled → desecrated (Culture) → grudge → Mira left (Social); and felled → desecrated → grudge → insults → grudges, to Mira's grudge against you.
+- Off the chain, on the map: 49 "kept away" lines in the year. They are the feud made visible, not causes: the next insult cites the grudge itself. Mira's sitting apart (−3 each time) is part of the black mood her two grudges took her away in.
+- Why it matters: the culture slice's soak told this world as a feud the harvest fire set down. With the camp gathering at the fire, the same first night now shows as a fire two people take turns at, and the feud runs out of people before the festival comes.
+
+### Mira apart at dusk (seed 27, playtest view)
+Day 8, 18:18: the camp sits round the fire (Hollis, Wren, Bram, Sera, Thessil and you), and Mira stands alone by the shelter's west wall with the gloom mark over her head, nineteen minutes after she kept away from the fire while Oren sat there. The screenshot is ADR-0028's.
+
