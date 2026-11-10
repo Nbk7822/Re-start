@@ -126,6 +126,7 @@ public class WorkTests
     {
         World w = Only(1, "mira", "oren");
         Character mira = Cast(w, "mira"), oren = Cast(w, "oren");
+        w.Tick = 8L * w.Content.World.TicksPerHour; // waking hours: nobody leaves their bed at midnight to tend a wound (ADR-0029)
         oren.Health = 300;
         Run(w, 2_000, () => oren.Health > 450);
         Assert.True(oren.Health > 450);

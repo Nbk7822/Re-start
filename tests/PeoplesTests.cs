@@ -223,9 +223,10 @@ public class PeoplesTests
         Assert.True(forest.Value >= 300 - def.DecayPerHour + def.Param("restorePerTree") * def.Param("ownTreeWeight"), $"forest {forest.Value}");
         Assert.Contains(dryope.Thoughts, t => t.DefId == "among_trees");
 
-        // Faint, far from the trees, they go and stand by their tree until the need is met.
+        // Faint, far from the trees, they go and stand by their tree until the need is met (in waking hours; ADR-0029).
         dryope.Pos = w.Map.Hearth with { Y = w.Map.Hearth.Y + 1 };
         dryope.Job = null;
+        w.Tick = Hours(w, 10);
         forest.Value = def.LowBelow - 10;
         Job? job = JobPicker.Choose(w, dryope);
         Assert.Equal(JobKind.TendTree, job?.Kind);

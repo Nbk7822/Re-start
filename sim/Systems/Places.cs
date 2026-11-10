@@ -8,8 +8,6 @@ public static class Places
 {
     public const int BushMax = 6;
     public const int BushRegrowPerDay = 2;
-    /// <summary>Humans turn in this many hours after dusk and rise at dawn.</summary>
-    public const int BedtimeAfterDusk = 3;
     /// <summary>In winter a bush puts out one berry every this many days: a trickle, not a harvest.</summary>
     public const int WinterRegrowEveryDays = 2;
 
@@ -30,16 +28,6 @@ public static class Places
     {
         WorldDef def = w.Content.World;
         return Calendar.Season(w.Tick, def) != def.SeasonsPerYear - 1;
-    }
-
-    /// <summary>Usual sleeping hours: night for humans, daylight for vampires, never for those who do not tire.</summary>
-    public static bool SleepHours(World w, Character c)
-    {
-        if (!Tires(w, c)) return false;
-        if (BurnsInDaylight(w, c)) return Daylight(w);
-        WorldDef def = w.Content.World;
-        int h = Calendar.Hour(w.Tick, def);
-        return h >= def.DuskHour + BedtimeAfterDusk || h < def.DawnHour;
     }
 
     /// <summary>The passable neighbour of target closest to from (Chebyshev), or Point.None.</summary>

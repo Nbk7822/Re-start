@@ -6,8 +6,9 @@ namespace Return.Sim.Systems;
 
 /// <summary>
 /// Chooses what an idle person does next, in the demo's order of concerns: cover from the sun,
-/// critical hunger, rest (and the injured lie down), promises, the injured, a Generous offer of
-/// blood, eating, prioritised work, company, wandering. Returns a job with its target set; travel is
+/// critical hunger, rest (and the injured lie down; everyone who tires in their sleeping hours), promises,
+/// the injured, a Generous offer of blood, eating, prioritised work in working hours (a nap in free time
+/// if tired), company, wandering. Returns a job with its target set; travel is
 /// started by <see cref="WorkSystem"/>. Never orders anyone; it only reads state (and draws Dice for
 /// wandering, and lets someone who keeps away from a meeting place say so: Zones.KeepAway).
 /// </summary>
@@ -67,8 +68,10 @@ public static class JobPicker
 
         // The injured lie down to sleep; those who never tire never sleep (the undead), and mend on their feet.
         if (c.Health < InjuredBelow && sp.Tires) return SleepJob(w, c);
+        // In their sleeping hours everyone who tires goes to bed (ADR-0029); exhaustion sends them in any hours.
+        DayBlock block = ScheduleSystem.BlockNow(w, c);
         int restAt = 200 + Traits.Sum(w, c, t => t.RestThresholdAdd);
-        if (sp.Tires && (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700))) return SleepJob(w, c);
+        if (sp.Tires && (c.Rest < restAt || block == DayBlock.Sleep)) return SleepJob(w, c);
 
         Job? natural = nature ? NatureNeeds.Job(w, c, critical: false, sunBlocked) : null;
         if (natural != null) return natural;
@@ -102,15 +105,21 @@ public static class JobPicker
         Job? feast = Culture.Festivals.FeastJob(w, c, sunBlocked); // a festival comes before ordinary work (ADR-0023)
         if (feast != null) return feast;
 
-        Job? work = WorkJob(w, c, sunBlocked);
-        if (work != null) return work;
+        // Ordinary work only in working hours; in free time a nap if tired, then company and the fire (ADR-0029).
+        bool free = block != DayBlock.Work;
+        if (!free)
+        {
+            Job? work = WorkJob(w, c, sunBlocked);
+            if (work != null) return work;
+        }
+        else if (sp.Tires && c.Rest < w.Content.World.Schedule.FreeTimeNapBelow) return SleepJob(w, c);
 
         if (c.Social < 400)
         {
             Job? talk = SocializeJob(w, c, sunBlocked);
             if (talk != null) return talk;
         }
-        return WanderJob(w, c, sunBlocked);
+        return WanderJob(w, c, sunBlocked, free);
     }
 
     /// <summary>
@@ -340,7 +349,7 @@ public static class JobPicker
     /// under cover, they wander near where they stand, drifting back to the hearth from afar. Schedule's
     /// free time slots in ahead of the meeting place (a species' own place) and after it (the hearth).
     /// </summary>
-    private static Job? WanderJob(World w, Character c, bool sunBlocked)
+    private static Job? WanderJob(World w, Character c, bool sunBlocked, bool free)
     {
         if (!sunBlocked)
         {
@@ -355,8 +364,9 @@ public static class JobPicker
             if (spot != Point.None)
                 return new Job { Kind = JobKind.Wander, Target = spot, TargetId = w.Rng.Dice[DiceSystem.Work].Range(DiceId.WanderWait, 60, 181) };
         }
-        Point centre = sunBlocked ? c.Pos : (c.Pos.ChebyshevTo(w.Map.Hearth) > 8 ? w.Map.Hearth : c.Pos);
-        int radius = sunBlocked ? 1 : 4;
+        // With no meeting place to go to, free time draws people to the fire (radius 2), other hours keep them about the camp.
+        Point centre = sunBlocked ? c.Pos : free || c.Pos.ChebyshevTo(w.Map.Hearth) > 8 ? w.Map.Hearth : c.Pos;
+        int radius = sunBlocked ? 1 : free ? 2 : 4;
         Point p = Places.Near(w, centre, radius);
         if (p == Point.None || (sunBlocked && !w.Map.Covered(p))) p = c.Pos;
         int wait = w.Rng.Dice[DiceSystem.Work].Range(DiceId.WanderWait, 60, 181);

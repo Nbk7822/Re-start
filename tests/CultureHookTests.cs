@@ -214,7 +214,7 @@ public class CultureHookTests
         Belong(mira, "night");
         Belong(ilex, "night");
         Hold(w, "night", "veiled_greeting", "blood_taboo");
-        w.Tick = 22L * w.Content.World.TicksPerHour; // night: no sun
+        w.Tick = 20L * w.Content.World.TicksPerHour; // night: no sun, and the day folk's free time, not yet their sleeping hours (ADR-0029)
         NextTo(w, mira, ilex);
         return (w, mira, ilex);
     }

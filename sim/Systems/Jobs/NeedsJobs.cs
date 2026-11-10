@@ -48,10 +48,13 @@ public static class NeedsJobs
             c.Facing = Facing.S;
             return false;
         }
+        // Nobody gets up rested in the middle of their sleeping hours (ADR-0029): only hunger (the Desperate sooner),
+        // the end of those hours with rest enough, the sun, a need of their nature, or being woken.
         bool injured = c.Health < JobPicker.InjuredBelow;
+        bool hungry = c.Food < NeedsSystem.StarvingBelow || c.Food < Traits.Max(w, c, t => t.StealFoodBelow);
         bool wake = injured
             ? c.Health >= 600 && c.Rest >= 600
-            : c.Food < NeedsSystem.StarvingBelow || c.Rest >= 950 || (!Places.SleepHours(w, c) && c.Rest >= 600);
+            : hungry || (!ScheduleSystem.IsSleepTime(w, c) && c.Rest >= 600);
         if (Places.BurnsInDaylight(w, c) && Places.Daylight(w) && !w.Map.Covered(c.Pos)) wake = true;
         // A need of their nature that harms them comes before rest (ADR-0022): rested enough, they get up to answer it.
         if (!wake && c.Rest >= 600 && c.NatureNeeds.Count > 0)
