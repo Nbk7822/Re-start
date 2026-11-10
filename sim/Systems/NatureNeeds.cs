@@ -81,6 +81,22 @@ public static class NatureNeeds
     }
 
     /// <summary>
+    /// Should a sleeper get up? Yes when a need of their nature is critical and harming them (sleep cannot
+    /// mend that harm, and an injured sleeper only wakes once mended) and there is something they can do
+    /// about it now. Without this a withering dryad who lay down injured slept until she died, with living
+    /// trees standing (seed 13). Reads only; draws nothing.
+    /// </summary>
+    public static bool WakesFor(World w, Character c, bool sunBlocked)
+    {
+        foreach (NatureNeed n in c.NatureNeeds)
+        {
+            NeedDef def = w.Content.NeedById(n.Id);
+            if (def.CriticalHealthPerHour > 0 && n.Value < def.CriticalBelow && Answer(w, c, n, def, sunBlocked) != null) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// What a person does about a nature need below its low mark (or, when <paramref name="critical"/>,
     /// its critical mark): its behaviour's job, or null. JobPicker asks for critical needs before rest
     /// and for low ones after it.

@@ -52,6 +52,9 @@ public static class NeedsJobs
             ? c.Health >= 600 && c.Rest >= 600
             : c.Food < NeedsSystem.StarvingBelow || c.Rest >= 950 || (!Places.SleepHours(w, c) && c.Rest >= 600);
         if (Places.BurnsInDaylight(w, c) && Places.Daylight(w) && !w.Map.Covered(c.Pos)) wake = true;
+        // A need of their nature that harms them comes before rest (ADR-0022): rested enough, they get up to answer it.
+        if (!wake && c.Rest >= 600 && c.NatureNeeds.Count > 0)
+            wake = NatureNeeds.WakesFor(w, c, Places.BurnsInDaylight(w, c) && Places.SunDanger(w));
         if (!wake) return false;
         c.Asleep = false;
         bool covered = w.Map.Covered(c.Pos);

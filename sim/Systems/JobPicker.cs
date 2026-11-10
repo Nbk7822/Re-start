@@ -62,7 +62,8 @@ public static class JobPicker
         Job? urgent = nature ? NatureNeeds.Job(w, c, critical: true, sunBlocked) : null;
         if (urgent != null) return urgent;
 
-        if (c.Health < InjuredBelow) return SleepJob(w, c);
+        // The injured lie down to sleep; those who never tire never sleep (the undead), and mend on their feet.
+        if (c.Health < InjuredBelow && sp.Tires) return SleepJob(w, c);
         int restAt = 200 + Traits.Sum(w, c, t => t.RestThresholdAdd);
         if (sp.Tires && (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700))) return SleepJob(w, c);
 

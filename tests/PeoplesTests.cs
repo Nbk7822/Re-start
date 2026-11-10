@@ -138,6 +138,22 @@ public class PeoplesTests
         Assert.True(purpose.Value >= w.Content.NeedById(Purpose.NeedId).LowBelow, $"purpose {purpose.Value}");
     }
 
+    [Fact]
+    public void TheUndeadNeverSleepEvenWounded()
+    {
+        World w = WorkTests.Only(1, "ketil");
+        Character ketil = Cast(w, "ketil");
+        int wounded = JobPicker.InjuredBelow - 150;
+        ketil.Health = wounded;
+        w.Tick = Hours(w, 12);
+        Assert.NotEqual(JobKind.Sleep, JobPicker.Choose(w, ketil)?.Kind);
+
+        // A day on their feet: never asleep, and mending all the same.
+        RunWork(w, w.Content.World.TicksPerDay, () => ketil.Asleep);
+        Assert.False(ketil.Asleep);
+        Assert.True(ketil.Health > wounded, $"health {ketil.Health}");
+    }
+
     // ---- Dryad: forest ----
 
     private static void RunWork(World w, int ticks, Func<bool> until)
@@ -294,6 +310,51 @@ public class PeoplesTests
         HashSet<long> ancestors = NeedsMoodTests.Ancestors(w, death.Id);
         Assert.Contains(cut.Id, ancestors);
         Assert.Contains(w.Log.All, e => e.Key == "event.needs.forest_critical" && ancestors.Contains(e.Id));
+    }
+
+    /// <summary>
+    /// A withering dryad who lay down injured used to sleep until she died, because an injured sleeper wakes
+    /// only once mended and the forest's harm stops all mending (seed 13: Day 39, eight trees standing).
+    /// Now the need comes before rest: rested enough, she gets up and goes to a living tree, and lives on.
+    /// </summary>
+    [Fact]
+    public void AWitheringDryadWhoLayDownInjuredGetsUpToTendATree()
+    {
+        World w = WorkTests.Only(1, "dryope");
+        Character dryope = Cast(w, "dryope");
+        NatureNeed forest = NatureNeeds.Get(dryope, Forest.NeedId)!;
+        var def = w.Content.NeedById(Forest.NeedId);
+        // Her own tree is gone; one lone tree stands, far from the others (a lone tree feeds her only a little more than she fades).
+        Tree own = Forest.TreeById(w, forest.BondId)!;
+        Tree lone = w.Map.Trees.Where(t => t.Id != own.Id).OrderBy(t => t.Pos.ChebyshevTo(w.Map.Hearth)).ThenBy(t => t.Id).First();
+        foreach (Tree t in w.Map.Trees) t.Felled = t.Id != lone.Id;
+        w.Map.RebuildCaches();
+        dryope.Health = JobPicker.InjuredBelow - 20;
+        dryope.Rest = 650;
+        forest.Value = def.CriticalBelow - 10;
+        forest.Stage = 2;
+        w.Tick = Hours(w, 12) + 1;
+        dryope.Job = new Job { Kind = JobKind.Sleep, Target = dryope.Pos, Stage = 1 };
+        dryope.Asleep = true;
+
+        WorkSystem.Step(w);
+        Assert.False(dryope.Asleep);
+        WorkSystem.Step(w);
+        Assert.Equal((JobKind.TendTree, lone.Id), (dryope.Job?.Kind, dryope.Job?.TargetId));
+        RunWork(w, 2 * w.Content.World.TicksPerDay, () => dryope.Status != CharStatus.Member);
+        Assert.Equal(CharStatus.Member, dryope.Status);
+        Assert.True(dryope.Health > 0);
+
+        // With no living tree left to go to, getting up would do nothing: she sleeps on.
+        lone.Felled = true;
+        w.Map.RebuildCaches();
+        dryope.Job = new Job { Kind = JobKind.Sleep, Target = dryope.Pos, Stage = 1 };
+        dryope.Asleep = true;
+        dryope.Health = JobPicker.InjuredBelow - 20;
+        dryope.Rest = 650;
+        forest.Value = def.CriticalBelow - 10;
+        WorkSystem.Step(w);
+        Assert.True(dryope.Asleep);
     }
 
     // ---- Djinn: bargains ----
