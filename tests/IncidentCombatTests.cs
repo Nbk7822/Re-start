@@ -329,4 +329,22 @@ public class IncidentCombatTests
         for (int i = 1; i < majors.Count; i++)
             Assert.True(majors[i] - majors[i - 1] >= gap, $"majors at ticks {majors[i - 1]} and {majors[i]} are closer than {gap}");
     }
+
+    /// <summary>
+    /// Newcomers and thieves come in from the map's edge, but never on an edge tile walled off from the camp:
+    /// seed 3's map has such a pocket at (0, 2), where a dryad once arrived and withered on her fourth day.
+    /// </summary>
+    [Fact]
+    public void NobodyComesInWhereThereIsNoWayToTheCamp()
+    {
+        World w = WorldGen.Create(TestContent.Db, 3);
+        Point Goal(Point from) => Places.Adjacent(w, w.Map.Hearth, from);
+        var pocket = new Point(0, 2);
+        Assert.True(w.Map.Passable(pocket) && Pathfinder.Find(w.Map, pocket, Goal(pocket)) == null, "seed 3 should still have a walled-off edge tile");
+        for (int i = 0; i < 300; i++)
+        {
+            Point p = IncidentSystem.EdgeTile(w, i % 2 == 0 ? DiceId.ArrivalEdge : DiceId.ThiefEdge);
+            Assert.True(Pathfinder.Find(w.Map, p, Goal(p)) != null, $"draw {i}: ({p.X}, {p.Y}) has no way to the hearth");
+        }
+    }
 }

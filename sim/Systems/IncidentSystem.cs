@@ -216,7 +216,9 @@ public static class IncidentSystem
         {
             bool west = dice.Range(draw, 0, 2) == 0;
             Point p = west ? new Point(0, dice.Range(draw, 1, m.Height - 1)) : new Point(dice.Range(draw, 1, m.Width - 10), m.Height - 1);
-            if (m.Passable(p)) return p;
+            // An edge tile walled off from the camp by rock or river would strand whoever comes in there
+            // (a dryad withered in a corner on her fourth day, seed 3), so only a tile with a way to the hearth will do.
+            if (m.Passable(p) && Pathfinder.Find(m, p, Places.Adjacent(w, m.Hearth, p)) != null) return p;
         }
         return Places.Adjacent(w, m.Hearth, m.Hearth);
     }
