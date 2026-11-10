@@ -565,10 +565,14 @@ public partial class MapView : Node2D
             float anchor = lying && !s.State.OnBed && !s.State.Carried ? LyingOffset : FeetOffset;
             Vector2 at = bearer != null && _shown.TryGetValue(bearer.Id, out Shown? bs) ? bs.At + bs.Spread : s.At + s.Spread;
             s.Feet = at + new Vector2(0f, anchor);
-            s.HeadAbove = HeadAbove(s.State);
+            // A dryad's crown rises above the head: mood marks and names keep clear of it.
+            s.HeadAbove = HeadAbove(s.State) + (s.Look.Has(Kin.Dryad) && !lying ? CrownRise : 0f);
             _drawables.Add(new Drawable(s.Feet.Y + (bearer != null ? 0.1f : 0f), Kind.Figure, i, 0.5f));
         }
     }
+
+    /// <summary>How far a dryad's crown of leaves rises above the top of the head, in map pixels.</summary>
+    private const float CrownRise = 3.5f * FigureScale;
 
     /// <summary>How far above the feet the top of a figure's head is, by pose (mood marks sit there).</summary>
     private static float HeadAbove(in FigureState s)
