@@ -410,6 +410,9 @@ public class CultureHookTests
         Bush bush = w.Map.Bushes.First();
         bush.Berries = 1;
         foreach (Bush b in w.Map.Bushes) if (b != bush) b.Berries = 0;
+        mira.Food = 400; // not fed, not yet hungry: picking costs her no food of her own
+        SimEvent before = w.Log.Emit(w, SystemTag.Needs, "event.test.why", new[] { mira.Id }, Array.Empty<long>());
+        mira.LastFoodEvent = before.Id;
         Job? job = JobPicker.Choose(w, mira);
         Assert.Equal(JobKind.KeepPromise, job?.Kind);
         Assert.Equal(bush.Pos, job!.Target);
@@ -419,6 +422,20 @@ public class CultureHookTests
         Assert.Single(w.Log.All, e => e.Key == "event.culture.guest_bread.foraged");
         Assert.Equal(DebtStatus.Repaid, promise.Status);
         Assert.True(hollis.Food > 280);
+        // She gave up nothing she would have eaten, so her own coming hunger keeps its old cause.
+        Assert.Equal(before.Id, mira.LastFoodEvent);
+    }
+
+    /// <summary>The injured lie down before they keep any promise, so an injured host does not go out for a guest.</summary>
+    [Fact]
+    public void AnInjuredHostLiesDownInstead()
+    {
+        (World w, _, Character mira, _, _) = GuestCamp(TestContent.Db);
+        foreach (Bush b in w.Map.Bushes) b.Berries = 2;
+        mira.Health = JobPicker.InjuredBelow - 1;
+        Assert.Null(Hospitality.GuestJob(w, mira, sunBlocked: false));
+        mira.Health = JobPicker.InjuredBelow;
+        Assert.NotNull(Hospitality.GuestJob(w, mira, sunBlocked: false));
     }
 
     [Fact]

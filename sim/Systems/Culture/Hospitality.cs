@@ -6,18 +6,22 @@ namespace Return.Sim.Systems.Culture;
 /// <summary>
 /// Guest-bread (H1; ADR-0023). When the camp has promised a newcomer a meal it cannot give, a keeper
 /// of guest-right who is not starving brings the guest food themselves: their own share of the stores
-/// if they hold one, otherwise berries they go out and pick. That keeps the camp's promise, puts the
-/// guest in the host's debt, and becomes the cause of the host's own coming hunger. Each host decides
+/// if they hold one, otherwise berries they go out and pick. That keeps the camp's promise and puts the
+/// guest in the host's debt; a host who gave their own share goes hungry for it. Each host decides
 /// once per promise (a Dice roll on the Culture stream), so the odds are the custom's, not one roll
 /// per job pick. While a host is on the way, a share-out that leaves the guest out does not break the
 /// promise.
 /// </summary>
 public static class Hospitality
 {
-    /// <summary>A Keep-promise job in host mode for c (to the stockpile for their share, or to a bush), or null.</summary>
+    /// <summary>
+    /// A Keep-promise job in host mode for c (to the stockpile for their share, or to a bush), or null.
+    /// The starving, the injured (who lie down before keeping any promise) and those the sun keeps
+    /// indoors do not go.
+    /// </summary>
     public static Job? GuestJob(World w, Character c, bool sunBlocked)
     {
-        if (c.HungerStage >= 2 || sunBlocked) return null;
+        if (c.HungerStage >= 2 || sunBlocked || c.Health < JobPicker.InjuredBelow) return null;
         if (Ways.Keeps(w, c, "guest_right") is not { } custom) return null;
         foreach (Debt d in w.Debts)
         {
@@ -55,8 +59,10 @@ public static class Hospitality
     /// <summary>
     /// The host hands the guest the food: the custom's event ("shared" for the host's own share,
     /// "foraged" for berries they picked; citing the promise and the guest's hunger), the guest's
-    /// thanks, the camp's promise kept, the guest now owing the host a meal, and the gift standing as
-    /// the cause of the host's next hunger. Returns the event.
+    /// thanks, the camp's promise kept, and the guest now owing the host a meal. A host who gave up
+    /// their own share goes hungry for it, so the gift becomes the cause of their next hunger; berries
+    /// picked for the guest cost the host nothing they would have eaten, so they change no cause.
+    /// Returns the event.
     /// </summary>
     public static SimEvent Deliver(World w, Character host, Character guest, Debt promise, bool picked)
     {
@@ -70,8 +76,8 @@ public static class Hospitality
         // The guest owes the host for the promise the host kept: one arc, so the debt cites the keeping.
         SimEvent kept = Relations.Repay(w, promise, shared.Id);
         Relations.FormDebt(w, guest, host, DebtKind.Meal, 1, kept.Id);
-        // Food given away is food the host does not eat; it does not touch a blood-drinker's hunger.
-        if (!Places.Species(w, host).DrinksBlood) host.LastFoodEvent = shared.Id;
+        // A share given away is food the host does not eat (a blood-drinker's hunger is not for berries).
+        if (!picked && !Places.Species(w, host).DrinksBlood) host.LastFoodEvent = shared.Id;
         Omens.RecordDeed(w, DeedKind.GuestHonoured, shared.Id, host.Id);
         Omens.RecordDeed(w, DeedKind.MealShared, shared.Id, host.Id);
         return shared;
