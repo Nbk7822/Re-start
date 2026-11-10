@@ -130,7 +130,8 @@ public class CausalityTests
         {
             var s = Simulation.Create(TestContent.Db, 3);
             s.AddHook(new Meddler());
-            s.Advance(3L * s.World.Content.World.TicksPerDay);
+            // Six days: long enough for seed 3's first hunger (day 5 since beds are claimed, ADR-0027).
+            s.Advance(6L * s.World.Content.World.TicksPerDay);
             Assert.Contains(s.World.Characters, c => c.CastKey.StartsWith("ghost", StringComparison.Ordinal));
             return s.StateHash();
         }

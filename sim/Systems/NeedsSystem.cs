@@ -37,7 +37,7 @@ public static class NeedsSystem
 
             c.Food = Math.Max(0, c.Food - sp.FoodDecayPerHour);
             if (!sp.Tires) c.Rest = 1000;
-            else if (c.Asleep) c.Rest = Math.Min(1000, c.Rest + sp.SleepRestorePerHour);
+            else if (c.Asleep) c.Rest = Math.Min(1000, c.Rest + sp.SleepRestorePerHour + Building.RestBonus(w, c, sp.SleepRestorePerHour));
             else c.Rest = Math.Max(0, c.Rest - sp.RestDecayPerHour - JobRestCost(w, c));
             c.Social = Math.Max(0, c.Social - sp.SocialDecayPerHour);
             UpdateHunger(w, c, sp);

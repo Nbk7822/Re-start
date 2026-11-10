@@ -183,6 +183,7 @@ public static class SocialSystem
         c.Carrying = null;
         w.Reservations.RemoveAll(r => r.CharacterId == c.Id);
         Relations.DropGrudgesHeldBy(w, c);
+        Building.LetGo(w, c); // their bed is left unclaimed (ADR-0027)
         return w.Log.Emit(w, SystemTag.Social, "event.social.left_camp", new[] { c.Id }, new[] { cause, c.HungerStage >= 1 ? c.LastFoodEvent : 0 },
             new[] { new Effect { Kind = EffectKind.Departure, A = c.Id } }, EventArg.Char("a", c.Id));
     }

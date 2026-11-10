@@ -120,6 +120,7 @@ public static class CampJobs
             {
                 if (!JobRunner.Work(j, def.DurationTicks)) return false;
                 section.Sound = true;
+                section.MendedBy = c.Id; // those who sleep under it think the better of whoever mended it (ADR-0027)
                 c.Carrying = null;
                 int sound = w.Map.Roof.FindAll(r => r.Sound).Count;
                 SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.roof_repaired", new[] { c.Id }, new[] { j.CauseEvent },
