@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 # Headless soak: runs N worlds for M years and writes story logs.
-# Usage: tools/soak --worlds 100 --years 1 --out out/soak [--parallel 8]
+# Usage: tools/soak --worlds 100 --years 1 --out out/soak [--parallel 8] [--plan none|beds|camp|mixed]
 set -euo pipefail
 exec dotnet run -c Release --project "$(dirname "$0")/Return.Runner" -- soak "$@"

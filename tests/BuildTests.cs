@@ -319,6 +319,65 @@ public class BuildTests
         Assert.Contains(bp.PlanEvent, felled.Causes);
     }
 
+    /// <summary>A roof promise open on someone's account: the debt the joining would have made, without the arrival.</summary>
+    private static Debt PromiseRoof(World w, Character debtor, Character creditor)
+    {
+        SimEvent formed = w.Log.Emit(w, SystemTag.Social, "event.social.promised_rest", new[] { debtor.Id, creditor.Id }, Array.Empty<long>());
+        var d = new Debt
+        {
+            Id = w.NewId(), DebtorId = debtor.Id, CreditorId = creditor.Id, Kind = DebtKind.PromiseRest, Weight = 1,
+            FormedEvent = formed.Id, FormedTick = w.Tick, DueTick = w.Tick + 48L * w.Content.World.TicksPerHour, Status = DebtStatus.Open,
+        };
+        w.Debts.Add(d);
+        return d;
+    }
+
+    /// <summary>While a roof promise is open, deliverers leave a roof section's timber in stock; above it, they deliver.</summary>
+    [Fact]
+    public void DeliverersLeaveTheRoofsTimberWhileARoofPromiseIsOpen()
+    {
+        World w = WorkTests.Only(1, "mira", "ilex");
+        Character mira = Cast(w, "mira");
+        Works(mira, ("haul", 1));
+        Works(Cast(w, "ilex")); // nobody mends the roof meanwhile
+        PromiseRoof(w, Cast(w, "you"), Cast(w, "ilex"));
+        int reserve = w.Content.WorkById("repair_roof").TimberCost;
+        SetTimber(w, reserve);
+        Blueprint wall = Plan(w, "wall", Tile(BuildPlanTests.Yard(w))).Single();
+        Assert.Null(Building.DeliverJob(w, mira));
+        SetTimber(w, reserve + 1);
+        Assert.Equal(JobKind.Deliver, Building.DeliverJob(w, mira)?.Kind);
+        Run(w, 3_000, () => wall.Delivered == 1);
+        Assert.Equal(1, wall.Delivered);
+        Assert.Equal(reserve, Stock.Count(w, "timber"));
+        Assert.DoesNotContain(w.Log.All, e => e.Key == "event.work.used_last_materials"); // a deliverer leaves it, so nobody is passed over
+    }
+
+    /// <summary>An Oathbound debtor of a promised roof raises a planned section when there is nothing to mend; the new section keeps the promise.</summary>
+    [Fact]
+    public void AnOathboundDebtorRaisesAPlannedRoofAndKeepsTheirPromise()
+    {
+        World w = WorkTests.Only(1, "oren", "ilex");
+        Character oren = Cast(w, "oren"), ilex = Cast(w, "ilex");
+        Works(oren); // no work at all: only the promise moves him
+        Works(ilex);
+        foreach (RoofSection r in w.Map.Roof) r.Sound = true; // nothing left to mend
+        Debt promise = PromiseRoof(w, oren, ilex);
+        SetTimber(w, 3);
+        Rect s = w.Map.Shelter;
+        Blueprint roof = Plan(w, "roof", new Rect(s.X + 1, s.Y + s.H, 2, 2)).Single(); // just south of the old shelter, held up by its wall
+        Job? job = JobPicker.Choose(w, oren);
+        Assert.Equal((JobKind.Build, roof.Id, promise.FormedEvent), (job?.Kind, job?.TargetId, job?.CauseEvent));
+
+        Run(w, 4_000, () => promise.Status != DebtStatus.Open);
+        Assert.Equal(DebtStatus.Repaid, promise.Status);
+        RoofSection raised = w.Map.Roof.Single(r => r.Id == roof.Id);
+        SimEvent kept = w.Log.Get(promise.ClosedEvent)!;
+        Assert.Equal("event.social.promise_kept", kept.Key);
+        Assert.Contains(raised.BuiltEvent, kept.Causes);
+        Assert.Contains(promise.FormedEvent, w.Log.Get(raised.BuiltEvent)!.Causes); // the section cites the promise it keeps
+    }
+
     [Fact]
     public void AGenerousPersonWillNotTakeTheLastTimberSomeoneIsCountingOn()
     {
