@@ -190,7 +190,7 @@ public static partial class StateApi
         int watcherId = w.Watch.WatcherId;
         long since = w.Log.Get(w.Watch.TurnEvent)?.Tick ?? 0;
         string now = watcherId != 0
-            ? loc.Format("schedule.watch.now", Kv(("a", EventText.Name(w, watcherId)), ("since", EventText.Hour(w, Calendar.Hour(since, w.Content.World)))))
+            ? loc.Format("schedule.watch.now", Kv(("a", EventText.Name(w, watcherId)), ("since", EventText.Clock(w, since))))
             : loc.Get("schedule.watch.nobody_now");
 
         // While the watch hours run, the hours already lived belong to tonight; the strips still hold last night's only for the rest.

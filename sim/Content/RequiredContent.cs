@@ -169,7 +169,7 @@ public static class RequiredContent
     public static readonly IReadOnlyList<string> ScheduleText = new[]
     {
         "block.sleep", "block.work", "block.free", "block.sleep_hint", "block.work_hint", "block.free_hint",
-        "time.hour", "job.wake_for_watch", "debt.watch",
+        "time.hour", "time.clock", "job.wake_for_watch", "debt.watch",
         "event.world.camp_day", "event.world.watch_hours", "event.world.watch_hours_zero",
         "event.world.person_day", "event.world.person_day_you_a", "event.world.person_day_reset", "event.world.person_day_reset_you_a",
         "event.social.declined_day_own_way", "event.social.declined_day_dislike", "event.social.declined_day_mood", "event.social.declined_day_ways",

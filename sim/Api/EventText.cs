@@ -122,6 +122,17 @@ public static class EventText
     public static string Hour(World w, int hour) =>
         w.Content.Loc.Format("time.hour", new[] { new KeyValuePair<string, string>("h", hour.ToString("00", Inv)) });
 
+    /// <summary>The time of day a tick fell at, to the minute: time.clock with the hour and minute as two digits ("23:48").</summary>
+    public static string Clock(World w, long tick)
+    {
+        WorldDef def = w.Content.World;
+        return w.Content.Loc.Format("time.clock", new[]
+        {
+            new KeyValuePair<string, string>("h", Calendar.Hour(tick, def).ToString("00", Inv)),
+            new KeyValuePair<string, string>("m", Calendar.Minute(tick, def).ToString("00", Inv)),
+        });
+    }
+
     public static string Name(World w, int id)
     {
         Character? c = w.Find(id);

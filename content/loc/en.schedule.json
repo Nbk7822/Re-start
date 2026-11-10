@@ -12,6 +12,7 @@
   "block.work_hint": "Needs first, then work by priority",
   "block.free_hint": "Needs first and urgent help; no ordinary work; company and the fire",
   "time.hour": "{h}:00",
+  "time.clock": "{h}:{m}",
   "job.wake_for_watch": "Waking someone for the watch",
   "debt.watch": "a watch kept for them",
   "thought.overworked": "Worked too long",
