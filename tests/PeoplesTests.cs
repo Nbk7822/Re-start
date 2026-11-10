@@ -197,10 +197,9 @@ public class PeoplesTests
             World a = WorldGen.Create(TestContent.Db, seed), b = WorldGen.Create(TestContent.Db, seed);
             int bond = NatureNeeds.Get(Cast(a, "dryope"), Forest.NeedId)!.BondId;
             Assert.Equal(bond, NatureNeeds.Get(Cast(b, "dryope"), Forest.NeedId)!.BondId);
-            Tree tree = Forest.TreeById(a, bond)!;
-            int closer = a.Map.Trees.Count(t => t.Pos.ChebyshevTo(a.Map.Hearth) < tree.Pos.ChebyshevTo(a.Map.Hearth));
             var def = TestContent.Db.NeedById(Forest.NeedId);
-            Assert.InRange(closer, 0, def.Param("bondSkipNearest") + def.Param("bondCandidates"));
+            List<int> ranked = a.Map.Trees.OrderBy(t => t.Pos.ChebyshevTo(a.Map.Hearth)).ThenBy(t => t.Id).Select(t => t.Id).ToList();
+            Assert.InRange(ranked.IndexOf(bond), def.Param("bondSkipNearest"), def.Param("bondSkipNearest") + def.Param("bondCandidates") - 1);
         }
     }
 
@@ -419,9 +418,9 @@ public class PeoplesTests
     [Fact]
     public void TheProudWillNotStrikeABargainTheCampCannotPay()
     {
-        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "hollis");
+        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "hollis", "mira");
         World w = s.World;
-        Character hollis = Cast(w, "hollis");
+        Character hollis = Cast(w, "hollis"), mira = Cast(w, "mira");
         Relations.ChangeOpinion(w, hollis, qamar.Id, 50, 0);
         Stock.Take(w, "timber", 99);
         Assert.Equal("event.social.bargain_refused_unsafe", Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
@@ -430,7 +429,9 @@ public class PeoplesTests
         Relations.ChangeOpinion(w, hollis, qamar.Id, -50, 0);
         Assert.Equal("event.social.bargain_refused", Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
 
-        // Turned down, the djinn waits a while before it asks anyone again.
+        // Turned down, the djinn waits a while before it asks anyone again, though Mira would say yes.
+        Relations.ChangeOpinion(w, qamar, hollis.Id, 20, 0); // it asks Hollis first
+        Relations.ChangeOpinion(w, mira, qamar.Id, 60, 0);
         need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow - 1;
         w.Tick = Hours(w, 10);
         RunWork(w, 3_000, () => w.Log.All.Any(e => e.Key == "event.social.bargain_refused"));
@@ -441,6 +442,9 @@ public class PeoplesTests
         qamar.Job = null;
         Assert.NotEqual(JobKind.OfferBargain, JobPicker.Choose(w, qamar)?.Kind);
         Assert.Empty(w.Contracts);
+        w.Tick += Hours(w, w.Content.NeedById(Bargains.NeedId).Param("offerCooldownHours") + 1);
+        Job? next = JobPicker.Choose(w, qamar);
+        Assert.Equal((JobKind.OfferBargain, mira.Id), (next?.Kind, next?.TargetId)); // and never Hollis again so soon
     }
 
     /// <summary>The djinn's chain: restless -> offers -> struck -> no berries at dawn in winter -> broken -> a grudge against the patron.</summary>
@@ -490,7 +494,6 @@ public class PeoplesTests
         w.Tick = Hours(w, 10);
         Contract k = Struck(w, qamar);
         Stock.Add(w, "timber", 30, w.Map.Stockpile.Center);
-        int timber = Stock.Count(w, "timber");
         long paidBefore = w.Log.All.Count(e => e.Key == "event.social.bargain_paid");
         s.Advance(k.EndsTick - w.Tick + Hours(w, 1));
         Assert.Equal(ContractStatus.Kept, k.Status);
