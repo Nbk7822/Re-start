@@ -69,6 +69,9 @@ public static class JobPicker
             if (care != null) return care;
         }
 
+        Job? repay = Culture.Honour.RepayJob(w, c, sunBlocked); // a debt of honour, when the creditor goes hungry (ADR-0023)
+        if (repay != null) return repay;
+
         if (sp.CanDonateBlood && c.Health > 800 && (Traits.Any(w, c, t => t.OffersBlood) || Culture.Ways.BloodOffer(w, c) != null))
         {
             Character? vampire = BloodJobs.NeedyVampire(w, c);
