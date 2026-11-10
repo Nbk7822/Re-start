@@ -51,6 +51,7 @@ public sealed class Simulation
         ApplyDueCommands(w);
         TravelSystem.Step(w);
         CombatSystem.Step(w);
+        if (w.Tick % WatchSystem.StepEveryTicks == 0) WatchSystem.Step(w); // turns and handovers, before work (ADR-0029)
         WorkSystem.Step(w);
         if (w.Tick % def.SocialEveryTicks == 0) SocialSystem.Step(w);
         if (w.Tick % def.TicksPerHour == 0)

@@ -66,6 +66,9 @@ public sealed class WatchRefusal
     public int RefuserId { get; set; }
     public long Event { get; set; }
     public bool Sympathetic { get; set; }
+
+    /// <summary>Already answered: kept in their place, or held against them by whoever kept the turn.</summary>
+    public bool Settled { get; set; }
 }
 
 /// <summary>

@@ -44,11 +44,15 @@ public static class JobPicker
         Job? guest = Culture.Hospitality.GuestJob(w, c, sunBlocked);
         if (guest != null) return guest;
 
+        // In their sleeping hours only the hunger that would wake them sends them out to forage or ask for blood (ADR-0029);
+        // short of that they eat what is in the stores, if anything, and go back to bed.
+        DayBlock block = ScheduleSystem.BlockNow(w, c);
+        bool roused = !(sp.Tires && block == DayBlock.Sleep) || c.Food < NeedsSystem.StarvingBelow || c.Food < Traits.Max(w, c, t => t.StealFoodBelow);
         if (c.Food < NeedsSystem.HungryBelow)
         {
             if (sp.DrinksBlood && !BloodJobs.RecentlyRebuffed(w, c))
             {
-                Character? donor = BloodJobs.PickDonor(w, c);
+                Character? donor = roused ? BloodJobs.PickDonor(w, c) : null;
                 if (donor != null && !(sunBlocked && !w.Map.Covered(donor.Pos)))
                     return new Job { Kind = JobKind.RequestBlood, TargetId = donor.Id, Target = donor.Pos, CauseEvent = c.LastFoodEvent };
             }
@@ -56,7 +60,7 @@ public static class JobPicker
             {
                 Job? eat = EatJob(w, c, allowTheft: true);
                 if (eat != null) return eat;
-                Job? forage = ForageJob(w, c);
+                Job? forage = roused ? ForageJob(w, c) : null;
                 if (forage != null) return forage;
             }
         }
@@ -69,7 +73,6 @@ public static class JobPicker
         // The injured lie down to sleep; those who never tire never sleep (the undead), and mend on their feet.
         if (c.Health < InjuredBelow && sp.Tires) return SleepJob(w, c);
         // In their sleeping hours everyone who tires goes to bed (ADR-0029); exhaustion sends them in any hours.
-        DayBlock block = ScheduleSystem.BlockNow(w, c);
         int restAt = 200 + Traits.Sum(w, c, t => t.RestThresholdAdd);
         if (sp.Tires && (c.Rest < restAt || block == DayBlock.Sleep)) return SleepJob(w, c);
 
@@ -247,7 +250,7 @@ public static class JobPicker
     private static Job? WorkJob(World w, Character c, bool sunBlocked)
     {
         int respect = Traits.ScalePct(w, c, t => t.PriorityRespectPct);
-        bool fragile = c.Health < Traits.Max(w, c, t => t.RiskyWorkHealthBelow);
+        bool fragile = c.Health < Traits.Max(w, c, t => t.RiskyWorkHealthBelow) || c.Rest < Traits.Max(w, c, t => t.RiskyWorkRestBelow);
         List<string> refused = Places.Species(w, c).RefusesWork;
         Job? best = null;
         int bestScore = int.MaxValue;
@@ -311,12 +314,8 @@ public static class JobPicker
                 return null;
             }
             case "keep_watch":
-            {
-                if (Places.Daylight(w) || sunBlocked || (Places.SomeoneOnWatch(w, c.Id) && !Purpose.Seeks(w, c, workId))) return null;
-                if (c.Health < Traits.Max(w, c, t => t.FleeHealthBelow)) return null;
-                Point post = w.Map.Passable(w.Map.WatchPost) ? w.Map.WatchPost : Places.Adjacent(w, w.Map.WatchPost, c.Pos);
-                return post == Point.None ? null : new Job { Kind = JobKind.KeepWatch, Target = post };
-            }
+                // The WatchSystem hands out the watch in turns (ADR-0029); this priority now says who is asked first.
+                return null;
             default:
                 return null;
         }

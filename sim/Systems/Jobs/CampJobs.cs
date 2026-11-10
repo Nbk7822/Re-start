@@ -4,7 +4,7 @@ using Return.Sim.Events;
 
 namespace Return.Sim.Systems.Jobs;
 
-/// <summary>Camp work: foraging, felling timber, hauling, repairing the shelter roof, keeping watch.</summary>
+/// <summary>Camp work: foraging, felling timber, hauling, repairing the shelter roof. The watch is WatchJobs'.</summary>
 public static class CampJobs
 {
     public static bool Forage(World w, Character c, Job j)
@@ -131,19 +131,5 @@ public static class CampJobs
                 return true;
             }
         }
-    }
-
-    public static bool KeepWatch(World w, Character c, Job j)
-    {
-        if (j.Stage == 0)
-        {
-            if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
-            j.Stage = 1;
-            c.Facing = Facing.S;
-            return false;
-        }
-        j.Progress++;
-        bool sun = Places.BurnsInDaylight(w, c) ? Places.SunDanger(w) : Places.Daylight(w);
-        return sun || c.Rest < 120 || c.Food < NeedsSystem.StarvingBelow;
     }
 }

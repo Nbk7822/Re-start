@@ -175,13 +175,18 @@ public static class CombatSystem
         if (n > 0)
         {
             // Never spotted with someone at the post: the pile lay out of the watch's sight. Where the player
-            // put that stockpile is then a cause (the camp's first stockpile was nobody's choice).
+            // put that stockpile is then a cause (the camp's first stockpile was nobody's choice). With nobody at the
+            // post in the watch hours, whatever left it empty is a cause (ADR-0029); with no watch kept at all, only the thief.
             Character? watcher = thief.Job.Stage == 0 ? WatcherAtPost(w) : null;
-            SimEvent stolen = watcher == null
-                ? w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen", new[] { thief.Id }, new[] { cause }, null,
-                    EventArg.Num("n", n), EventArg.Item("item", "berries"))
-                : w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen_unseen", new[] { thief.Id }, new[] { cause, zone?.MadeEvent ?? 0 }, null,
-                    EventArg.Num("n", n), EventArg.Item("item", "berries"), EventArg.Char("b", watcher.Id));
+            long gap = watcher == null && ScheduleSystem.InWatchHours(w, Calendar.Hour(w.Tick, w.Content.World)) ? w.Watch.GapEvent : 0;
+            SimEvent stolen = watcher != null
+                ? w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen_unseen", new[] { thief.Id }, new[] { cause, zone?.MadeEvent ?? 0 }, null,
+                    EventArg.Num("n", n), EventArg.Item("item", "berries"), EventArg.Char("b", watcher.Id))
+                : gap != 0
+                    ? w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen_unwatched", new[] { thief.Id }, new[] { cause, gap }, null,
+                        EventArg.Num("n", n), EventArg.Item("item", "berries"))
+                    : w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen", new[] { thief.Id }, new[] { cause }, null,
+                        EventArg.Num("n", n), EventArg.Item("item", "berries"));
             foreach (Character m in w.Members())
             {
                 MoodSystem.AddThought(w, m, "robbed", 0, stolen.Id);

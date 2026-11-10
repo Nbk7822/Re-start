@@ -149,13 +149,6 @@ public static class Places
         return false;
     }
 
-    public static bool SomeoneOnWatch(World w, int exceptId = 0)
-    {
-        foreach (Character o in w.Characters)
-            if (o.Id != exceptId && o.Status == CharStatus.Member && o.Job is { Kind: JobKind.KeepWatch }) return true;
-        return false;
-    }
-
     /// <summary>Where the oldest stored stack of this item lies (in a stockpile, or waiting to be carried to one), or Point.None.</summary>
     public static Point FoodTile(World w, string defId)
     {

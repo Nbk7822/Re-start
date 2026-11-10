@@ -44,6 +44,7 @@ public class WorkTests
         Stock.Take(w, "berries", 99);
         Character you = Cast(w, "you");
         you.Food = 250;
+        w.Tick = 10L * w.Content.World.TicksPerHour; // in waking hours; at night only real hunger sends anyone out (ADR-0029)
         Job? job = JobPicker.Choose(w, you);
         Assert.Equal(JobKind.Forage, job?.Kind);
     }
@@ -161,12 +162,21 @@ public class WorkTests
         Assert.Contains(SystemTag.Social, story.Systems);
     }
 
+    /// <summary>At a watch hour one awake, willing person is sent to the post within one WatchSystem step; the job picker never sends anyone (ADR-0029).</summary>
     [Fact]
     public void WatchAtNight()
     {
         World w = Only(1, "vale");
+        Character vale = Cast(w, "vale");
         w.Tick = 22 * w.Content.World.TicksPerHour;
-        Assert.Equal(JobKind.KeepWatch, JobPicker.Choose(w, Cast(w, "vale"))?.Kind);
+        Assert.NotEqual(JobKind.KeepWatch, JobPicker.Choose(w, vale)?.Kind);
+        vale.Job = null;
+        WatchSystem.Step(w);
+        Assert.Equal(JobKind.KeepWatch, vale.Job?.Kind);
+        Assert.Equal(vale.Id, w.Watch.IncomingId);
+        Run(w, 600, () => w.Watch.WatcherId == vale.Id);
+        Assert.Equal(vale.Id, w.Watch.WatcherId);
+        Assert.Contains(w.Log.All, e => e.Key == "event.work.took_watch" && e.Actors[0] == vale.Id);
     }
 
     [Fact]

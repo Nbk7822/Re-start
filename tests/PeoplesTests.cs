@@ -491,6 +491,9 @@ public class PeoplesTests
         (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "you");
         World w = s.World;
         Character you = Cast(w, "you");
+        // You are never woken for the watch here: on seed 1 you come to bear Cindral a grudge, would not get up for them,
+        // and the refusal sours Cindral into leaving (a story of the watch, ADR-0029, not the bargain this test follows).
+        you.Priorities.Find(p => p.WorkId == "keep_watch")!.Priority = 0;
         need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow - 1;
         w.Tick = Hours(w, 10);
         Contract k = Struck(w, qamar);

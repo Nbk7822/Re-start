@@ -5,7 +5,9 @@ namespace Return.Sim.Systems;
 
 /// <summary>
 /// Each tick: interrupt jobs that have become wrong (a vampire caught by the sun, someone starving),
-/// give idle members a job from <see cref="JobPicker"/>, and advance every job one tick.
+/// give idle members a job from <see cref="JobPicker"/>, and advance every job one tick. A change of hours
+/// never interrupts a job in hand (ADR-0029): the next choice follows the new day; that is what keeps the
+/// schedule an intention rather than an order. The watch is ended only by the WatchSystem.
 /// </summary>
 public static class WorkSystem
 {
@@ -73,6 +75,8 @@ public static class WorkSystem
         if (j.Kind is JobKind.Arrive or JobKind.Fight or JobKind.Flee or JobKind.Rescue) return false;
         if (Places.BurnsInDaylight(w, c) && Places.SunDanger(w) && !w.Map.Covered(c.Pos) && j.Kind != JobKind.SeekCover)
             return true;
+        // The watch is the WatchSystem's to end, with a line that says why (leaving for food, asleep at the post; ADR-0029).
+        if (j.Kind is JobKind.KeepWatch or JobKind.WakeForWatch) return false;
         if (c.Food < NeedsSystem.StarvingBelow && j.Kind is not (JobKind.Eat or JobKind.RequestBlood or JobKind.GiveBlood or JobKind.Sleep or JobKind.Forage))
             return true;
         return c.Rest < 60 && Places.Tires(w, c) && j.Kind is not (JobKind.Sleep or JobKind.Eat or JobKind.SeekCover or JobKind.RequestBlood or JobKind.GiveBlood);
