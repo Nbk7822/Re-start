@@ -142,6 +142,42 @@ public class GiftTests
         Assert.Equal(1, w.Fate.GiftMastery);
     }
 
+    /// <summary>
+    /// Someone berries cannot feed keeps no reserve for themselves: under "keep" their satchel stays empty and the forage
+    /// goes to the stores (it would only be the camp's food gone where nobody eats it); under "share" it fills, to share.
+    /// </summary>
+    [Fact]
+    public void ASatchelKeepsNoReserveForSomeoneBerriesCannotFeed()
+    {
+        foreach (string people in new[] { "vampire", "djinn" })
+        {
+            var sim = Simulation.Create(TestContent.Rolled, 3, new RebirthChoice(people, Gifts.SatchelId));
+            World w = sim.World;
+            Character you = You(w);
+            void Forage()
+            {
+                you.Carrying = new Carry { DefId = "berries", Count = 3 };
+                SimEvent e = w.Log.Emit(w, SystemTag.Work, "event.work.foraged", new[] { you.Id }, Array.Empty<long>(), null,
+                    EventArg.Char("a", you.Id), EventArg.Num("n", 3), EventArg.Item("item", "berries"));
+                Gifts.Foraged(w, you, e);
+            }
+            Forage();
+            Assert.True(w.Fate.GiftAwakened); // the first forage still wakes it
+            Assert.Equal(0, w.Gift.Held);
+            Assert.Equal(3, you.Carrying!.Count); // all of it on its way to the stores
+            new SetStandingOrder(w.Tick, "gift.satchel", Satchel.Share).Apply(w);
+            Forage();
+            Assert.Equal(3, w.Gift.Held);
+        }
+        // Someone berries feed keeps a reserve as before.
+        var human = Simulation.Create(TestContent.Rolled, 3, new RebirthChoice("human", Gifts.SatchelId));
+        Character h = You(human.World);
+        h.Carrying = new Carry { DefId = "berries", Count = 3 };
+        Gifts.Foraged(human.World, h, human.World.Log.Emit(human.World, SystemTag.Work, "event.work.foraged", new[] { h.Id }, Array.Empty<long>(), null,
+            EventArg.Char("a", h.Id), EventArg.Num("n", 3), EventArg.Item("item", "berries")));
+        Assert.Equal(3, human.World.Gift.Held);
+    }
+
     [Fact]
     public void NoThiefOrRotReachesTheSatchelAndTheRationsDoNotCountIt()
     {

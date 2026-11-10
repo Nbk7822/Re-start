@@ -7,7 +7,8 @@ namespace Return.Sim.Systems;
 /// <summary>
 /// Bottomless satchel (the item box of isekai; the player design §4.4): a store only you can reach. Nothing in it
 /// spoils, no thief reaches it, and the ration policy does not count it. You fill it when you forage (unless your
-/// order is to keep nothing back) and eat from it first when hungry, so the policy cannot leave you out; under "share"
+/// order is to keep nothing back, or berries cannot feed you and there is nobody to keep them for) and eat from it first
+/// when hungry, so the policy cannot leave you out; under "share"
 /// you take a meal from it to anyone starving, and they owe you. It is seen: someone going hungry who watches you eat
 /// from nowhere resents it, and repeated sightings harden into a grudge; anyone else's first sighting in a timeline
 /// unsettles them. It wakes on your first forage (by Day 2 in a dream) and grows each time a meal from it lifts
@@ -29,12 +30,16 @@ public static class Satchel
         GiftDef g = Gifts.Held(w)!;
         if (!w.Fate.GiftAwakened) Gifts.Awaken(w, forage.Id, dream: false);
         if (you.Carrying is not { DefId: "berries" } carry) return;
-        if (Choice(w, g) == Empty)
+        string choice = Choice(w, g);
+        if (choice == Empty)
         {
             carry.Count += w.Gift.Held;
             w.Gift.Held = 0;
             return;
         }
+        // A reserve for yourself is nothing to someone berries cannot feed (a vampire, the undead, a dryad, a djinn): kept
+        // back, it would only be the camp's food gone where nobody can eat it. Their satchel fills only to share.
+        if (choice == Keep && Places.Species(w, you).FoodSource != "berries") return;
         int n = Math.Min(Capacity(w, g) - w.Gift.Held, carry.Count);
         if (n <= 0) return;
         carry.Count -= n;
