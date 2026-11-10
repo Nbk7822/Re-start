@@ -817,8 +817,8 @@ public class GameViewTests
         Assert.Empty(On(gore, oren)); // hunger leaves no mark on the living dead's neighbours
     }
 
-    /// <summary>The first blow a cast member takes in a fight in the first year of a seed: when, and where they stood.</summary>
-    private static (long Tick, Return.Sim.Core.Point At) FirstBlowTo(ulong seed, string key)
+    /// <summary>The first blow a cast member takes in a fight in the first year of a seed: when, and where they stood; null if none.</summary>
+    private static (long Tick, Return.Sim.Core.Point At)? FirstBlowTo(ulong seed, string key)
     {
         Simulation sim = Simulation.Create(Content, seed);
         World w = sim.World;
@@ -830,16 +830,24 @@ public class GameViewTests
             if (c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight } && before - c.Health >= GoreLog.BlowDamage) return (w.Tick, c.Pos);
             before = c.Health;
         }
-        throw new InvalidOperationException($"{key} takes no blow in a fight in seed {seed}'s first year");
+        return null;
+    }
+
+    /// <summary>The first seed from <paramref name="from"/> in which the cast member takes a blow in a fight, with that blow.</summary>
+    private static (ulong Seed, long Tick, Return.Sim.Core.Point At) FirstSeedWithBlowTo(string key, ulong from)
+    {
+        for (ulong seed = from; seed < from + 40; seed++)
+            if (FirstBlowTo(seed, key) is { } blow) return (seed, blow.Tick, blow.At);
+        throw new InvalidOperationException($"{key} takes no blow in a fight in the first year of seeds {from} to {from + 39}");
     }
 
     [Fact]
     public void TheUndeadOnWatchGiveDustWhereTheThiefStrikesThem()
     {
-        // Seed 10: Ketil, bound by their nature to keep watch, meets the night thief (Day 25 when this was
-        // written; found from the sim, so the test follows the history). The thief bleeds; Ketil gives dust.
-        (long blow, Return.Sim.Core.Point at) = FirstBlowTo(10, "ketil");
-        Simulation watched = Simulation.Create(Content, 10), plain = Simulation.Create(Content, 10);
+        // Ketil meets the night thief and is struck (seed 10, Day 25 when this was written; the seed and the
+        // blow are found from the sim, so the test follows the history). The thief bleeds; Ketil gives dust.
+        (ulong seed, long blow, Return.Sim.Core.Point at) = FirstSeedWithBlowTo("ketil", 10);
+        Simulation watched = Simulation.Create(Content, seed), plain = Simulation.Create(Content, seed);
         watched.Advance(blow - 200);
         plain.Advance(blow - 200);
         var gore = new GoreLog();

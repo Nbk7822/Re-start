@@ -117,6 +117,19 @@ public static class Bargains
         return n * days;
     }
 
+    /// <summary>
+    /// How much of an item this person's own open bargains want kept in store. The bound party serves and
+    /// the camp pays: a djinn does not gather its own price (it used to fell the trees for its own timber,
+    /// and was the one who most often brought down a dryad's tree).
+    /// </summary>
+    public static int OwnDemand(World w, Character c, string item)
+    {
+        int n = 0;
+        foreach (Contract k in w.Contracts)
+            if (k.Status == ContractStatus.Open && k.BoundId == c.Id && k.PriceItem == item) n += k.PriceAmount;
+        return n == 0 ? 0 : n * w.Content.NeedById(NeedId).Param("reserveDays");
+    }
+
     /// <summary>The loc key of a service a bargain offers ("keep the night watch"); ContentDb checks one exists for every service a need can offer.</summary>
     public static string ServiceKey(string work) => "bargain.service." + work;
 

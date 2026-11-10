@@ -526,6 +526,39 @@ public class PeoplesTests
         Assert.Equal(new[] { struck.Id, felled.Id }, StoryEndingAt(w, g.FormedEvent).Chain.Take(2));
     }
 
+    /// <summary>The djinn serves and the camp pays: bound to be paid in timber, the djinn leaves the felling to the others.</summary>
+    [Fact]
+    public void ADjinnDoesNotGatherItsOwnPrice()
+    {
+        World w = WorkTests.Only(1, "qamar", "oren");
+        Character qamar = Cast(w, "qamar"), oren = Cast(w, "oren");
+        foreach (RoofSection r in w.Map.Roof) r.Sound = true;
+        Stock.Take(w, "timber", 99);
+        foreach (Character c in new[] { qamar, oren })
+        {
+            c.Priorities.RemoveAll(p => p.WorkId != "gather_timber");
+            c.Priorities.Add(new WorkPriority { WorkId = "forage", Priority = 0 });
+            c.Priorities.Add(new WorkPriority { WorkId = "haul", Priority = 0 });
+            c.Priorities.Add(new WorkPriority { WorkId = "keep_watch", Priority = 0 });
+            c.Priorities.Add(new WorkPriority { WorkId = "care", Priority = 0 });
+            c.Priorities.Add(new WorkPriority { WorkId = "repair_roof", Priority = 0 });
+        }
+        SimEvent struck = w.Log.Emit(w, SystemTag.Social, "event.social.bargain_struck", new[] { qamar.Id, oren.Id }, Array.Empty<long>());
+        w.Contracts.Add(new Contract
+        {
+            Id = w.NewId(), BoundId = qamar.Id, PatronId = oren.Id, ServiceWork = "keep_watch", PriceItem = "timber", PriceAmount = 1,
+            FormedEvent = struck.Id, NextDueTick = Hours(w, 30), EndsTick = Hours(w, 200), Status = ContractStatus.Open,
+        });
+        w.Tick = Hours(w, 10);
+        Assert.True(Places.TimberNeeded(w) > 0);
+        Assert.Equal(JobKind.GatherTimber, JobPicker.Choose(w, oren)?.Kind);
+        Assert.NotEqual(JobKind.GatherTimber, JobPicker.Choose(w, qamar)?.Kind);
+
+        // The roof wanting timber is the camp's need, and the djinn helps with that like anyone.
+        w.Map.Roof[0].Sound = false;
+        Assert.Equal(JobKind.GatherTimber, JobPicker.Choose(w, qamar)?.Kind);
+    }
+
     [Fact]
     public void AWrongedDjinnLeftUnboundLetsTheFireLooseOnceAndThenLeaves()
     {

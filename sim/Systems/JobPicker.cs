@@ -260,7 +260,8 @@ public static class JobPicker
             }
             case "gather_timber":
             {
-                if (sunBlocked || Places.TimberNeeded(w) <= 0) return null;
+                // A djinn does not fell trees for its own price: the camp pays it (ADR-0022).
+                if (sunBlocked || Places.TimberNeeded(w) - Bargains.OwnDemand(w, c, "timber") <= 0) return null;
                 Tree? tree = Places.StandingTree(w, c.Pos, c);
                 if (tree == null) return null;
                 // The timber is wanted for a promised roof, else for a bargain's price (ADR-0022).
@@ -270,7 +271,7 @@ public static class JobPicker
             }
             case "forage":
             {
-                int enough = 2 * Places.Eaters(w, "berries") + Bargains.Demand(w, "berries");
+                int enough = 2 * Places.Eaters(w, "berries") + Bargains.Demand(w, "berries") - Bargains.OwnDemand(w, c, "berries");
                 if (sunBlocked || (Stock.Count(w, "berries") >= enough && !Purpose.Seeks(w, c, workId))) return null;
                 return ForageJob(w, c);
             }
