@@ -228,19 +228,21 @@ public sealed class WorldArt
         else
             foreach ((int y, int x0, int x1) in _waterRows) b.Rect(x0 * T, y * T, (x1 - x0) * T, T, Palette.River);
 
-        // Rock outcrops, the stockpile's marked ground, bedrolls.
+        // Rock outcrops and bedrolls. Zones (the stockpile's dashed edge among them) are drawn every frame by MapView.
         for (int y = 0; y < _m.Height; y++)
             for (int x = 0; x < _m.Width; x++)
                 if (KindAt(x, y) == TerrainKind.Rock) Boulder(b, x, y);
-        DashedRect(b, TilesRect(_m.StartStockpile).Grow(-2f), new Color(0.78f, 0.7f, 0.5f, 0.45f), 1.2f, 5f);
         foreach (Bed bed in _m.Beds) Bedroll(b, bed.Pos);
     }
 
+    /// <summary>The grid's darkness by default, and while a zone is being marked (ADR-0028).</summary>
+    public const float GridFaint = 0.13f, GridMarking = 0.3f;
+
     /// <summary>A faint square grid (ADR-0008), drawn over the ground every frame so it stays crisp at any zoom.</summary>
-    public void DrawGrid(Brush b)
+    public void DrawGrid(Brush b, float alpha = GridFaint)
     {
         float mapW = _m.Width * T, mapH = _m.Height * T;
-        var grid = new Color(0f, 0f, 0f, 0.13f);
+        var grid = new Color(0f, 0f, 0f, alpha);
         for (int x = 0; x <= _m.Width; x++) b.Line(x * T, 0f, x * T, mapH, grid, 1f);
         for (int y = 0; y <= _m.Height; y++) b.Line(0f, y * T, mapW, y * T, grid, 1f);
     }

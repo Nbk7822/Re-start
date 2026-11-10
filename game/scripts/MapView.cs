@@ -260,7 +260,13 @@ public partial class MapView : Node2D
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (_host == null || e is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
+        if (_host == null) return;
+        if (ZoneInput(e))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (_host.Tool.Active || e is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
         _host.Select(CharacterUnderMouse());
         GetViewport().SetInputAsHandled();
     }
@@ -376,9 +382,10 @@ public partial class MapView : Node2D
     {
         Map m = w.Map;
         float k = 1f - Mathf.Exp(-delta * 6f);
+        bool zones = _host!.ZonesShown; // roofs go see-through while zones are shown, so a stockpile under one can be seen (ADR-0028)
         for (int i = 0; i < m.Roof.Count && i < _roofAlpha.Length; i++)
-            _roofAlpha[i] = Mathf.Lerp(_roofAlpha[i], Occupied(w, m.Roof[i].Area) ? 0.3f : 0.94f, k);
-        _ruinAlpha = Mathf.Lerp(_ruinAlpha, Occupied(w, m.CoveredRuins) ? 0.32f : 0.95f, k);
+            _roofAlpha[i] = Mathf.Lerp(_roofAlpha[i], zones || Occupied(w, m.Roof[i].Area) ? 0.3f : 0.94f, k);
+        _ruinAlpha = Mathf.Lerp(_ruinAlpha, zones || Occupied(w, m.CoveredRuins) ? 0.32f : 0.95f, k);
     }
 
     private static bool Occupied(World w, Return.Sim.Core.Rect area)
@@ -493,7 +500,7 @@ public partial class MapView : Node2D
         if (_host == null) return;
         _paintWatch.Restart();
         _brush.Begin(layer, PixelsPerUnit(layer));
-        _art.DrawGrid(_brush);
+        _art.DrawGrid(_brush, _host.Tool.Active ? WorldArt.GridMarking : WorldArt.GridFaint); // darker while marking zones
         _art.DrawWater(_brush, _time, _host.World.Weather.Raining);
         _brush.End();
         _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
@@ -518,6 +525,7 @@ public partial class MapView : Node2D
         Gore.DrawDecals(_brush, _tex, _gore.Decals, w.Tick, def.TicksPerHour);
         _art.DrawGrass(_brush, _time, winter, raining ? 1.6f : 0.5f);
         if (raining) RainSplashes();
+        DrawZones(w); // stockpiles and meeting places, under everything that stands (ADR-0028)
 
         // Shadows first, all together (one texture, so one batch), then everything that stands, by depth.
         float shadowAlpha = 0.36f * (1f - 0.8f * _light.Night) * (raining ? 0.6f : 1f);
@@ -903,6 +911,7 @@ public partial class MapView : Node2D
         Glints(w);
         _brush.End(); // text is drawn directly, after everything batched
         Labels(w);
+        ZoneLabels(w);
         _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
     }
 

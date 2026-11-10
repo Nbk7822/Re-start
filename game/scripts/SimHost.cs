@@ -19,12 +19,15 @@ namespace Return.Game;
 ///   RETURN_SEED=n        world seed (default 1)
 ///   RETURN_TICKS=n       advance n ticks before the first frame
 ///   RETURN_SELECT=key    open the inspector for that cast key (e.g. "you")
-///   RETURN_OPEN=name     open a bar list at start: orders, work, people or chronicle
+///   RETURN_OPEN=name     open a bar list at start: orders, zones, work, people or chronicle
 ///   RETURN_PAUSE=1       start paused
 ///   RETURN_PRESS=list    after 1 s, press buttons as a player would, comma-separated:
 ///                        "policy:N" presses ration policy N in Orders (0-based: 0 = the hungriest
 ///                        eat first); "priority:R:V" picks value V (1–4, or 0 for never) in work
-///                        row R of the open inspector (0-based: 0 = the first kind of work)
+///                        row R of the open inspector (0-based: 0 = the first kind of work);
+///                        "zone:KIND:X:Y:W:H" picks a kind in Zones and drags a W×H box from tile
+///                        (X, Y) with the marking tool; "unzone:X:Y:W:H" does the same with Unmark;
+///                        "open:NAME" opens a bar list as its button would (orders, zones, work, ...)
 ///   RETURN_SCREENSHOT=p  save the window to PNG file p about 3 s after start, then quit
 /// </summary>
 public partial class SimHost : Node
@@ -58,6 +61,29 @@ public partial class SimHost : Node
 
     /// <summary>Choices made while paused, sent when time moves (see <see cref="OrderDrafts"/>).</summary>
     public OrderDrafts Drafts { get; } = new();
+
+    /// <summary>The zone marking tool (ADR-0028): which kind is being marked, and the box being dragged.</summary>
+    public ZoneTool Tool { get; } = new();
+
+    /// <summary>Zones are shown in full while their list is open or a marking tool is in hand.</summary>
+    public bool ZonesShown => Tool.Active || _bar.ZonesOpen;
+
+    /// <summary>Picks up the marking tool for a kind of zone (left clicks then mark, and stop selecting people).</summary>
+    public void StartZoneTool(string kind) => Tool.Start(kind);
+
+    /// <summary>Picks up the unmarking tool.</summary>
+    public void StartUnmark() => Tool.StartUnmark();
+
+    public void StopZoneTool() => Tool.Stop();
+
+    /// <summary>Ends a drag: its one change goes out through <see cref="Order"/>, as a draft while paused.</summary>
+    public void ReleaseZoneTool()
+    {
+        foreach (Command c in Tool.Release(World, Return.Sim.Systems.Zones.Preview(World, Drafts.All), NewZoneId, World.Tick)) Order(c);
+    }
+
+    /// <summary>A zone made now: 0 (a new zone) while time runs, a draft's own negative id while paused.</summary>
+    private int NewZoneId() => Clock.Paused ? Drafts.NewZoneId() : 0;
 
     /// <summary>
     /// The only way the view changes the world. While time runs, a choice is a tick-stamped command
@@ -144,7 +170,8 @@ public partial class SimHost : Node
                 SpeedChanged?.Invoke();
                 break;
             case Key.Escape:
-                if (!_bar.ClosePopups()) Select(0);
+                if (Tool.Active) StopZoneTool();
+                else if (!_bar.ClosePopups()) Select(0);
                 break;
             default:
                 int speed = SpeedForKey(key.Keycode);
@@ -215,6 +242,7 @@ public partial class SimHost : Node
     {
         foreach (string item in list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
+            if (PressZoneForCheck(item)) continue;
             string[] parts = item.Split(':');
             int[] n = new int[parts.Length - 1];
             bool numbers = parts.Length >= 2;
@@ -228,6 +256,39 @@ public partial class SimHost : Node
             };
             if (!ok) GD.PushWarning("Return: RETURN_PRESS could not press '" + item + "'.");
         }
+    }
+
+    /// <summary>
+    /// "zone:KIND:X:Y:W:H" or "unzone:X:Y:W:H": picks the tool in the Zones list through its button, then
+    /// drags the box through the same tool code the mouse uses. True when the item was one of these.
+    /// </summary>
+    private bool PressZoneForCheck(string item)
+    {
+        string[] parts = item.Split(':');
+        if (parts.Length == 2 && parts[0] == "open")
+        {
+            if (!_bar.Open(parts[1])) GD.PushWarning("Return: RETURN_PRESS names no bar list '" + parts[1] + "'.");
+            return true;
+        }
+        bool zone = parts.Length == 6 && parts[0] == "zone", unzone = parts.Length == 5 && parts[0] == "unzone";
+        if (!zone && !unzone) return false;
+        int first = zone ? 2 : 1;
+        int[] n = new int[4];
+        for (int i = 0; i < 4; i++)
+            if (!int.TryParse(parts[first + i], NumberStyles.Integer, CultureInfo.InvariantCulture, out n[i]) || (i >= 2 && n[i] < 1))
+            {
+                GD.PushWarning("Return: RETURN_PRESS could not press '" + item + "'.");
+                return true;
+            }
+        if (!_bar.PressZoneTool(zone ? parts[1] : null))
+        {
+            GD.PushWarning("Return: RETURN_PRESS found no zone tool for '" + item + "'.");
+            return true;
+        }
+        Tool.Press(new SimPoint(n[0], n[1]));
+        Tool.Move(new SimPoint(n[0] + n[2] - 1, n[1] + n[3] - 1));
+        ReleaseZoneTool();
+        return true;
     }
 
     private async void ScreenshotAndQuit(string path)
