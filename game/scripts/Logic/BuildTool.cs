@@ -315,7 +315,7 @@ public sealed class BuildTool
             case BuildMode.Place:
             {
                 if (pieces.Count == 0) return false;
-                CanPlaceState check = StateApi.CanPlace(w, BuildingId, pieces, OrderDrafts.Planned(w, drafts));
+                CanPlaceState check = StateApi.CanPlace(w, BuildingId, pieces, OrderDrafts.Planned(w, drafts), OrderDrafts.CallingOff(w, drafts));
                 if (OkCount(check) == 0) return false; // nothing could go: the hint said why; no trace
                 order(new PlaceBlueprint(w.Tick, BuildingId, pieces));
                 return true;
@@ -389,7 +389,7 @@ public sealed class BuildTool
     {
         if (w.Content.TryBuilding(BuildingId) is not { } def) return;
         string name = w.Content.Loc.Get(def.NameKey);
-        CanPlaceState check = StateApi.CanPlace(w, BuildingId, Pieces(w), OrderDrafts.Planned(w, drafts));
+        CanPlaceState check = StateApi.CanPlace(w, BuildingId, Pieces(w), OrderDrafts.Planned(w, drafts), OrderDrafts.CallingOff(w, drafts));
         int marked = OkCount(check);
         if (marked == 0) lines.Add(Ui.F("ui.build.hint_none", ("building", name)));
         else

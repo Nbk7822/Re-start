@@ -54,6 +54,11 @@ public class BuildApiTests
         Assert.Equal(Building.ReasonPlanned, clash.Pieces.Single().Tiles.Single().ReasonKey);
         Assert.True(StateApi.CanPlace(w, "roof", new[] { new Rect(yard.X, yard.Y + 1, 2, 2) }, new[] { new PlannedPiece("wall", Tile(yard)) }).Ok);
         Assert.Empty(w.Blueprints);
+
+        // A placed plan asked to be called off (a draft, or a call-off queued this tick) leaves its tile free to plan on.
+        Blueprint wall = BuildTests.Plan(w, "wall", Tile(yard)).Single();
+        Assert.Equal(Building.ReasonPlanned, StateApi.CanPlace(w, "bed", new[] { Tile(yard) }).Pieces.Single().Tiles.Single().ReasonKey);
+        Assert.True(StateApi.CanPlace(w, "bed", new[] { Tile(yard) }, exceptPlans: new[] { wall.Id }).Ok);
     }
 
     [Fact]

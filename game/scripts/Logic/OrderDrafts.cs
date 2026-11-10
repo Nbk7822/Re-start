@@ -144,7 +144,7 @@ public sealed class OrderDrafts
             {
                 SetRationPolicy p => p.Policy != w.Policy ? p : null,
                 SetWorkPriority p => w.Find(p.CharacterId) is { Status: CharStatus.Member } c && JobPicker.PriorityOf(c, p.WorkId) != p.Priority ? p : null,
-                PlaceBlueprint p => BuildTool.OkCount(StateApi.CanPlace(w, p.BuildingId, p.Pieces, Queued(w))) > 0 ? p : null,
+                PlaceBlueprint p => BuildTool.OkCount(StateApi.CanPlace(w, p.BuildingId, p.Pieces, Queued(w), QueuedCallOffs(w))) > 0 ? p : null,
                 MarkTakeDown m => Changing(w, m) is { Count: > 0 } targets ? m with { Targets = targets } : null,
                 CancelBlueprints c => StillThere(w, c.BlueprintIds) is { Count: > 0 } ids ? c with { BlueprintIds = ids } : null,
                 _ => d,
@@ -157,27 +157,55 @@ public sealed class OrderDrafts
     /// <summary>
     /// The pieces asked for but not yet on the map that a new plan must not clash with: those queued this tick,
     /// then the drafted ones, each checked in order against the world and those before it (a piece that could not
-    /// go blocks nothing).
+    /// go blocks nothing), with the plans being called off treated as gone.
     /// </summary>
     public static List<PlannedPiece> Planned(World w, OrderDrafts drafts)
     {
-        List<PlannedPiece> planned = Queued(w);
-        foreach ((int _, PlaceBlueprint plan) in drafts.Placements) AddPlaceable(w, plan, planned);
+        List<int> gone = CallingOff(w, drafts);
+        List<PlannedPiece> planned = Queued(w, gone);
+        foreach ((int _, PlaceBlueprint plan) in drafts.Placements) AddPlaceable(w, plan, planned, gone);
         return planned;
     }
 
-    /// <summary>The pieces of the plans queued this tick that will go, in order.</summary>
-    public static List<PlannedPiece> Queued(World w)
+    /// <summary>The pieces of the plans queued this tick that will go, in order (those being called off treated as gone).</summary>
+    public static List<PlannedPiece> Queued(World w, IReadOnlyCollection<int>? gone = null)
     {
+        gone ??= QueuedCallOffs(w);
         var planned = new List<PlannedPiece>();
         foreach (Command c in w.PendingCommands)
-            if (c is PlaceBlueprint plan) AddPlaceable(w, plan, planned);
+            if (c is PlaceBlueprint plan) AddPlaceable(w, plan, planned, gone);
         return planned;
     }
 
-    private static void AddPlaceable(World w, PlaceBlueprint plan, List<PlannedPiece> planned)
+    /// <summary>
+    /// The placed plans asked to be called off but still on the map: drafted, or queued this tick. A new plan may take their
+    /// tiles, since the call-off applies first: drafts go out in the order they were made, and the sim applies one tick's
+    /// commands in the order they came.
+    /// </summary>
+    public static List<int> CallingOff(World w, OrderDrafts drafts)
     {
-        foreach (SimRect r in Building.Placeable(w, plan.BuildingId, plan.Pieces, planned))
+        List<int> ids = QueuedCallOffs(w);
+        foreach ((int _, Command d) in drafts._drafts)
+            if (d is CancelBlueprints c)
+                foreach (int id in c.BlueprintIds)
+                    if (!ids.Contains(id)) ids.Add(id);
+        return ids;
+    }
+
+    /// <summary>The placed plans a call-off queued this tick will take off the map.</summary>
+    public static List<int> QueuedCallOffs(World w)
+    {
+        var ids = new List<int>();
+        foreach (Command c in w.PendingCommands)
+            if (c is CancelBlueprints cancel)
+                foreach (int id in cancel.BlueprintIds)
+                    if (!ids.Contains(id)) ids.Add(id);
+        return ids;
+    }
+
+    private static void AddPlaceable(World w, PlaceBlueprint plan, List<PlannedPiece> planned, IReadOnlyCollection<int> gone)
+    {
+        foreach (SimRect r in Building.Placeable(w, plan.BuildingId, plan.Pieces, planned, gone))
             planned.Add(new PlannedPiece(plan.BuildingId, r));
     }
 

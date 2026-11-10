@@ -234,7 +234,8 @@ public partial class MapView
             }
         }
 
-        List<PlannedPiece> planned = OrderDrafts.Queued(w);
+        List<int> gone = OrderDrafts.CallingOff(w, drafts); // plans being called off make room for others
+        List<PlannedPiece> planned = OrderDrafts.Queued(w, gone);
         foreach (Command c in w.PendingCommands)
             if (c is PlaceBlueprint queued && w.Content.TryBuilding(queued.BuildingId) != null)
                 foreach (SimRect piece in queued.Pieces) Dashes(ScreenRect(PieceRect(piece)), PlanInk.WithAlpha(0.9f));
@@ -246,7 +247,7 @@ public partial class MapView
         foreach ((int _, PlaceBlueprint plan) in drafts.Placements)
         {
             if (w.Content.TryBuilding(plan.BuildingId) is not { } def) continue;
-            CanPlaceState check = StateApi.CanPlace(w, plan.BuildingId, plan.Pieces, planned);
+            CanPlaceState check = StateApi.CanPlace(w, plan.BuildingId, plan.Pieces, planned, gone);
             _checks.Add((def, check, RunKey(w, DraftRun, def.Id)));
             foreach (PieceState p in check.Pieces)
             {
@@ -260,7 +261,7 @@ public partial class MapView
         if (first is Rect2 at) _captions.Add((at.Position + new Vector2(0f, -3f), Ui.T("ui.build.pending")));
         bool cursor = tool.Active && tool.Cursor != SimPoint.None && !tool.Settled;
         if (cursor && tool.Mode == BuildMode.Place && w.Content.TryBuilding(tool.BuildingId) is { } placing)
-            _checks.Add((placing, StateApi.CanPlace(w, tool.BuildingId, tool.Pieces(w), planned), RunKey(w, CursorRun, placing.Id)));
+            _checks.Add((placing, StateApi.CanPlace(w, tool.BuildingId, tool.Pieces(w), planned, gone), RunKey(w, CursorRun, placing.Id)));
         foreach ((BuildingDef _, CanPlaceState check, int run) in _checks)
             foreach (PieceState p in check.Pieces)
                 if (p.Ok && p.W == 1 && p.H == 1 && m.InBounds(new SimPoint(p.X, p.Y))) _markRuns[m.Index(new SimPoint(p.X, p.Y))] = run;

@@ -30,8 +30,8 @@ public readonly record struct PlannedPiece(string BuildingId, Rect Area);
 /// <summary>
 /// Placement rules (build design 4.4). One function answers for each tile with a reason key; the view's
 /// ghost (through StateApi.CanPlace), each command's Apply and the stand-in player all use it. Pieces in
-/// one call are checked in order, each against the world, the plans already placed, any hypothetical
-/// <see cref="PlannedPiece"/>s, and the pieces before it that passed.
+/// one call are checked in order, each against the world, the plans already placed (but those being called
+/// off: <c>exceptPlans</c>), any hypothetical <see cref="PlannedPiece"/>s, and the pieces before it that passed.
 /// </summary>
 public static partial class Building
 {
@@ -51,7 +51,9 @@ public static partial class Building
     public const string ReasonTooBig = "build.reason.too_big";
     public const string ReasonDoorFrame = "build.reason.door_frame";
 
-    public static IReadOnlyList<PieceVerdict> Check(World w, string buildingId, IReadOnlyList<Rect> pieces, IReadOnlyList<PlannedPiece>? alsoPlanned = null)
+    /// <param name="exceptPlans">Placed plans to treat as gone: ones asked to be called off but not yet (a view's drafts, or a call-off queued this tick), whose tiles a new plan may take.</param>
+    public static IReadOnlyList<PieceVerdict> Check(World w, string buildingId, IReadOnlyList<Rect> pieces, IReadOnlyList<PlannedPiece>? alsoPlanned = null,
+        IReadOnlyCollection<int>? exceptPlans = null)
     {
         var verdicts = new List<PieceVerdict>(pieces.Count);
         BuildingDef? def = w.Content.TryBuilding(buildingId);
@@ -61,10 +63,10 @@ public static partial class Building
             return verdicts;
         }
 
-        // Every plan a new piece must not clash with: those placed, the hypothetical ones, and the pieces before it here.
+        // Every plan a new piece must not clash with: those placed (but those being called off), the hypothetical ones, and the pieces before it here.
         var plans = new List<(string Kind, Rect Area)>();
         foreach (Blueprint bp in w.Blueprints)
-            if (w.Content.TryBuilding(bp.DefId) is { } other) plans.Add((other.Kind, bp.Area));
+            if ((exceptPlans == null || !exceptPlans.Contains(bp.Id)) && w.Content.TryBuilding(bp.DefId) is { } other) plans.Add((other.Kind, bp.Area));
         if (alsoPlanned != null)
             foreach (PlannedPiece p in alsoPlanned)
                 if (w.Content.TryBuilding(p.BuildingId) is { } other) plans.Add((other.Kind, p.Area));
@@ -89,10 +91,11 @@ public static partial class Building
     }
 
     /// <summary>The pieces of a plan that can be placed now, in order.</summary>
-    public static List<Rect> Placeable(World w, string buildingId, IReadOnlyList<Rect> pieces, IReadOnlyList<PlannedPiece>? alsoPlanned = null)
+    public static List<Rect> Placeable(World w, string buildingId, IReadOnlyList<Rect> pieces, IReadOnlyList<PlannedPiece>? alsoPlanned = null,
+        IReadOnlyCollection<int>? exceptPlans = null)
     {
         var ok = new List<Rect>();
-        foreach (PieceVerdict v in Check(w, buildingId, pieces, alsoPlanned))
+        foreach (PieceVerdict v in Check(w, buildingId, pieces, alsoPlanned, exceptPlans))
             if (v.Ok) ok.Add(v.Area);
         return ok;
     }

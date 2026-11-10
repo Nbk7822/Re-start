@@ -147,6 +147,43 @@ public class BuildViewTests
         Assert.Equal("You marked out 2 walls.", EventText.Describe(w, w.Log.All.Single(e => e.Key.StartsWith("event.world.planned", StringComparison.Ordinal))));
     }
 
+    /// <summary>
+    /// Paused, a placed wall is called off and a door put in its place, as ADR-0027's own seam tells the player to: the
+    /// call-off makes room at once, both go out when time moves, the call-off first, and the door stands framed by the
+    /// walls left on each side (review of ADR-0027; the tool used to refuse the door, the plan still being on the map).
+    /// </summary>
+    [Fact]
+    public void APlanCalledOffWhilePausedMakesRoomForAnotherOnItsTile()
+    {
+        var sim = Simulation.Create(TestContent.Db, 1);
+        World w = sim.World;
+        Point yard = BuildPlanTests.Yard(w);
+        sim.Enqueue(new PlaceBlueprint(w.Tick, "wall", new[] { Tile(yard.X - 1, yard.Y), Tile(yard), Tile(yard.X + 1, yard.Y) }));
+        sim.Step();
+        Blueprint middle = w.Blueprints.Single(b => b.Area == Tile(yard));
+        var drafts = new OrderDrafts();
+        var tool = new BuildTool();
+        tool.CallOff();
+        tool.Hover(yard);
+        tool.Press(yard);
+        Assert.True(tool.Release(w, drafts, c => drafts.Add(c)));
+        Assert.True(drafts.CallingOff(middle.Id));
+
+        tool.Place("door");
+        tool.Hover(yard);
+        Assert.DoesNotContain(tool.Hint(w, drafts, paused: true), l => l.StartsWith("Can't go here", StringComparison.Ordinal));
+        tool.Press(yard);
+        Assert.True(tool.Release(w, drafts, c => drafts.Add(c)));
+        Assert.Single(drafts.Placements);
+
+        drafts.Flush(sim);
+        Assert.Equal(new[] { typeof(CancelBlueprints), typeof(PlaceBlueprint) }, w.PendingCommands.Select(c => c.GetType()));
+        sim.Step();
+        Assert.Equal("door", w.Blueprints.Single(b => b.Area == Tile(yard)).DefId);
+        Assert.Equal(2, w.Blueprints.Count(b => b.DefId == "wall"));
+        Assert.DoesNotContain(w.Log.All, e => e.Key.StartsWith("event.world.plan_failed", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void DraftedPlansSeeEachOtherAndTheSimChecksThemAgain()
     {
