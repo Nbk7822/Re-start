@@ -288,7 +288,7 @@ public static partial class StateApi
             if (b.Pos == p) contents.Add(loc.Get("place.bed"));
         if (m.Hearth == p) contents.Add(FestivalHearthLine(w) ?? loc.Get("place.hearth"));
         if (ZoneLine(w, p) is { } zone) contents.Add(zone); // "Stockpile (berries, timber)" (ADR-0028)
-        if (m.WatchPost == p) contents.Add(loc.Get("place.watch_post"));
+        if (m.WatchPost == p) contents.Add(WatchPostLine(w, p) ?? loc.Get("place.watch_post")); // who keeps the watch, in its hours (ADR-0029)
         if (m.CoveredRuins.Contains(p)) contents.Add(loc.Get("place.covered_ruins"));
         foreach (RoofSection r in m.Roof)
             if (r.Area.Contains(p)) contents.Add(loc.Get(r.Sound ? "place.roof_sound" : "place.roof_broken"));

@@ -129,6 +129,12 @@ public static class RequiredContent
         "event.social.owes_watch", "event.social.owes_watch_sworn", "event.social.blood_refused_woken",
         "event.needs.fell_asleep_on_watch", "event.needs.worn_out", "event.incident.work_accident_tired", "event.incident.stolen_unwatched",
         "place.watch_post_kept", "place.watch_post_empty",
+        "lived.slept", "lived.worked", "lived.watched", "lived.free", "lived.needs",
+        "schedule.range", "schedule.own.sleep", "schedule.own.work", "schedule.own.free", "schedule.own.and", "schedule.own.sep",
+        "schedule.note.camp", "schedule.note.own", "schedule.note.never_sleeps", "schedule.note.sun", "schedule.note.declined", "schedule.latest",
+        "schedule.hour.planned", "schedule.hour.lived", "schedule.hour.lived_differs", "schedule.hour.sun",
+        "schedule.watch.kept", "schedule.watch.none", "schedule.watch.now", "schedule.watch.nobody_now", "schedule.watch.last_night",
+        "schedule.watch.span", "schedule.watch.span_nobody", "schedule.watch.span_sep",
     };
 
     /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>
