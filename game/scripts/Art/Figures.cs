@@ -87,7 +87,7 @@ public struct FigureState
 /// lying poses (asleep, downed, dead: splayed, greyed, charred by the sun or wasted by hunger).
 /// The four peoples of ADR-0022 each have a silhouette that reads at the default zoom, and their
 /// nature's need shows on them: a dryad's crown of leaves keeps the season and wilts away from the
-/// trees; a djinn's eyes are embers (its smoke is drawn with the effects); a fae is slight, with
+/// trees; a djinn's eyes are embers and heat wavers off it (drawn with the effects); a fae is slight, with
 /// pointed ears, translucent wings and a glimmer that dims among broken words; the undead are
 /// grey, hollow-eyed and ragged and walk stiffly (MapView fades them toward the grave as their
 /// purpose slips).
@@ -460,26 +460,41 @@ public static class Figures
     }
 
     /// <summary>
-    /// The thin smoke that rises off a djinn, a being of smokeless fire: a few small dark puffs from the
-    /// head and shoulders that drift with the wind and trail behind a walker. Map units (drawn with the
-    /// effects, over everything that stands); thicker when restless, thickest when unbound.
+    /// The heat that rises off a djinn, a being of smokeless fire (mārij min nār): no smoke, only thin pale
+    /// tongues of flame-light that waver up from the head and shoulders, fade as they rise, drift with the
+    /// wind and trail behind a walker. Map units, drawn behind the figure (only what rises past the head
+    /// and shoulders shows); brighter and quicker when restless, brightest when unbound.
     /// </summary>
-    public static void Wisp(Brush b, ArtTextures tex, Vector2 at, float time, int salt, float strength, float drift)
+    public static void Shimmer(Brush b, Vector2 at, float time, int salt, float strength, float drift)
     {
         if (strength <= 0.01f) return;
-        // Pale and thin, nearer a heat haze than the hearth's smoke: it must read against dark ground.
-        var tint = new Color(0.66f, 0.64f, 0.62f);
-        for (int i = 0; i < 6; i++)
+        // Seven small licks spread across the shoulders and head at staggered heights, so they scatter like
+        // heat rising off the whole body and never pair up on the head (two points there would read as horns).
+        for (int i = 0; i < 7; i++)
         {
-            float k = (time * 0.45f + i / 6f + salt * 0.17f) % 1f;
-            float x = at.X + MathF.Sin(i * 4.1f + time * 0.9f + salt) * 1.8f + k * drift;
-            float y = at.Y - k * 17f;
-            float size = 4.5f + k * 11f;
-            float a = 0.62f * (1f - k) * MathF.Min(1f, k * 3.5f) * strength;
-            if (tex.Smoke != null) b.Texture(tex.Smoke, x, y, size, size, k * 2f + i, tint.WithAlpha(Math.Min(1f, a)));
-            else b.Clear().Ellipse(x, y, size * 0.3f, size * 0.25f, 10).Fill(tint.WithAlpha(a * 0.7f));
+            int slot = (i * 3) % 7; // where across the shoulders, shuffled against the phase
+            float k = (time * (0.5f + 0.12f * strength) + i / 7f + salt * 0.17f) % 1f;
+            float x = at.X + (slot - 3) * 1.9f + MathF.Sin(i * 4.1f + time * 2.3f + salt) * 1.2f + k * drift;
+            float y = at.Y + 2f - k * 22f;
+            float h = (4f + 1.8f * MathF.Sin(i * 1.7f + salt)) * (1f - 0.45f * k);
+            float half = 1.3f * (1f - 0.35f * k);
+            float wobble = MathF.Sin(time * 6.1f + i * 2.3f + salt) * 1.1f;
+            float a = MathF.Min(1f, 0.62f * strength) * (1f - k) * MathF.Min(1f, k * 5f + 0.2f);
+            if (a <= 0.02f) continue;
+            // A pointed tongue of flame-light: pale gold at the heart, warmer at the edge, see-through.
+            b.Clear();
+            Quad(b, new Vector2(x - half, y), new Vector2(x - half * 1.1f, y - h * 0.55f), new Vector2(x + wobble, y - h), 5, true);
+            Quad(b, new Vector2(x + wobble, y - h), new Vector2(x + half * 1.1f, y - h * 0.55f), new Vector2(x + half, y), 5, false);
+            b.Fill(HeatEdge.WithAlpha(a * 0.8f));
+            b.Clear();
+            Quad(b, new Vector2(x - half * 0.45f, y - 0.4f), new Vector2(x - half * 0.5f, y - h * 0.45f), new Vector2(x + wobble * 0.7f, y - h * 0.75f), 4, true);
+            Quad(b, new Vector2(x + wobble * 0.7f, y - h * 0.75f), new Vector2(x + half * 0.5f, y - h * 0.45f), new Vector2(x + half * 0.45f, y - 0.4f), 4, false);
+            b.Fill(HeatCore.WithAlpha(a * 0.85f));
         }
     }
+
+    private static readonly Color HeatCore = new(1f, 0.93f, 0.72f);
+    private static readonly Color HeatEdge = new(1f, 0.66f, 0.3f);
 
     private static void BodyShape(Brush b, in FigureLook look, bool side, float d, float hunch, float W, float T)
     {

@@ -339,6 +339,8 @@ public partial class MapView : Node2D
     private static bool Spreads(Character c) => c.IsActive && !c.Downed;
 
     private static readonly Color GroveLight = new(0.62f, 0.95f, 0.62f);
+    private static readonly Color DjinnWarmth = new(1f, 0.58f, 0.22f);
+    private static readonly Color DjinnHeart = new(1f, 0.78f, 0.42f);
     private static readonly Color EmberLight = new(1f, 0.52f, 0.22f);
     private readonly List<Lighting.Glow> _glowList = new();
 
@@ -637,11 +639,11 @@ public partial class MapView : Node2D
             case Kind.RuinRoof: _art.DrawRuinRoof(_brush, _ruinAlpha); break;
             case Kind.Hearth: _art.DrawHearth(_brush, _time); break;
             case Kind.WatchPost: _art.DrawWatchPost(_brush, LanternLit(w) && _light.Night > 0.3f, _time); break;
-            case Kind.Figure: PaintFigure(w.Characters[d.Index]); break;
+            case Kind.Figure: PaintFigure(w.Characters[d.Index], w.Weather.Raining ? 1.4f : 0.6f); break;
         }
     }
 
-    private void PaintFigure(Character c)
+    private void PaintFigure(Character c, float wind)
     {
         Shown s = _shown[c.Id];
         Vector2 feet = s.Feet;
@@ -661,6 +663,18 @@ public partial class MapView : Node2D
             float size = TileSize * 3.3f * (0.94f + 0.06f * flick);
             _brush.Texture(_tex.Light, feet.X, feet.Y - TileSize * 0.6f, size, size * 1.1f, 0f, new Color(1f, 0.45f, 0.12f, 0.85f * flick));
             _brush.Texture(_tex.Light, feet.X, feet.Y - TileSize * 0.65f, size * 0.55f, size * 0.7f, 0f, new Color(1f, 0.62f, 0.25f, 0.75f * flick));
+        }
+
+        // A djinn is lit from within: a low, steady warmth behind the body that reads at the default zoom by
+        // day (at night its point light does the same); warmer when restless, warmest when unbound.
+        if (s.Look.Has(Kin.Djinn) && c.Status != CharStatus.Dead && _tex.Light != null)
+        {
+            float flick = 0.92f + 0.05f * MathF.Sin(_time * 3.7f + c.Id) + 0.03f * MathF.Sin(_time * 9.3f + c.Id * 2f);
+            float warm = state.Nature switch { 0 => 0.5f, 1 => 0.6f, _ => 0.72f } * flick * (1f - 0.5f * _light.Night);
+            float size = TileSize * 2.1f, up = lying ? TileSize * 0.15f : TileSize * 0.62f, squash = lying ? 0.7f : 1.25f;
+            _brush.Texture(_tex.Light, feet.X, feet.Y - up, size, size * squash, 0f, DjinnWarmth.WithAlpha(warm * 0.75f));
+            _brush.Texture(_tex.Light, feet.X, feet.Y - up - TileSize * 0.1f, size * 0.6f, size * squash * 0.65f, 0f, DjinnHeart.WithAlpha(warm * 0.6f));
+            DjinnFire(c, s, wind); // behind the body: only the heat rising past the head and shoulders shows
         }
 
         _brush.Push();
@@ -811,7 +825,9 @@ public partial class MapView : Node2D
                 _art.DrawSmoke(_brush, feet + new Vector2(0f, -TileSize * 0.6f), _time, 1f, wind, c.Id, dark: true);
                 Gore.Embers(_brush, feet.X, feet.Y - TileSize * 0.5f, _time, c.Id);
             }
-            if (s.Look.Has(Kin.Djinn) && c.Status != CharStatus.Dead) DjinnSmoke(c, s, wind);
+            // Unbound, a djinn throws off sparks (over everything that stands, like the burning's embers).
+            if (s.Look.Has(Kin.Djinn) && c.Status != CharStatus.Dead && s.State.Nature >= 2 && s.State.Pose is not (Pose.Sleep or Pose.Downed))
+                Gore.Embers(_brush, feet.X, feet.Y - s.HeadAbove, _time, c.Id);
             if (c.Status != CharStatus.Dead || _gore.RemainsOf(w, c) is not Remains r) continue;
             float hours = Math.Max(0, w.Tick - r.Tick) / (float)w.Content.World.TicksPerHour;
             if (r.Kind == DeathKind.Sun && hours < 12f && _light.Night < 0.5f)
@@ -822,18 +838,18 @@ public partial class MapView : Node2D
     }
 
     /// <summary>
-    /// A djinn smokes faintly, from the head and shoulders (from the body, lying down), trailing behind
-    /// as it walks; restless without a bargain the smoke thickens, and unbound it throws off sparks.
+    /// A djinn is a being of smokeless fire: heat wavers up from behind the head and shoulders (from the
+    /// body, lying down), trailing behind as it walks; restless without a bargain it burns brighter.
+    /// Drawn behind the figure, so it never crosses the face. (Unbound, it also sparks: Effects.)
     /// </summary>
-    private void DjinnSmoke(Character c, Shown s, float wind)
+    private void DjinnFire(Character c, Shown s, float wind)
     {
         FigureState st = s.State;
         bool lying = st.Pose is Pose.Sleep or Pose.Downed or Pose.Dead;
-        Vector2 from = lying ? s.Feet + new Vector2(0f, -TileSize * 0.25f) : s.Feet - new Vector2(0f, s.HeadAbove * 0.97f);
+        Vector2 from = lying ? s.Feet + new Vector2(0f, -TileSize * 0.25f) : s.Feet - new Vector2(0f, s.HeadAbove * 0.72f);
         float trail = s.Moving ? st.Facing switch { Facing.E => -7f, Facing.W => 7f, _ => 0f } : 0f;
-        float strength = st.Nature switch { 0 => 0.75f, 1 => 1.1f, _ => 1.5f };
-        Figures.Wisp(_brush, _tex, from, _time, c.Id, strength, wind * 6f + trail);
-        if (st.Nature >= 2 && !lying) Gore.Embers(_brush, from.X, from.Y - 2f, _time, c.Id);
+        float strength = st.Nature switch { 0 => 0.8f, 1 => 1.15f, _ => 1.5f };
+        Figures.Shimmer(_brush, from, _time, c.Id, strength, wind * 4f + trail);
     }
 
     private void RainSplashes()
