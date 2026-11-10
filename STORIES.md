@@ -197,3 +197,35 @@ At three in the morning of Day 29 a thief crept toward the camp and Cindral spot
 In the game (no stand-in player), you wake as a vampire with Familiar faces. At two in the morning of Day 10 you die of your wounds in the shelter while the camp sleeps around you and Vale keeps the watch: nobody came to tend them in time. The screen darkens over your body ("You died of your wounds."), folds into a colourless pale, and comes back paused at three in the afternoon of Day 8: "Day 8, 15:00. You came back. You remember everything." You are in the shelter beside Vale, out of the sun; the others are at work.
 - Chain on screen: a thief's blow (Combat) → a wound that bleeds (Needs) → nobody near and awake → death → the return (Fate). Screenshots: `return-1-death.png`, `return-2-fold.png`, `return-3-back.png`.
 - Why it matters: the founder asked to die through the world's own dangers; this is one, and it reads at a glance.
+
+## 2026-11-09 — Review of who you are and Return by Death, slice 1 (ADR-0030 review; soaks of 100 worlds × 1 year)
+
+The entries in the section above describe the build before this review, and two have moved. Seed 3's refusals still come back word for word; only its first stash moved from Day 1 to Day 2, because a vampire no longer keeps a reserve of berries it cannot eat. In seed 2 under `--gift familiar_faces --fates`, Mira and Oren both know you now (the log shows every gift line), but the gift no longer grows within the hour: they were your friends before they felt it, and the gift grows only when a familiar face becomes your friend or does you a kindness. The review also found that a return seldom reaches the new timeline's stories: 16 stories in 7 of 300 ordinary worlds run through one, most of them a vampire's remembered refusals. Lines below are from the review's soaks and the game.
+
+### Twice dead before breakfast (seed 100, ordinary soak; you a djinn with Fortune's favourite; policy "promised meals come first")
+The camp woke at midnight with everyone rested and went to work in the dark. At ten past two you picked berries and hurt yourself; Oren was already asleep and Mira lay down within the hour, you collapsed at three, and by four you had bled to death and the world went back to its first minute. In the timeline that followed everyone slept until dawn, and at half past seven you hurt yourself mending the shelter roof while Mira and Oren worked on the same roof. Neither stopped their work. You died at nine and came back to the first minute again. Your luck turns harm onto whoever stands within a pace of you, and both times nobody did. The Chronicle of Lost Futures keeps both mornings:
+```
+  A future that never came (Day 1, 00:00 to Day 1, 04:00). Stories that ended in it: 1.
+    Day 1, 02:10 — You picked 3 berries.
+    Day 1, 02:10 — You were hurt in an accident while working.
+    Day 1, 04:00 — You died of your injuries.
+
+  A future that never came (Day 1, 00:00 to Day 1, 09:00). Stories that ended in it: 1.
+    Day 1, 07:30 — You repaired a section of the shelter roof (1 of 3 now sound).
+    Day 1, 07:30 — You were hurt in an accident while working.
+    Day 1, 09:00 — You died of your injuries.
+```
+- Chain (each lost future's story): the work (Work) → the accident (Incident) → you died of it (Needs).
+- Why it matters: two lost futures a reader can follow, and two of the review's findings in one morning. The first night is the deadliest of the year (14 of the 106 natural deaths on seeds 1 to 300 fall on Day 1), because the camp works through its small hours and then sleeps while a wound bleeds; and carers pick up care only when their job ends, so two people at work on the same roof can let you bleed out. Both are design calls (ADR-0030, review).
+
+### The last card (seed 23 in the game, with a one-year soul through `RETURN_MODS`)
+You woke as a vampire with Familiar faces, died once of your wounds on the night of Day 10 and came back to the afternoon of Day 8. At dawn on Day 41 your soul's thread ran out. The last card, and the head of the Chronicle's This life tab, read:
+```
+Your soul's thread ran out, at 26. There is no return from this.
+You were reborn here as a vampire, with a gift: Familiar faces.
+You lived a year here.
+You died once before this, and came back.
+Oren, Ilex, Bram, Nia, Sera, Vale, Wren, Hollis, Thessil, Cindral and Sennet outlived you.
+```
+- Built from stored state: the run memory (your people, gift, returns, when it ended) and who is still alive.
+- Why it matters: the design closes a life on who you were and who outlived you (§6.3); the build closed it on one line. Mira and Varrow are not on the list: they died before you did. Screenshots: `final-end-card.png`, `final-end-chronicle.png`.
