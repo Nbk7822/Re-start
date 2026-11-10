@@ -1,5 +1,6 @@
 using Return.Sim;
 using Return.Sim.Api;
+using Return.Sim.Content;
 using Return.Sim.Core;
 using Return.Sim.Events;
 using Return.Sim.Systems;
@@ -378,6 +379,36 @@ public class BuildTests
         Assert.Contains(promise.FormedEvent, w.Log.Get(raised.BuiltEvent)!.Causes); // the section cites the promise it keeps
     }
 
+    /// <summary>
+    /// Someone without a bed counts on a bed plan only while no bed stands free for them: with a bedroll to lie down in
+    /// tonight, the last timber going into a wall passes nobody over (review of ADR-0027; it named 41 of 200 people
+    /// passed over in 100 camp worlds). One who burns in daylight counts only covered beds as free.
+    /// </summary>
+    [Fact]
+    public void NobodyCountsOnABedPlanWhileABedStandsFreeForThem()
+    {
+        World w = WorkTests.Only(1, "oren", "you", "ilex");
+        Character oren = Cast(w, "oren"), you = Cast(w, "you"), ilex = Cast(w, "ilex");
+        SetTimber(w, 2);
+        Plan(w, "bed", Tile(BuildPlanTests.ShelterFloor(w)));
+        Blueprint wall = Plan(w, "wall", Tile(BuildPlanTests.Yard(w))).Single();
+        BuildingDef def = w.Content.BuildingById("wall");
+        // The old shelter's roof is broken: its bedrolls are free, but not to one who burns by day.
+        Assert.Equal(new[] { ilex.Id }, Building.PassedOver(w, wall, def, 1, oren.Id).Select(c => c.Id));
+        foreach (RoofSection r in w.Map.Roof) r.Sound = true;
+        Assert.Empty(Building.PassedOver(w, wall, def, 1, oren.Id)); // four bedrolls stand free under a sound roof
+
+        foreach (Bed b in w.Map.Beds) b.OwnerId = 999; // every bed is someone's now
+        Assert.Equal(new[] { you.Id, ilex.Id }, Building.PassedOver(w, wall, def, 1, oren.Id).Select(c => c.Id));
+
+        // A free bed out in the open is no bed at all to one who burns by day.
+        Bed open = w.Map.Beds[0];
+        open.OwnerId = 0;
+        open.Pos = BuildPlanTests.Yard(w, 0, 3);
+        Assert.False(w.Map.Covered(open.Pos));
+        Assert.Equal(new[] { ilex.Id }, Building.PassedOver(w, wall, def, 1, oren.Id).Select(c => c.Id));
+    }
+
     [Fact]
     public void AGenerousPersonWillNotTakeTheLastTimberSomeoneIsCountingOn()
     {
@@ -385,6 +416,7 @@ public class BuildTests
         Character bram = Cast(w, "bram");
         Works(bram, ("build", 1));
         SetTimber(w, 2);
+        foreach (Bed b in w.Map.Beds) b.OwnerId = 999; // no bed stands free: whoever has none counts on a bed plan
         Building.Place(w, "bed", new[] { Tile(BuildPlanTests.ShelterFloor(w)) }, 0);
         Building.Place(w, "wall", new[] { Tile(BuildPlanTests.Yard(w)) }, 0);
         // You have no bed and the bed plan needs both timber: a wall would take one of them.

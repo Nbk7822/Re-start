@@ -252,8 +252,8 @@ public static partial class Building
     /// <summary>
     /// Who would be passed over if <paramref name="take"/> of a plan's material left the stock now for plan
     /// <paramref name="x"/>: those with a stake in another plan (an open roof promise: any roof plan or broken roof
-    /// section; no bed: any bed plan) that the stock could cover before and no longer can, unless x meets the same
-    /// stake. Never the taker. In id order.
+    /// section; no bed, and none standing free for them tonight: any bed plan) that the stock could cover before and
+    /// no longer can, unless x meets the same stake. Never the taker. In id order.
     /// </summary>
     public static List<Character> PassedOver(World w, Blueprint x, BuildingDef xDef, int take, int takerId)
     {
@@ -268,9 +268,21 @@ public static partial class Building
                     passed.Add(creditor);
         if (xDef.Kind != Bed && Uncovered(BestNeed(w, x, item, Bed), before, after))
             foreach (Character m in w.Members())
-                if (m.Id != takerId && m.Named && Places.Tires(w, m) && OwnedBed(w, m.Id) == null && !passed.Contains(m)) passed.Add(m);
+                if (m.Id != takerId && m.Named && Places.Tires(w, m) && OwnedBed(w, m.Id) == null && !FreeBedFor(w, m) && !passed.Contains(m)) passed.Add(m);
         passed.Sort((a, b) => a.Id.CompareTo(b.Id));
         return passed;
+    }
+
+    /// <summary>
+    /// Does an unclaimed bed stand where this person could lie down in it tonight (under a roof, for one who burns in
+    /// daylight)? Then they are not counting on a bed plan: the last of the timber going elsewhere passes them by.
+    /// </summary>
+    public static bool FreeBedFor(World w, Character c)
+    {
+        bool burns = Places.BurnsInDaylight(w, c);
+        foreach (Bed b in w.Map.Beds)
+            if (b.OwnerId == 0 && (!burns || w.Map.Covered(b.Pos))) return true;
+        return false;
     }
 
     private static bool Uncovered(int need, int before, int after) => need <= before && need > after;
