@@ -30,7 +30,20 @@ public partial class MapView
 
     private int _artRevision;
     private bool[] _planWalls = Array.Empty<bool>();
-    private byte[] _markRuns = Array.Empty<byte>();
+    private int[] _markRuns = Array.Empty<int>();
+    private readonly List<(BuildingDef Def, CanPlaceState Check, int Run)> _checks = new();
+
+    /// <summary>Whose a one-tile mark is, so a run shares an outline only with marks of the same building and the same standing.</summary>
+    private const int PlanRun = 1, RefusedRun = 2, DraftRun = 3, CursorRun = 4;
+
+    /// <summary>A run key: where the mark comes from (a plan, a refused plan, a draft, the tool's gesture) and which building it is.</summary>
+    private static int RunKey(World w, int source, string buildingId)
+    {
+        IReadOnlyList<BuildingDef> all = w.Content.Buildings;
+        int index = 0;
+        while (index < all.Count && all[index].Id != buildingId) index++;
+        return source * 1024 + index + 1;
+    }
     private Func<int, int, bool>? _planJoins;
     private readonly List<(Vector2 At, string Text)> _captions = new();
 
@@ -203,11 +216,11 @@ public partial class MapView
         BuildTool tool = _host.Build;
         Map m = w.Map;
         // One-tile plans not yet begun share one outline per run: a row of planned walls reads as one plan.
-        if (_markRuns.Length != m.Width * m.Height) _markRuns = new byte[m.Width * m.Height];
+        if (_markRuns.Length != m.Width * m.Height) _markRuns = new int[m.Width * m.Height];
         else Array.Clear(_markRuns);
         foreach (Blueprint bp in w.Blueprints)
             if (bp.Progress == 0 && bp.Area.W == 1 && bp.Area.H == 1 && m.InBounds(new SimPoint(bp.Area.X, bp.Area.Y)) && !drafts.CallingOff(bp.Id))
-                _markRuns[m.Index(new SimPoint(bp.Area.X, bp.Area.Y))] = Refused(w, bp) ? (byte)2 : (byte)1;
+                _markRuns[m.Index(new SimPoint(bp.Area.X, bp.Area.Y))] = RunKey(w, Refused(w, bp) ? RefusedRun : PlanRun, bp.DefId);
         foreach (Blueprint bp in w.Blueprints)
         {
             if (drafts.CallingOff(bp.Id) || w.Content.TryBuilding(bp.DefId) is not { } def) continue;
@@ -226,13 +239,15 @@ public partial class MapView
             if (c is PlaceBlueprint queued && w.Content.TryBuilding(queued.BuildingId) != null)
                 foreach (SimRect piece in queued.Pieces) Dashes(ScreenRect(PieceRect(piece)), PlanInk.WithAlpha(0.9f));
 
-        // Drafts, paler; one caption over the topmost of them says they wait for time to move.
+        // Drafts, paler; one caption over the topmost of them says they wait for time to move. Then what the tool in
+        // hand would place. Each is checked against everything before it; runs of one-tile pieces share an outline.
+        _checks.Clear();
         Rect2? first = null;
         foreach ((int _, PlaceBlueprint plan) in drafts.Placements)
         {
             if (w.Content.TryBuilding(plan.BuildingId) is not { } def) continue;
             CanPlaceState check = StateApi.CanPlace(w, plan.BuildingId, plan.Pieces, planned);
-            MarkCheck(def, check, 0.5f);
+            _checks.Add((def, check, RunKey(w, DraftRun, def.Id)));
             foreach (PieceState p in check.Pieces)
             {
                 if (!p.Ok) continue;
@@ -243,15 +258,19 @@ public partial class MapView
             }
         }
         if (first is Rect2 at) _captions.Add((at.Position + new Vector2(0f, -3f), Ui.T("ui.build.pending")));
+        bool cursor = tool.Active && tool.Cursor != SimPoint.None && !tool.Settled;
+        if (cursor && tool.Mode == BuildMode.Place && w.Content.TryBuilding(tool.BuildingId) is { } placing)
+            _checks.Add((placing, StateApi.CanPlace(w, tool.BuildingId, tool.Pieces(w), planned), RunKey(w, CursorRun, placing.Id)));
+        foreach ((BuildingDef _, CanPlaceState check, int run) in _checks)
+            foreach (PieceState p in check.Pieces)
+                if (p.Ok && p.W == 1 && p.H == 1 && m.InBounds(new SimPoint(p.X, p.Y))) _markRuns[m.Index(new SimPoint(p.X, p.Y))] = run;
+        foreach ((BuildingDef def, CanPlaceState check, int run) in _checks) MarkCheck(m, def, check, run / 1024 == DraftRun ? 0.5f : 1f, run);
 
         MarkedToTakeDown(w, drafts);
 
-        if (!tool.Active || tool.Cursor == SimPoint.None || tool.Settled) return;
+        if (!cursor) return;
         switch (tool.Mode)
         {
-            case BuildMode.Place when w.Content.TryBuilding(tool.BuildingId) is { } def:
-                MarkCheck(def, StateApi.CanPlace(w, tool.BuildingId, tool.Pieces(w), planned), 1f);
-                break;
             case BuildMode.TakeDown:
             {
                 (List<BuiltRef> targets, bool mark) = BuildTool.TakeDownChoice(w, drafts, BuildTool.BuiltIn(w, tool.Area, tool.IsClick));
@@ -269,8 +288,11 @@ public partial class MapView
         }
     }
 
-    /// <summary>A checked plan: each piece that can go as a faint silhouette in a dashed outline, each tile that cannot crossed out (a roof section that cannot go, outlined in red).</summary>
-    private void MarkCheck(BuildingDef def, CanPlaceState check, float strength)
+    /// <summary>
+    /// A checked plan: each piece that can go as a faint silhouette in a dashed outline (one-tile pieces share theirs with
+    /// the run they are in), each tile that cannot crossed out (a roof section that cannot go, outlined in red).
+    /// </summary>
+    private void MarkCheck(Map m, BuildingDef def, CanPlaceState check, float strength, int run)
     {
         foreach (PieceState p in check.Pieces)
         {
@@ -278,7 +300,9 @@ public partial class MapView
             if (p.Ok)
             {
                 Ghost(def, area, PlanInk.WithAlpha(0.16f * strength));
-                Dashes(ScreenRect(PieceRect(area)), PlanInk.WithAlpha(0.95f * strength));
+                if (area.W == 1 && area.H == 1 && m.InBounds(new SimPoint(p.X, p.Y)) && _markRuns[m.Index(new SimPoint(p.X, p.Y))] == run)
+                    RunEdges(m, new SimPoint(p.X, p.Y), PlanInk.WithAlpha(0.95f * strength));
+                else Dashes(ScreenRect(PieceRect(area)), PlanInk.WithAlpha(0.95f * strength));
                 continue;
             }
             if (def.Spans) Dashes(ScreenRect(PieceRect(area)), BadInk.WithAlpha(0.8f * strength));
@@ -343,7 +367,7 @@ public partial class MapView
     /// <summary>The dashed edges of a one-tile plan that border no other such plan (of the same standing), so a run shares one outline.</summary>
     private void RunEdges(Map m, SimPoint p, Color c)
     {
-        byte run = _markRuns[m.Index(p)];
+        int run = _markRuns[m.Index(p)];
         bool Open(int dx, int dy)
         {
             var q = new SimPoint(p.X + dx, p.Y + dy);
