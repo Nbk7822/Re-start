@@ -284,7 +284,7 @@ public class CultureViewTests
             mira.Met.Clear();
         }
         string line = ViewText.Chronicle(w)[0];
-        Assert.Contains("You took Mira by the hand at their first meeting;", line);
+        Assert.Contains("You took Mira by the hand at your first meeting;", line);
         Assert.StartsWith("Day 1, 00:00 — ", line);
     }
 }

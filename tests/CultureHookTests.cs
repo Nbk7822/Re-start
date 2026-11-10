@@ -94,7 +94,7 @@ public class CultureHookTests
         Assert.Empty(breach.Causes);
         Assert.Contains(mira.Thoughts, t => t.DefId == "faux_pas" && t.AboutId == you.Id && t.CauseEvent == breach.Id);
         Assert.Equal(new[] { "no_touch_greeting" }, you.LearnedCustoms);
-        Assert.Equal("You took Mira by the hand at their first meeting; " + db.Loc.Get(Ways.CultureById(w, "reed")!.NameKey) + " do not touch a stranger.",
+        Assert.Equal("You took Mira by the hand at your first meeting; " + db.Loc.Get(Ways.CultureById(w, "reed")!.NameKey) + " do not touch a stranger.",
             Return.Sim.Api.EventText.Describe(w, breach));
 
         // Learned: the next of that people is greeted properly.
@@ -109,6 +109,34 @@ public class CultureHookTests
         Assert.Contains(bram.Thoughts, t => t.DefId == "kin_greeting" && t.AboutId == nia.Id);
         Assert.Equal(before + 1, w.Log.All.Count);
         Assert.Equal(new[] { bram.Id }, nia.Met);
+    }
+
+    /// <summary>
+    /// The otherworlder breaches greetings three times as often as anyone, so every breach must read
+    /// right in the second person: "You took Mira by the hand at your first meeting", never "their".
+    /// The player can stand on either side of the sentence.
+    /// </summary>
+    [Fact]
+    public void BreachesSpeakToYouInTheSecondPerson()
+    {
+        World w = Camp(TestContent.Db, 1, "you", "mira");
+        Character you = Cast(w, "you"), mira = Cast(w, "mira");
+        string ways = Ways.CultureById(w, "reed")!.NameKey;
+        var greetings = w.Content.Customs.Where(c => c.Kind == "greeting").ToList();
+        Assert.NotEmpty(greetings);
+        foreach (CustomDef g in greetings)
+            foreach ((Character a, Character b) in new[] { (you, mira), (mira, you) })
+            {
+                SimEvent e = w.Log.Emit(w, SystemTag.Culture, g.EventKey("breach"), new[] { a.Id, b.Id }, Array.Empty<long>(), null,
+                    EventArg.Char("a", a.Id), EventArg.Char("b", b.Id), EventArg.Key("ways", ways));
+                string text = Return.Sim.Api.EventText.Describe(w, e);
+                Assert.DoesNotContain("their first meeting", text);
+                if (w.Content.Loc.Get(g.EventKey("breach")).Contains("first meeting", StringComparison.Ordinal))
+                    Assert.Contains("your first meeting", text);
+                Assert.DoesNotContain("you's", text, StringComparison.OrdinalIgnoreCase); // the player's arm is "your arm"
+                if (a == you) Assert.StartsWith("You ", text);
+                else Assert.DoesNotContain("You", text, StringComparison.Ordinal);
+            }
     }
 
     [Fact]
