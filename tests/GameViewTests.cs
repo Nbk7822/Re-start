@@ -334,6 +334,11 @@ public class GameViewTests
     [InlineData(CharStatus.Member, false, false, JobKind.Forage, 1, false, false, Pose.Crouch)]
     [InlineData(CharStatus.Member, false, false, JobKind.Care, 1, false, false, Pose.Crouch)]
     [InlineData(CharStatus.Member, false, false, JobKind.RequestBlood, 1, false, false, Pose.Crouch)]
+    [InlineData(CharStatus.Member, false, false, JobKind.RepayDebt, 0, false, false, Pose.Crouch)]   // picking berries to settle a debt of honour
+    [InlineData(CharStatus.Member, false, false, JobKind.RepayDebt, 1, false, false, Pose.Stand)]    // handing them over
+    [InlineData(CharStatus.Member, false, false, JobKind.KeepPromise, 0, false, false, Pose.Crouch)] // picking a guest's meal
+    [InlineData(CharStatus.Member, false, false, JobKind.Feast, 0, true, false, Pose.Walk)]
+    [InlineData(CharStatus.Member, false, false, JobKind.Feast, 1, false, true, Pose.Sit)]
     [InlineData(CharStatus.Member, false, false, JobKind.GatherTimber, 1, false, false, Pose.Swing)]
     [InlineData(CharStatus.Member, false, false, JobKind.RepairRoof, 1, false, false, Pose.Stand)]
     [InlineData(CharStatus.Member, false, false, JobKind.RepairRoof, 2, false, false, Pose.Swing)]
