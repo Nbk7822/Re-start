@@ -82,7 +82,7 @@ public enum DiceId : ushort
     OmenRead = 142,
 
     // 180–199: zones (ADR-0028). Compliance rolls draw from DiceSystem.Work, each with its rule's own tag.
-    /// <summary>Whether someone goes their own way tonight under the home area (zones step 3), through Compliance.Defies. Nothing draws it yet.</summary>
+    /// <summary>Whether someone goes their own way tonight under the home area (zones step 3), through Compliance.Defies: once a night at dusk per person it binds, only when the odds are above 0.</summary>
     ZoneDefy = 180,
 
     // 200–219: the Schedule (ADR-0029). Compliance rolls on DiceSystem.Work, each with its own tag.
