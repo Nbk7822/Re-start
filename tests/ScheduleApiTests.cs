@@ -110,8 +110,8 @@ public class ScheduleApiTests
         Assert.Contains("Watch post", StateApi.Location(w, x, y).Contents);
         w.Tick = 22L * w.Content.World.TicksPerHour;
         Assert.Contains("Watch post (nobody on watch)", StateApi.Location(w, x, y).Contents);
-        // She takes the post at 22:07: "since" gives the minutes, so it never reads earlier than the hour tonight's strip
-        // credits to whoever mostly watched it (merge review: "since 23:00" stood beside "Oren 19:00–00:00").
+        // She takes the post at 22:07: "since" reads the arrival to the minute instead of rounding it down to an hour tonight's
+        // strip may credit to whoever watched most of it (merge review: "since 23:00" stood beside "Oren 19:00–00:00").
         w.Tick += 7 * w.Content.World.TicksPerHour / 60;
         WatchTests.OnWatch(w, vale, w.Tick + 600);
         Assert.Contains("Watch post (Vale keeps watch)", StateApi.Location(w, x, y).Contents);
