@@ -46,9 +46,9 @@ Exit criterion: "a stranger reading the story log retells one story unprompted."
 
 What the readers found mechanical is listed under ADR-0018's known seams.
 
-## 2026-11-09 — Culture and faith, slice 1 (soak of 100 worlds × 1 year, ADR-0023)
+## 2026-11-09 — Culture and faith, slice 1 (soak of 100 worlds × 1 year, build 4effb4e, ADR-0023)
 
-Culture stories (a Culture event on the chain) are 356 of 1,020 (34.9%), in 89 of 100 worlds; nine distinct ways in. Seeds and lines are from `tools/soak --worlds 100 --years 1` on this branch.
+Culture stories (a Culture event on the chain) are 356 of 1,020 (34.9%), in 89 of 100 worlds; nine distinct ways in by custom id (seven of the design's families). Seeds and lines are from `tools/soak --worlds 100 --years 1` on this branch.
 
 ### The rain was Wenlow's anger (seed 4, soak; policy "promised meals come first")
 In the last days of winter the vampire Vale went from person to person for blood. Sera and Bram and Wren were too hungry themselves; you, Mira and Hollis simply said no. On the morning of day 38 it rained, and Vale, of the Nightborn and a follower of the Long Watch, took the rain as Wenlow's anger at Hollis for refusing blood (Wenlow, Lord of the Vein, is that world's fickle god of blood). Vale now held a grudge against Hollis, and two days later left the camp.
@@ -73,3 +73,17 @@ Winter came on day 31. On day 39, at the small-hours share-out, Oren went withou
 ### The vampire who fed a guest (seed 11, soak; policy "you eat first")
 Bram wandered in on day 36, hungry and alone, and stayed after you promised him a meal within two days. By evening he was starving, and at the 02:20 share-out he went without. Half an hour later Ilex, a vampire of the Folk of the Long Dark, went out in the dark and found him something to eat, as the Folk of the Long Dark do for a guest. Your promise was kept, Bram owed Ilex a meal, and on day 38 Bram, who is Generous, repaid it.
 - Chain: arrival (Incident) → promise on joining (Social) → hungry, starving, went without (Needs) → guest-bread (Culture) → promise kept → owes a meal → repaid (Social).
+
+## 2026-11-09 — Culture and faith, slice 1: fresh-eyes review (soak of 100 worlds × 1 year, build ec20d10)
+
+After the review fixes recorded in ADR-0023, culture stories are 347 of 1,022 (34.0%), in 89 of 100 worlds, and seven of the design's nine families start stories (greetings and word spread start none). The five culture stories above come from the build before the review (4effb4e); all five still happen in this soak.
+
+### Bram's own meal (seed 6, soak; policy "the hungriest eat first")
+Nia wandered in on day 37, hungry and alone, and stayed after you promised her a meal within two days. Twenty minutes later the camp shared out what food it had and Nia went without so others could eat. An hour after that Bram, of the Folk of the Low Water, gave up his own meal for her, as his people do for a guest. Your promise was kept, and Nia owed Bram a meal.
+- Chain: arrival (Incident) → promise on joining (Social) → went without (Needs) → guest-bread from the host's own share (Culture) → promise kept → owes a meal (Social). 6 steps.
+- Why it matters: the first guest-bread in a soak paid from the host's own share; the other eleven were berries picked in the night, mostly by vampires. Since the review only a share given away, not berries picked, becomes the cause of the host's own coming hunger.
+
+### Sera, a guest wronged (seed 18, soak; policy "the hungriest eat first")
+Sera wandered in on day 34, hungry and alone, and stayed after you promised her a meal within two days. By evening she was hungry and by two in the morning starving. At the 02:40 share-out she went without, and your promise to her broke there and then. She had come as a guest, and the Hearthfolk do not forgive a broken promise to a guest: she held a grudge against you, heavier than a broken promise alone leaves, and twenty minutes later she had left the camp.
+- Chain: arrival (Incident) → promise on joining (Social) → hungry, starving, went without (Needs) → promise broken (Social) → wronged guest (Culture) → grudge → left (Social). 9 steps.
+- Why it matters: M0's "Hollis's four hours" with a people's custom on the path. The player's promise and the share-out are the same as ever; Sera's people are why the break weighs what it does.
