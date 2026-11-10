@@ -224,7 +224,7 @@ public class FateTests
         string rebirth = File.ReadAllText(Path.Combine(TestPaths.Root, "content", "rebirth.json"))
             .Replace("\"soulSpanYears\": [40, 50]", "\"soulSpanYears\": [1, 1]", StringComparison.Ordinal);
         ContentDb db = ContentDb.Load(Path.Combine(TestPaths.Root, "content"), new[] { CultureContentTests.Mod(("rebirth.json", rebirth)) });
-        var sim = Simulation.Create(db, 6, new RebirthChoice("vampire", RebirthChoice.NoGift)); // ageless: only the soul's span ends it
+        var sim = Simulation.Create(db, 1, new RebirthChoice("vampire", RebirthChoice.NoGift)); // ageless: only the soul's span ends it
         Assert.Equal(db.World.TicksPerYear, sim.World.Fate.SoulEndTick);
         // Keep you alive and fed so only the soul can end the run.
         for (int i = 0; i < 300 && !sim.World.Fate.Ended; i++)

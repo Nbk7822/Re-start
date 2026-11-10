@@ -3,6 +3,7 @@ using Return.Sim.Api;
 using Return.Sim.Core;
 using Return.Sim.Events;
 using Return.Sim.Modding;
+using Return.Sim.Stories;
 using Return.Sim.Systems;
 
 namespace Return.Tests;
@@ -130,11 +131,49 @@ public class CausalityTests
         {
             var s = Simulation.Create(TestContent.Db, 3);
             s.AddHook(new Meddler());
-            s.Advance(3L * s.World.Content.World.TicksPerDay);
+            // Six days: long enough for seed 3's first hunger (day 5 since beds are claimed, ADR-0027).
+            s.Advance(6L * s.World.Content.World.TicksPerDay);
             Assert.Contains(s.World.Characters, c => c.CastKey.StartsWith("ghost", StringComparison.Ordinal));
             return s.StateHash();
         }
         Assert.Equal(Run(), Run());
+    }
+
+    /// <summary>
+    /// The build design's first story (ADR-0027): a vampire is promised a sound roof; a bedless builder uses the last
+    /// of the timber on a bed; the promise breaks citing that, and the analyzer finds the chain with Work in it.
+    /// </summary>
+    [Fact]
+    public void TheLastTimberIsCitedWhenTheRoofPromiseBreaks()
+    {
+        World w = WorkTests.Only(1, "you", "sera");
+        Character you = Cast(w, "you"), sera = Cast(w, "sera"), ilex = Cast(w, "ilex");
+        BuildTests.Works(you);
+        BuildTests.Works(sera, ("repair_roof", 1), ("build", 1));
+        Stock.Take(w, "timber", 99);
+        Stock.Add(w, "timber", w.Content.WorkById("repair_roof").TimberCost, w.Map.Stockpile.Center);
+        SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: ilex.Id)!;
+        IncidentSystem.Join(w, ilex, arrived.Id);
+        Debt promise = w.Debts.Single(d => d.Kind == DebtKind.PromiseRest);
+        BuildTests.Plan(w, "bed", new Rect(BuildPlanTests.ShelterFloor(w).X, BuildPlanTests.ShelterFloor(w).Y, 1, 1));
+
+        // Sera has no bed, so the bed comes before the old roof: and it takes the timber the roof needed.
+        BuildTests.Run(w, 3_000, () => w.Log.All.Any(e => e.Key == "event.work.used_last_materials"));
+        SimEvent last = w.Log.All.Single(e => e.Key == "event.work.used_last_materials");
+        Assert.Equal(new[] { sera.Id, ilex.Id }, last.Actors);
+        Assert.Equal("Sera used the last of the timber on a bed.", EventText.Describe(w, last));
+        Assert.Contains(ilex.Thoughts, t => t.DefId == "passed_over" && t.AboutId == sera.Id && t.CauseEvent == last.Id);
+        Assert.Equal(last.Id, ilex.LastRestEvent);
+
+        w.Tick = promise.DueTick;
+        SocialSystem.Hourly(w);
+        SimEvent broken = w.Log.Get(promise.ClosedEvent)!;
+        Assert.Equal("event.social.promise_broken", broken.Key);
+        Assert.Contains(last.Id, broken.Causes);
+        Story story = StoryAnalyzer.Find(w.Log.All, id => w.Find(id)?.Named == true).Single(s => s.Chain.Contains(last.Id));
+        Assert.Contains(SystemTag.Work, story.Systems);
+        Assert.Contains(SystemTag.World, story.Systems); // your plan heads it
+        Assert.True(story.Chain.Count >= 3);
     }
 
     /// <summary>Adds someone to the world (and a grudge) whenever anyone gets hungry: list changes a hook must be allowed to make.</summary>

@@ -58,6 +58,7 @@ public class ContentTests
         defs.AddRange(db.Wants);
         defs.AddRange(db.Domains); defs.AddRange(db.Customs);
         defs.AddRange(db.Needs);
+        defs.AddRange(db.Buildings);
         foreach (object def in defs)
             foreach (PropertyInfo p in def.GetType().GetProperties())
                 if (p.PropertyType == typeof(string) && p.Name.EndsWith("Key", StringComparison.Ordinal) && p.Name != "Key")
@@ -164,10 +165,11 @@ public class ContentTests
             ("item", db.Items.Select(i => i.Id).ToHashSet(), RequiredContent.Items),
             ("species", db.Species.Select(s => s.Id).ToHashSet(), RequiredContent.Species),
             ("work", db.Work.Select(x => x.Id).ToHashSet(), RequiredContent.Work),
-            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).Concat(RequiredContent.FateThoughts).ToList()),
+            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).Concat(RequiredContent.FateThoughts).Concat(RequiredContent.BuildThoughts).ToList()),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
             ("need", db.Needs.Select(n => n.Id).ToHashSet(), RequiredContent.Needs.Select(n => n.Id).ToList()),
             ("gift", db.Gifts.Select(g => g.Id).ToHashSet(), RequiredContent.Gifts.Select(g => g.Id).ToList()),
+            ("building", db.Buildings.Select(b => b.Id).ToHashSet(), RequiredContent.Buildings.Select(b => b.Id).ToList()),
         };
         var giftNum = new System.Text.RegularExpressions.Regex("(?<!EventArg)\\.Num\\(\"([A-Za-z]+)\"");
         var giftParams = RequiredContent.Gifts.SelectMany(g => g.Params).ToHashSet();

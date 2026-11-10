@@ -15,7 +15,7 @@ public static class JobPicker
 {
     public const int InjuredBelow = 400;
 
-    private static readonly string[] WorkOrder = { "care", "repair_roof", "gather_timber", "forage", "haul", "keep_watch" };
+    private static readonly string[] WorkOrder = { "care", "repair_roof", "build", "gather_timber", "forage", "haul", "keep_watch" };
 
     /// <summary>The kinds of work a person's priorities apply to, in the order ties are broken.</summary>
     public static IReadOnlyList<string> PrioritizedWork => WorkOrder;
@@ -58,7 +58,8 @@ public static class JobPicker
             {
                 Job? eat = EatJob(w, c, allowTheft: true);
                 if (eat != null) return eat;
-                Job? forage = ForageJob(w, c);
+                // Never out into the sun to pick berries: a vampire turned down walked out, was pulled back to cover, and burned (ADR-0027).
+                Job? forage = sunBlocked ? null : ForageJob(w, c);
                 if (forage != null) return forage;
             }
         }
@@ -160,10 +161,10 @@ public static class JobPicker
     {
         if (Traits.Sum(w, c, t => t.PromisePriority) <= 0) return null;
         long roofPromise = RoofPromiseEvent(w, c.Id);
-        if (roofPromise != 0 && !(Places.BurnsInDaylight(w, c) && Places.SunDanger(w))
-            && Stock.Count(w, "timber") >= w.Content.WorkById("repair_roof").TimberCost)
+        if (roofPromise != 0 && !(Places.BurnsInDaylight(w, c) && Places.SunDanger(w)))
         {
-            Job? roof = RoofJob(w, c, roofPromise);
+            Job? roof = Stock.Count(w, "timber") >= w.Content.WorkById("repair_roof").TimberCost ? RoofJob(w, c, roofPromise) : null;
+            roof ??= Building.RoofPlanJob(w, c, roofPromise); // or raises a planned roof section (ADR-0027)
             if (roof != null) return roof;
         }
         string food = Places.Species(w, c).FoodSource;
@@ -221,7 +222,7 @@ public static class JobPicker
     private static Job? RoofJob(World w, Character c, long cause)
     {
         foreach (RoofSection r in w.Map.Roof)
-            if (!r.Sound && !Places.Targeted(w, JobKind.RepairRoof, r.Index, c.Id))
+            if (!r.Sound && !r.Removed && !Places.Targeted(w, JobKind.RepairRoof, r.Index, c.Id))
                 return new Job { Kind = JobKind.RepairRoof, TargetId = r.Index, Target = Places.FoodTile(w, "timber"), CauseEvent = cause };
         return null;
     }
@@ -255,9 +256,12 @@ public static class JobPicker
             WorkDef def = w.Content.WorkById(workId);
             if (def.Risky && fragile) continue;
             int score = priority * 100 - (Traits.WorkBias(w, c, workId) + NatureNeeds.WorkBias(w, c, workId)) * 60;
+            // The builder's right (ADR-0027): someone without a bed scores a bed plan as if building were one step higher.
+            Job? bedPlan = workId == "build" && Building.BuildersRight(w, c) ? Building.BedPlanJob(w, c, sunBlocked) : null;
+            if (bedPlan != null) score -= 100;
             score = 250 + (score - 250) * respect / 100;
             if (score >= bestScore) continue;
-            Job? job = Candidate(w, c, workId, def, sunBlocked);
+            Job? job = bedPlan ?? Candidate(w, c, workId, def, sunBlocked);
             if (job == null) continue;
             best = job;
             bestScore = score;
@@ -280,14 +284,17 @@ public static class JobPicker
                 if (sunBlocked || Stock.Count(w, "timber") < def.TimberCost) return null;
                 return RoofJob(w, c, RoofPromiseEvent(w, 0));
             }
+            case "build":
+                return Building.BuildJob(w, c, sunBlocked); // plans and things marked to be taken down (ADR-0027)
             case "gather_timber":
             {
                 // A djinn does not fell trees for its own price: the camp pays it (ADR-0022).
                 if (sunBlocked || Places.TimberNeeded(w) - Bargains.OwnDemand(w, c, "timber") <= 0) return null;
                 Tree? tree = Places.StandingTree(w, c.Pos, c);
                 if (tree == null) return null;
-                // The timber is wanted for a promised roof, else for a bargain's price (ADR-0022).
+                // The timber is wanted for a promised roof, else for a plan (ADR-0027), else for a bargain's price (ADR-0022).
                 long why = RoofPromiseEvent(w, 0);
+                if (why == 0) why = Building.PlanShortOf(w, "timber");
                 if (why == 0) why = Bargains.DemandCause(w, "timber");
                 return new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos), CauseEvent = why };
             }
@@ -303,7 +310,7 @@ public static class JobPicker
                 foreach (ItemStack s in w.Items)
                     if (!w.Map.Stockpile.Contains(s.Pos) && w.Map.Passable(s.Pos) && !Places.Targeted(w, JobKind.Haul, s.Id, c.Id))
                         return new Job { Kind = JobKind.Haul, TargetId = s.Id, Target = s.Pos };
-                return null;
+                return Building.DeliverJob(w, c); // no loose stack to haul: carry materials to a plan (ADR-0027)
             }
             case "keep_watch":
             {

@@ -30,24 +30,30 @@ public static class StoryLog
 
     /// <summary>
     /// Creates the world for a seed (your people and gift rolled, or chosen for testing), lets the stand-in player set
-    /// its ration policy, and runs it to the end of whole years. `run` and `soak` both use this.
+    /// its ration policy and make its building plan (ADR-0027), and runs it to the end of whole years. `run` and `soak`
+    /// both use this.
     /// </summary>
-    internal static Simulation Simulate(ContentDb content, ulong seed, int years, RunSetup? setup = null)
+    internal static Simulation Simulate(ContentDb content, ulong seed, int years, RunSetup? setup = null, string plan = "none")
     {
         setup ??= RunSetup.Plain;
         Simulation sim = Simulation.Create(content, seed, setup.Choice);
         Autoplay.Begin(sim);
-        Run(sim, TicksFor(content.World, years), setup);
+        Run(sim, TicksFor(content.World, years), setup, Autoplay.PlanFor(plan, seed));
         return sim;
     }
+
+    /// <summary>The same, with only the stand-in player's building plan (ADR-0027).</summary>
+    internal static Simulation Simulate(ContentDb content, ulong seed, int years, string plan) => Simulate(content, seed, years, null, plan);
 
     /// <summary>
     /// Steps the world until it reaches <paramref name="target"/> or your lifetime ends. A return sends the world back,
     /// so this can take more steps than ticks (ADR-0030); a world that needs more than <see cref="RunSetup.StepsPerTickCap"/>
     /// times as many is in a death loop and fails. Under --fates, you are killed once, in your first timeline, at the
-    /// seed's fate tick.
+    /// seed's fate tick. Each step the stand-in player gives its standing order and, at 08:00, marks out what its
+    /// building plan has due (ADR-0027), against the world as it is then, so a world's log stays a function of its
+    /// seed and setup.
     /// </summary>
-    internal static void Run(Simulation sim, long target, RunSetup setup)
+    internal static void Run(Simulation sim, long target, RunSetup setup, string plan = "none")
     {
         long forceAt = setup.Fates ? RunSetup.FateTick(sim.World.Seed, sim.World.Content.World) : -1;
         bool forced = false;
@@ -58,6 +64,7 @@ public static class StoryLog
             World w = sim.World;
             if (!forced && forceAt >= 0 && w.Fate.Timeline == 0 && w.Tick >= forceAt) forced = sim.ForceDeath();
             Autoplay.Tick(sim);
+            Autoplay.Hour(sim, plan);
             sim.Step();
         }
     }
@@ -251,6 +258,9 @@ public static class StoryLog
         }
         Line(o, Indent + Format(loc, "log.camp.stockpile", ("berries", Num(camp.Berries)), ("timber", Num(camp.Timber))));
         Line(o, Indent + Format(loc, "log.camp.roof", ("sound", Num(camp.RoofSound)), ("total", Num(camp.RoofTotal))));
+        Line(o, Indent + Format(loc, "log.camp.beds", ("beds", Num(camp.Beds)), ("claimed", Num(camp.BedsClaimed))));
+        if (camp.OpenPlans > 0) Line(o, Indent + Format(loc, "log.camp.plans", ("plans", Num(camp.OpenPlans))));
+        Line(o, Indent + Format(loc, "log.camp.trees", ("trees", Num(camp.TreesStanding))));
         Line(o, Indent + Format(loc, "log.camp.rationing", ("policy", camp.RationPolicy)));
         Line(o);
     }

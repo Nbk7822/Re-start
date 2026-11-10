@@ -33,6 +33,9 @@ public static class JobRunner
         JobKind.TendTree => Forest.Tend(w, c, j),
         JobKind.OfferBargain => Bargains.Offer(w, c, j),
         JobKind.GiftShare => Satchel.ShareMeal(w, c, j),
+        JobKind.Build => Building.Build(w, c, j),
+        JobKind.Deliver => Building.Deliver(w, c, j),
+        JobKind.TakeDown => Building.TakeDown(w, c, j),
         _ => true,
     };
 

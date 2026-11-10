@@ -16,7 +16,7 @@ public sealed record CharacterState(
     int Id, string Name, string Species, string Status, int X, int Y, string Job,
     IReadOnlyList<NeedState> Needs, int Mood, int Health, IReadOnlyList<string> Traits,
     IReadOnlyList<OpinionState> Opinions, IReadOnlyList<GrudgeState> Grudges, IReadOnlyList<DebtState> Debts,
-    IReadOnlyList<string> RecentThoughts, GrowthState Growth, BelongingState Belonging);
+    IReadOnlyList<string> RecentThoughts, GrowthState Growth, BelongingState Belonging, string Bed);
 
 /// <summary>Where a trait came from: born with it (generated) or changed by an event (mutated); Text says which in plain words.</summary>
 public sealed record TraitOriginState(string TraitId, string Trait, TraitOriginKind Origin, long CauseEvent, long Tick, string Text);
@@ -33,7 +33,9 @@ public sealed record ArcState(ArcStage Stage, string StageLabel, long StalledSin
 
 /// <summary>A person's growth (fixed decision 12): each trait with its origin, their want and their arc. Want and Arc are null until they enter the world.</summary>
 public sealed record GrowthState(IReadOnlyList<TraitOriginState> Traits, WantState? Want, ArcState? Arc);
-public sealed record FactionState(string Id, string Name, IReadOnlyList<int> Members, int Berries, int Timber, int RoofSound, int RoofTotal, string RationPolicy);
+/// <summary>The camp: members, stock, the roof (sections standing, not taken down), the ration policy, and its beds, open plans and trees standing (ADR-0027).</summary>
+public sealed record FactionState(string Id, string Name, IReadOnlyList<int> Members, int Berries, int Timber, int RoofSound, int RoofTotal, string RationPolicy,
+    int Beds, int BedsClaimed, int OpenPlans, int TreesStanding);
 public sealed record LocationState(int X, int Y, string Terrain, IReadOnlyList<string> Contents, IReadOnlyList<int> Characters);
 public sealed record IncidentState(long EventId, long Tick, string When, string Key, string Text, IReadOnlyList<long> Consequences);
 
@@ -143,7 +145,7 @@ public static partial class StateApi
 
         string job = loc.Get("job." + Names.Snake((c.Job?.Kind ?? JobKind.Idle).ToString()));
         return new CharacterState(c.Id, loc.Get(c.NameKey), loc.Get(species.NameKey), loc.Get("status." + Names.Snake(c.Status.ToString())),
-            c.Pos.X, c.Pos.Y, job, needs, c.Mood, c.Health, traits, opinions, grudges, debts, thoughts, Growth(w, id), Belonging(w, c));
+            c.Pos.X, c.Pos.Y, job, needs, c.Mood, c.Health, traits, opinions, grudges, debts, thoughts, Growth(w, id), Belonging(w, c), BedText(w, c));
     }
 
     /// <summary>
@@ -265,12 +267,21 @@ public static partial class StateApi
             if (s.DefId == "berries") berries += s.Count;
             else if (s.DefId == "timber") timber += s.Count;
         }
-        int sound = 0;
+        int sound = 0, standing = 0;
         foreach (RoofSection r in w.Map.Roof)
+        {
+            if (r.Removed) continue; // a section taken down is no longer part of the roof (ADR-0027)
+            standing++;
             if (r.Sound) sound++;
+        }
+        int claimed = 0, trees = 0;
+        foreach (Bed b in w.Map.Beds)
+            if (b.OwnerId != 0) claimed++;
+        foreach (Tree t in w.Map.Trees)
+            if (!t.Felled) trees++;
         LocTable loc = w.Content.Loc;
-        return new FactionState(id, loc.Get("faction.camp.name"), members, berries, timber, sound, w.Map.Roof.Count,
-            loc.Get(SetRationPolicy.PolicyKey(w.Policy)));
+        return new FactionState(id, loc.Get("faction.camp.name"), members, berries, timber, sound, standing,
+            loc.Get(SetRationPolicy.PolicyKey(w.Policy)), w.Map.Beds.Count, claimed, w.Blueprints.Count, trees);
     }
 
     public static LocationState Location(World w, int x, int y)
@@ -284,14 +295,11 @@ public static partial class StateApi
         else if (SacredTreeLine(w, p) is { } stump) contents.Add(stump);
         Bush? bush = m.BushAt(p);
         if (bush != null) contents.Add(loc.Format(bush.Berries == 1 ? "place.bush_one" : "place.bush", new[] { new KeyValuePair<string, string>("n", bush.Berries.ToString(Inv)) }));
-        foreach (Bed b in m.Beds)
-            if (b.Pos == p) contents.Add(loc.Get("place.bed"));
         if (m.Hearth == p) contents.Add(FestivalHearthLine(w) ?? loc.Get("place.hearth"));
         if (m.Stockpile.Contains(p)) contents.Add(loc.Get("place.stockpile"));
         if (m.WatchPost == p) contents.Add(loc.Get("place.watch_post"));
         if (m.CoveredRuins.Contains(p)) contents.Add(loc.Get("place.covered_ruins"));
-        foreach (RoofSection r in m.Roof)
-            if (r.Area.Contains(p)) contents.Add(loc.Get(r.Sound ? "place.roof_sound" : "place.roof_broken"));
+        BuildLines(w, p, contents); // beds and who owns and built them, roofs and who raised or mended them, walls, plans, marks (ADR-0027)
         foreach (ItemStack s in w.Items)
             if (s.Pos == p)
                 contents.Add(loc.Format("place.item", new[]

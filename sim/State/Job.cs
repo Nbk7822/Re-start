@@ -39,6 +39,13 @@ public enum JobKind
     // The player (ADR-0030).
     /// <summary>You, taking a meal from your satchel to someone starving.</summary>
     GiftShare,
+    // The Build menu (ADR-0027).
+    /// <summary>Fetching what a plan lacks, then building it.</summary>
+    Build,
+    /// <summary>Carrying material from the stock to a plan short of it (under haul).</summary>
+    Deliver,
+    /// <summary>Taking down something marked to be taken down (under build).</summary>
+    TakeDown,
 }
 
 /// <summary>What a character is doing right now. Stage and Progress are job-specific counters.</summary>
@@ -51,6 +58,9 @@ public sealed class Job
     public int Progress { get; set; }
     public long StartedTick { get; set; }
     public long CauseEvent { get; set; }
+
+    /// <summary>What TargetId names, for jobs aimed at a plan or a built thing (ADR-0027); None for every other job.</summary>
+    public TargetKind TargetKind { get; set; }
 }
 
 /// <summary>Player-set intention for a work type (content work id); 1 = first, 4 = last, 0 = never.</summary>

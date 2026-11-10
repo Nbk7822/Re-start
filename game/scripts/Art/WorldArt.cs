@@ -17,8 +17,11 @@ namespace Return.Game.Art;
 /// fire, frost in winter. Ground is drawn once into its own layer (redrawn when the season turns);
 /// water, grass, trees and fire move every frame. Shadows are drawn in a pass of their own before
 /// anything that stands up. All positions are map pixels; everything goes through the Brush.
+/// What the Build menu adds (timber walls and doors, beds, roof sections on any walls, plans under
+/// construction) is in WorldArt.Build.cs. The map view makes a new WorldArt whenever Map.Revision
+/// changes, so the wall map and the grass follow what is built.
 /// </summary>
-public sealed class WorldArt
+public sealed partial class WorldArt
 {
     public const float T = MapView.TileSize;
 
@@ -32,6 +35,7 @@ public sealed class WorldArt
     private readonly ArtTextures _tex;
     private readonly float[] _wear;
     private readonly bool[] _wall;
+    private readonly bool[] _timber;
     private readonly List<(int Y, int X0, int X1)> _waterRows = new();
     private readonly Vector2[] _tuftBase;
     private readonly float[] _tuftSize;
@@ -57,6 +61,7 @@ public sealed class WorldArt
         _wear = GroundWear.Compute(m);
         _wall = new bool[m.Width * m.Height];
         for (int i = 0; i < _wall.Length; i++) _wall[i] = (TerrainKind)m.Terrain[i] == TerrainKind.Wall;
+        _timber = TimberTiles(m);
 
         for (int y = 0; y < m.Height; y++)
         {
@@ -119,7 +124,7 @@ public sealed class WorldArt
                 var p = new SimPoint(x, y);
                 TerrainKind k = m.At(p);
                 if (k is not (TerrainKind.Grass or TerrainKind.Soil)) continue;
-                if (_wear[m.Index(p)] > 0.3f || m.TreeAt(p) != null || m.BushAt(p) != null || p.ChebyshevTo(m.Hearth) <= 1 || m.Stockpile.Contains(p)) continue;
+                if (_wear[m.Index(p)] > 0.3f || m.TreeAt(p) != null || m.BushAt(p) != null || p.ChebyshevTo(m.Hearth) <= 1 || m.Stockpile.Contains(p) || BedOn(m, p)) continue;
                 int n = k == TerrainKind.Grass ? 1 + ArtHash.Pick(3, x, y, 31) : ArtHash.Unit(x, y, 32) < 0.3f ? 1 : 0;
                 for (int i = 0; i < n; i++)
                     tufts.Add((new Vector2((x + 0.15f + 0.7f * ArtHash.Unit(x, y, 40 + i)) * T, (y + 0.2f + 0.75f * ArtHash.Unit(x, y, 50 + i)) * T),
@@ -228,19 +233,22 @@ public sealed class WorldArt
         else
             foreach ((int y, int x0, int x1) in _waterRows) b.Rect(x0 * T, y * T, (x1 - x0) * T, T, Palette.River);
 
-        // Rock outcrops, the stockpile's marked ground, bedrolls.
+        // Rock outcrops and the stockpile's marked ground. Beds are not baked: they are built, claimed and taken
+        // down, so they stand with everything else (DrawBed).
         for (int y = 0; y < _m.Height; y++)
             for (int x = 0; x < _m.Width; x++)
                 if (KindAt(x, y) == TerrainKind.Rock) Boulder(b, x, y);
         DashedRect(b, TilesRect(_m.Stockpile).Grow(-2f), new Color(0.78f, 0.7f, 0.5f, 0.45f), 1.2f, 5f);
-        foreach (Bed bed in _m.Beds) Bedroll(b, bed.Pos);
     }
 
-    /// <summary>A faint square grid (ADR-0008), drawn over the ground every frame so it stays crisp at any zoom.</summary>
-    public void DrawGrid(Brush b)
+    /// <summary>
+    /// A faint square grid (ADR-0008), drawn over the ground every frame so it stays crisp at any zoom; darker
+    /// while a Build tool is in hand (BIBLE section 2's "only while building", used as emphasis).
+    /// </summary>
+    public void DrawGrid(Brush b, bool building = false)
     {
         float mapW = _m.Width * T, mapH = _m.Height * T;
-        var grid = new Color(0f, 0f, 0f, 0.13f);
+        var grid = new Color(0f, 0f, 0f, building ? 0.3f : 0.13f);
         for (int x = 0; x <= _m.Width; x++) b.Line(x * T, 0f, x * T, mapH, grid, 1f);
         for (int y = 0; y <= _m.Height; y++) b.Line(0f, y * T, mapW, y * T, grid, 1f);
     }
@@ -294,11 +302,12 @@ public sealed class WorldArt
         if (ArtHash.Unit(salt, 25) < 0.5f) b.Clear().Ellipse(cx - r * 0.25f, cy - hgt * 0.9f, r * 0.32f, r * 0.16f, 10).Fill(Palette.Moss.WithAlpha(0.7f));
     }
 
-    private static void Bedroll(Brush b, SimPoint p)
+    /// <summary>The old camp's bedroll: straw, a blanket (its owner's colour, or undyed) and a rolled pillow.</summary>
+    private static void Bedroll(Brush b, SimPoint p, Color blanket)
     {
         float x = p.X * T, y = p.Y * T;
         b.Clear().RoundRect(x + 4f, y + 2f, T - 8f, T - 3f, 3f).Lit(Palette.Straw, 0.2f).Stroke(Palette.Ink, 0.8f);
-        b.Clear().RoundRect(x + 4.5f, y + 9f, T - 9f, T - 11f, 2.5f).Lit(Palette.Cloth, 0.2f).Stroke(Palette.InkSoft, 0.7f);
+        b.Clear().RoundRect(x + 4.5f, y + 9f, T - 9f, T - 11f, 2.5f).Lit(blanket, 0.2f).Stroke(Palette.InkSoft, 0.7f);
         b.Clear().RoundRect(x + 7f, y + 3.5f, T - 14f, 5f, 2f).Fill(Palette.Hex(0x9a8f78));
     }
 
@@ -547,9 +556,16 @@ public sealed class WorldArt
     /// A wall tile as a thin band through the tile's centre with arms to its wall neighbours (as the
     /// mockup's roomB): front faces of rough masonry where the band's south side shows, then the top
     /// raised by the wall height, inked on its outer edges only so a run of wall reads as one wall.
+    /// A wall built in this playthrough is split logs instead (DrawTimberWall), so it reads apart
+    /// from the old masonry.
     /// </summary>
     public void DrawWall(Brush b, SimPoint p)
     {
+        if (_timber[_m.Index(p)])
+        {
+            DrawTimberWall(b, p, 1f, Joins);
+            return;
+        }
         float x0 = p.X * T, cx = (p.X + 0.5f) * T, cy = (p.Y + 0.5f) * T, h = WallThick / 2f;
         bool n = Joins(p.X, p.Y - 1), s = Joins(p.X, p.Y + 1), w = Joins(p.X - 1, p.Y), e = Joins(p.X + 1, p.Y);
         float ground = cy + h, faceTop = ground - WallH;
@@ -630,8 +646,15 @@ public sealed class WorldArt
         b.Rect(l, bt - 1f, r - l, 1f, new Color(0f, 0f, 0f, 0.12f));
     }
 
+    /// <summary>A doorway: the old shelter's, or one built in this playthrough (DrawTimberDoor).</summary>
+    public void DrawDoor(Brush b, SimPoint p)
+    {
+        if (_timber[_m.Index(p)]) DrawTimberDoor(b, p, 1f);
+        else DrawOldDoor(b, p);
+    }
+
     /// <summary>The shelter doorway: worn posts where the wall ends, a threshold, and a broken door leaf hanging open.</summary>
-    public static void DrawDoor(Brush b, SimPoint p)
+    private static void DrawOldDoor(Brush b, SimPoint p)
     {
         float x = p.X * T, cy = (p.Y + 0.5f) * T, ground = cy + WallThick / 2f;
         Color post = Palette.Trunk.Lightened(0.1f);
@@ -646,43 +669,31 @@ public sealed class WorldArt
         b.Line(x + T + 0.5f, ground - 3f, x + T + 5f, ground - 1f, Palette.Ink.WithAlpha(0.7f), 0.6f);
     }
 
-    /// <summary>Roof sections rest on the walls: their sort key is just in front of the shelter's south wall.</summary>
-    public float RoofSortY => (_m.Shelter.Y + _m.Shelter.H - 0.5f) * T + WallThick / 2f + 0.01f;
-
-    /// <summary>The roof section's top face in map pixels, stretched to the wall centres on the outer sides.</summary>
-    private Rect2 RoofRect(RoofSection s)
-    {
-        SimRect sh = _m.Shelter;
-        float x0 = s.Area.X * T, x1 = (s.Area.X + s.Area.W) * T;
-        if (s.Area.X == sh.X + 1) x0 -= T * 0.5f;
-        if (s.Area.X + s.Area.W == sh.X + sh.W - 1) x1 += T * 0.5f;
-        float y0 = (sh.Y + 0.5f) * T, y1 = (sh.Y + sh.H - 0.5f) * T;
-        return new Rect2(x0, y0 - WallH - 2f, x1 - x0, y1 - y0);
-    }
-
     /// <summary>A roof section on the walls: weathered boards when sound; bare rafters, loose boards and a red dashed outline when broken.</summary>
     public void DrawRoof(Brush b, RoofSection s, float alpha)
     {
-        Rect2 top = RoofRect(s).Grow(-0.5f);
+        Rect2 top = RoofTop(s.Area).Grow(-0.5f);
         // Someone underneath: the boards fade so they can be seen, the frame stays.
         float frame = Math.Max(alpha, 0.8f);
         Color ink = Palette.Ink.WithAlpha(frame);
         if (s.Sound)
         {
-            // Weathered boards laid across, each a little different, with gaps, moss and grime.
+            // Weathered boards laid across, each a little different, with gaps, moss and grime; a section raised
+            // in this playthrough is fresh timber, paler and clean.
+            bool fresh = s.BuiltBy.Count > 0;
             const float board = 4f;
             int rows = (int)(top.Size.Y / board);
             for (int i = 0; i < rows; i++)
             {
                 float y = top.Position.Y + i * board;
-                Color c = Palette.Roof.Lerp(Palette.RoofHi, ArtHash.Unit(s.Index, i, 150) * 0.55f).Darkened(i * 0.012f);
+                Color c = Palette.Roof.Lerp(Palette.RoofHi, (fresh ? 0.45f : 0f) + ArtHash.Unit(s.Index, i, 150) * 0.55f).Darkened(i * 0.012f);
                 b.Rect(top.Position.X, y, top.Size.X, board - 0.6f, c.WithAlpha(alpha));
                 b.Rect(top.Position.X, y + board - 0.6f, top.Size.X, 0.6f, Palette.RoofLine.WithAlpha(0.9f * alpha));
                 float joint = top.Position.X + top.Size.X * (0.2f + 0.6f * ArtHash.Unit(s.Index, i, 151));
                 b.Rect(joint, y, 0.8f, board - 0.6f, Palette.RoofLine.WithAlpha(0.8f * alpha));
             }
-            b.TextureRegion(_tex.GrungeDark, top, new Rect2(top.Position.X * 1.5f, top.Position.Y * 1.5f, top.Size.X * 1.5f, top.Size.Y * 1.5f), new Color(1f, 1f, 1f, 0.45f * alpha));
-            if (ArtHash.Unit(s.Index, 152) < 0.7f)
+            b.TextureRegion(_tex.GrungeDark, top, new Rect2(top.Position.X * 1.5f, top.Position.Y * 1.5f, top.Size.X * 1.5f, top.Size.Y * 1.5f), new Color(1f, 1f, 1f, (fresh ? 0.2f : 0.45f) * alpha));
+            if (!fresh && ArtHash.Unit(s.Index, 152) < 0.7f)
                 b.Clear().Ellipse(top.Position.X + top.Size.X * (0.25f + 0.5f * ArtHash.Unit(s.Index, 153)), top.Position.Y + top.Size.Y * 0.3f, top.Size.X * 0.16f, 2.5f, 10).Fill(Palette.Moss.WithAlpha(0.6f * alpha));
             b.Rect(top.Position.X, top.Position.Y, top.Size.X, top.Size.Y * 0.35f, new Color(1f, 0.92f, 0.75f, 0.06f * alpha));
             b.Rect(top.Position.X, top.End.Y - top.Size.Y * 0.3f, top.Size.X, top.Size.Y * 0.3f, new Color(0f, 0f, 0f, 0.12f * alpha));
@@ -810,24 +821,8 @@ public sealed class WorldArt
         switch (s.DefId)
         {
             case "timber":
-            {
-                int logs = Math.Clamp(s.Count, 1, 6);
-                for (int i = 0; i < logs; i++)
-                {
-                    int row = i < 3 ? 0 : i < 5 ? 1 : 2;
-                    int inRow = row == 0 ? i : row == 1 ? i - 3 : 0;
-                    int perRow = row == 0 ? Math.Min(3, logs) : row == 1 ? Math.Min(2, logs - 3) : 1;
-                    float ly = y - row * 4.2f - inRow * 0.3f;
-                    float lx = x - (perRow - 1) * 0.5f + (inRow - (perRow - 1) / 2f) * 0.6f;
-                    b.Push();
-                    b.Translate(lx, ly - inRow * 3.6f + row * 1.8f);
-                    b.Rotate(ArtHash.Signed(s.Id, i, 140) * 0.08f);
-                    b.Clear().RoundRect(-9f, -2.1f, 18f, 4.2f, 1.8f).Lit(Palette.Log, 0.2f).Stroke(Palette.Ink, 0.75f);
-                    b.Clear().Ellipse(8.6f, 0f, 1.6f, 2.1f, 10).Fill(Palette.LogEnd).Stroke(Palette.Ink, 0.6f);
-                    b.Pop();
-                }
+                DrawLogPile(b, x, y, s.Count, s.Id);
                 break;
-            }
             case "berries":
             {
                 int baskets = Math.Clamp((s.Count + 5) / 6, 1, 3);

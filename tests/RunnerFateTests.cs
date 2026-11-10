@@ -30,7 +30,7 @@ public class RunnerFateTests
     [Fact]
     public void AFatesRunShowsTheReturnAndItsLostFuture()
     {
-        (int code, string log, string err) = Cli("run", "--seed", "2", "--years", "1", "--fates", "--people", "fae", "--gift", "familiar_faces");
+        (int code, string log, string err) = Cli("run", "--seed", "1", "--years", "1", "--fates", "--people", "fae", "--gift", "familiar_faces");
         Assert.True(code == 0, err);
         string[] lines = log.Split('\n');
         Assert.Contains("You were reborn here as one of the fae, with a gift: Familiar faces.", lines);
@@ -92,16 +92,16 @@ public class RunnerFateTests
 
     /// <summary>
     /// A story crosses a return only if its chain runs through one (the return's line, which every memory and familiar face
-    /// cites); a gift's story in a life that never died carries a gift event but crosses nothing. Seed 13: you are a djinn
+    /// cites); a gift's story in a life that never died carries a gift event but crosses nothing. Seed 36: you are undead
     /// with Fortune's favourite, never die in the year, and the harm your luck turns is on a story chain.
     /// </summary>
     [Fact]
     public void OnlyAStoryThroughAReturnCrossesOne()
     {
-        Simulation quiet = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 13, 1);
+        Simulation quiet = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 36, 1);
         Assert.Equal(0, quiet.World.Fate.Returns);
         FateTally t = SoakFates.Tally(quiet.World, StoryLog.Analyze(quiet.World).Stories);
-        Assert.True(t.FateOrGiftStories > 0, "seed 13's luck should reach a story");
+        Assert.True(t.FateOrGiftStories > 0, "seed 36's luck should reach a story");
         Assert.Equal(0, t.CrossingStories);
 
         Simulation fated = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 3, 1);
@@ -143,10 +143,10 @@ public class RunnerFateTests
             Assert.Equal(tick, RunSetup.FateTick(seed, def));
         }
         Assert.Equal(26, days.Count);
-        Simulation sim = StoryLog.Simulate(TestContent.Db, 7, 1, new RunSetup(null, Fates: true));
+        Simulation sim = StoryLog.Simulate(TestContent.Db, 8, 1, new RunSetup(null, Fates: true));
         Assert.Contains(sim.World.Fate.LostFutures, f => f.Lines[f.DeathLine].Key == Return.Sim.Systems.Fate.ForcedDeathKey
-            && f.DeathTick == RunSetup.FateTick(7, def));
-        Assert.Equal(Encoding.UTF8.GetBytes(Cli("run", "--seed", "7", "--years", "1", "--fates", "--people", "human", "--gift", "none").Out),
-            Encoding.UTF8.GetBytes(Cli("run", "--seed", "7", "--years", "1", "--people", "human", "--gift", "none", "--fates").Out));
+            && f.DeathTick == RunSetup.FateTick(8, def));
+        Assert.Equal(Encoding.UTF8.GetBytes(Cli("run", "--seed", "8", "--years", "1", "--fates", "--people", "human", "--gift", "none").Out),
+            Encoding.UTF8.GetBytes(Cli("run", "--seed", "8", "--years", "1", "--people", "human", "--gift", "none", "--fates").Out));
     }
 }

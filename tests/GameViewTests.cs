@@ -641,7 +641,9 @@ public class GameViewTests
         string host = File.ReadAllText(Path.Combine(TestPaths.Root, "game", "scripts", "SimHost.cs"));
         Assert.DoesNotContain("Sim.Step(", host, StringComparison.Ordinal);
         Assert.DoesNotContain(".Advance(", host.Replace("Clock.Advance(", "", StringComparison.Ordinal), StringComparison.Ordinal);
-        Assert.Equal(2, Regex.Matches(host, @"ViewStepper\.Run\(Sim, [^;]+, _witness\)").Count);
+        // The warm-up, the live loop and the wait:N check hook (ADR-0027): every one witnessed by the map.
+        Assert.Equal(3, Regex.Matches(host, @"ViewStepper\.Run\(Sim, [^;]+, _witness\)").Count);
+        Assert.Equal(3, Regex.Matches(host, @"ViewStepper\.Run\(").Count);
     }
 
     [Fact]

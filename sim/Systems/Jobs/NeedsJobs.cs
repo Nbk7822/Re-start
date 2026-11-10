@@ -43,6 +43,7 @@ public static class NeedsJobs
         if (j.Stage == 0)
         {
             if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
+            if (!Building.LieDown(w, c)) return true; // someone claimed this bed meanwhile: look for another spot (ADR-0027)
             j.Stage = 1;
             c.Asleep = true;
             c.Facing = Facing.S;
@@ -60,6 +61,7 @@ public static class NeedsJobs
         c.Asleep = false;
         bool covered = w.Map.Covered(c.Pos);
         MoodSystem.AddThought(w, c, covered ? "slept_in_shelter" : "slept_outside", 0, 0);
+        Building.Woke(w, c); // their own bed, or none; thanks to whoever sheltered them (ADR-0027)
         return true;
     }
 

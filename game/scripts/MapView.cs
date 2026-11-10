@@ -19,7 +19,8 @@ namespace Return.Game;
 /// behind: trees, bushes, goods, walls, roofs, the hearth and the people, then smoke and flies), and
 /// an overlay above the lighting (rain, a vignette, names and mood marks). Day and night come from
 /// Art.Lighting. Read-only over World: the only state here is view smoothing, walk phases, view-only
-/// nudges and the gore log, all derived from the sim.
+/// nudges and the gore log, all derived from the sim. The Build menu's part (beds, plans under way,
+/// plan marks, the tool's input) is in MapView.Build.cs.
 /// </summary>
 public partial class MapView : Node2D
 {
@@ -71,7 +72,7 @@ public partial class MapView : Node2D
     private readonly List<(int Id, Rect2 Box)> _bodiesMap = new();
     private string _sleepMark = "";
     private readonly Dictionary<string, Color> _castColors = new(StringComparer.Ordinal);
-    private readonly float[] _roofAlpha = new float[16];
+    private readonly Dictionary<int, float> _roofAlpha = new();
     private float _ruinAlpha = 1f;
     private bool _winterDrawn;
     private float _time;
@@ -136,6 +137,9 @@ public partial class MapView : Node2D
         Hearth,
         WatchPost,
         Figure,
+        Bed,
+        Plan,
+        PlanLogs,
     }
 
     private readonly record struct Drawable(float Y, Kind Kind, int Index, float Order);
@@ -166,6 +170,7 @@ public partial class MapView : Node2D
         _looks = LoadLooks();
         World w = host.World;
         _art = new WorldArt(w.Map, _tex);
+        _artRevision = w.Map.Revision;
 
         _ground = DrawLayer.Make("Ground", PaintGround);
         _ground.TextureRepeat = TextureRepeatEnum.Enabled;
@@ -191,7 +196,6 @@ public partial class MapView : Node2D
         layer.AddChild(_overlay);
         AddChild(layer);
 
-        for (int i = 0; i < _roofAlpha.Length; i++) _roofAlpha[i] = 1f;
         _rain = new Vector2[260 * 2];
         _gore.Observe(w);
         _light = Daylight.At(w.Tick, w.Content.World, w.Weather.Raining);
@@ -241,6 +245,7 @@ public partial class MapView : Node2D
         World w = _host.World;
         WorldDef def = w.Content.World;
         _time += (float)delta;
+        UpdateBuild(w);
         Smooth(w, delta);
         _gore.Observe(w);
         _light = Daylight.At(w.Tick, def, w.Weather.Raining);
@@ -272,7 +277,13 @@ public partial class MapView : Node2D
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (_host == null || e is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
+        if (_host == null) return;
+        if (BuildInput(e))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (_host.Build.Active || e is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
         _host.Select(CharacterUnderMouse());
         GetViewport().SetInputAsHandled();
     }
@@ -384,14 +395,19 @@ public partial class MapView : Node2D
         _lighting.Glows(_glowList);
     }
 
+    /// <summary>Roofs fade while someone is under them, so they can be seen: each section (and each roof going up) by its id.</summary>
     private void UpdateRoofs(World w, float delta)
     {
         Map m = w.Map;
         float k = 1f - Mathf.Exp(-delta * 6f);
-        for (int i = 0; i < m.Roof.Count && i < _roofAlpha.Length; i++)
-            _roofAlpha[i] = Mathf.Lerp(_roofAlpha[i], Occupied(w, m.Roof[i].Area) ? 0.3f : 0.94f, k);
+        foreach (RoofSection r in m.Roof)
+            if (!r.Removed) _roofAlpha[r.Id] = Mathf.Lerp(RoofAlpha(r.Id), Occupied(w, r.Area) ? 0.3f : 0.94f, k);
+        foreach (Blueprint bp in w.Blueprints)
+            if (bp.Progress > 0 && bp.Area.W * bp.Area.H > 1) _roofAlpha[bp.Id] = Mathf.Lerp(RoofAlpha(bp.Id), Occupied(w, bp.Area) ? 0.3f : 0.94f, k);
         _ruinAlpha = Mathf.Lerp(_ruinAlpha, Occupied(w, m.CoveredRuins) ? 0.32f : 0.95f, k);
     }
+
+    private float RoofAlpha(int id) => _roofAlpha.TryGetValue(id, out float a) ? a : 1f;
 
     private static bool Occupied(World w, Return.Sim.Core.Rect area)
     {
@@ -505,7 +521,7 @@ public partial class MapView : Node2D
         if (_host == null) return;
         _paintWatch.Restart();
         _brush.Begin(layer, PixelsPerUnit(layer));
-        _art.DrawGrid(_brush);
+        _art.DrawGrid(_brush, _host.Build.Active);
         _art.DrawWater(_brush, _time, _host.World.Weather.Raining);
         _brush.End();
         _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
@@ -563,7 +579,9 @@ public partial class MapView : Node2D
                 if (k == TerrainKind.Wall) _drawables.Add(new Drawable(WorldArt.WallSortY(new SimPoint(x, y)), Kind.Wall, y * m.Width + x, 1));
                 else if (k == TerrainKind.Door) _drawables.Add(new Drawable(WorldArt.DoorSortY(new SimPoint(x, y)), Kind.Door, y * m.Width + x, 1));
             }
-        for (int i = 0; i < m.Roof.Count; i++) _drawables.Add(new Drawable(_art.RoofSortY, Kind.Roof, i, 2));
+        for (int i = 0; i < m.Roof.Count; i++)
+            if (!m.Roof[i].Removed) _drawables.Add(new Drawable(_art.RoofSortY(m.Roof[i].Area), Kind.Roof, i, 2));
+        CollectBuild(w);
         _drawables.Add(new Drawable(_art.RuinRoofSortY, Kind.RuinRoof, 0, 2));
         _drawables.Add(new Drawable(_art.HearthSortY, Kind.Hearth, 0, 0));
         _drawables.Add(new Drawable(_art.WatchPostSortY, Kind.WatchPost, 0, 0));
@@ -660,8 +678,9 @@ public partial class MapView : Node2D
             case Kind.Bush: WorldArt.DrawBush(_brush, m.Bushes[d.Index], _time, winter); break;
             case Kind.Stack: WorldArt.DrawStack(_brush, w.Items[d.Index]); break;
             case Kind.Wall: _art.DrawWall(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;
-            case Kind.Door: WorldArt.DrawDoor(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;
-            case Kind.Roof: _art.DrawRoof(_brush, m.Roof[d.Index], _roofAlpha[Math.Min(d.Index, _roofAlpha.Length - 1)]); break;
+            case Kind.Door: _art.DrawDoor(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;
+            case Kind.Roof: _art.DrawRoof(_brush, m.Roof[d.Index], RoofAlpha(m.Roof[d.Index].Id)); break;
+            case Kind.Bed or Kind.Plan or Kind.PlanLogs: PaintBuild(w, d); break;
             case Kind.RuinRoof: _art.DrawRuinRoof(_brush, _ruinAlpha); break;
             case Kind.Hearth: _art.DrawHearth(_brush, _time); break;
             case Kind.WatchPost: _art.DrawWatchPost(_brush, LanternLit(w) && _light.Night > 0.3f, _time); break;
@@ -744,6 +763,7 @@ public partial class MapView : Node2D
             Burning = GoreLog.Burning(w, c),
             HeadLeft = pose == Pose.Dead ? ArtHash.Unit(c.Id, 5) < 0.5f : c.Facing == Facing.W,
             OnBed = pose == Pose.Sleep && OnBed(w.Map, c.Pos),
+            Blanket = pose == Pose.Sleep && Building.BedAt(w, c.Pos) is { } bed ? BlanketOf(w, bed) : default,
             Nature = Kinship.NatureStage(c),
             Leaves = Kinship.LeavesAt(w.Tick, w.Content.World),
             Night = _light.Night,
@@ -909,6 +929,7 @@ public partial class MapView : Node2D
         World w = _host.World;
         Vector2 screen = layer.GetViewportRect().Size;
         _brush.Begin(layer, PixelsPerUnit(layer));
+        PaintPlanMarks(w);
         if (w.Weather.Raining) RainStreaks(screen);
         // A flat vignette: deepening it at night would black out the corners.
         _brush.TextureRect(_tex.Vignette, new Rect2(Vector2.Zero, screen), new Color(1f, 1f, 1f, 0.5f));
@@ -1030,6 +1051,7 @@ public partial class MapView : Node2D
             Vector2 corner = (_toScreen * new Vector2((stack.Pos.X + 1f) * TileSize - 1f, (stack.Pos.Y + 1f) * TileSize - 1f)).Round();
             AddMark(corner, stack.Count < Numbers.Length ? Numbers[stack.Count] : Ui.N(stack.Count), CountFontSize, Palette.Name, new Vector2(1f, 1f), 3);
         }
+        BuildCaptions();
 
         foreach (Character c in w.Characters)
         {

@@ -258,6 +258,9 @@ public class GrowthTests
 
         foreach (Character c in a.World.Characters.Where(c => c.Named))
         {
+            // Someone not yet arrived in b has no want yet: when you die there and come back, the arrivals still to come
+            // are drawn again (ADR-0030), so b can reach this tick with someone still off the map.
+            if (b.World.Get(c.Id).Status == CharStatus.OffMap) continue;
             Want mine = c.Growth.Want!, theirs = b.World.Get(c.Id).Growth.Want!;
             Assert.Equal(WorldGen.NatureOf(Db, 5, c.CastKey).WantType, mine.TypeId);
             Assert.Equal(mine.TypeId, theirs.TypeId);

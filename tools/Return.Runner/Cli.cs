@@ -13,10 +13,11 @@ namespace Return.Runner;
 public static class Cli
 {
     public const string Usage =
-        "usage: return-runner run --seed <n> --years <y> [--out <file>] [--people <id>] [--gift <id|none>] [--fates]\n" +
-        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--people <id>] [--gift <id|none>] [--fates]\n" +
+        "usage: return-runner run --seed <n> --years <y> [--out <file>] [--people <id>] [--gift <id|none>] [--fates] [--plan none|beds|camp|mixed]\n" +
+        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--people <id>] [--gift <id|none>] [--fates] [--plan none|beds|camp|mixed]\n" +
         "       --people and --gift choose who you are reborn as, for testing (the log says so); --fates kills you once\n" +
-        "       in your first timeline, on a day from 10 to 35 hashed from the seed, so every world shows a return.\n";
+        "       in your first timeline, on a day from 10 to 35 hashed from the seed, so every world shows a return.\n" +
+        "       --plan gives the stand-in player a building plan: none, beds, camp, or mixed (one of the three by seed).\n";
 
     /// <summary>UTF-8 without a byte-order mark, for every file the runner writes.</summary>
     internal static readonly Encoding Utf8 = new UTF8Encoding(false);
@@ -63,7 +64,7 @@ public static class Cli
     {
         ContentDb content = LoadContent();
         CheckChoice(content, a.Setup.Choice);
-        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years, a.Setup);
+        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years, a.Setup, a.Plan);
         var log = new StringWriter(CultureInfo.InvariantCulture);
         StoryLog.Write(sim, log);
         if (a.OutFile == null)
@@ -98,19 +99,26 @@ public static class Cli
         }
     }
 
-    private sealed record RunArgs(ulong Seed, int Years, string? OutFile, RunSetup Setup);
+    private sealed record RunArgs(ulong Seed, int Years, string? OutFile, RunSetup Setup, string Plan);
 
     private static readonly string[] Flags = { "--fates" };
 
     private static RunArgs ParseRun(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out", "--people", "--gift", "--fates");
-        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"), Setup(o));
+        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out", "--people", "--gift", "--fates", "--plan");
+        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"), Setup(o), Plan(o));
+    }
+
+    /// <summary>The stand-in player's building plan (ADR-0027); "none" when not given.</summary>
+    private static string Plan(Dictionary<string, string> options)
+    {
+        string plan = options.GetValueOrDefault("--plan") ?? "none";
+        return Autoplay.Plans.Contains(plan) ? plan : throw new UsageException($"--plan must be one of {string.Join(", ", Autoplay.Plans)}, not '{plan}'");
     }
 
     private static SoakOptions ParseSoak(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel", "--people", "--gift", "--fates");
+        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel", "--people", "--gift", "--fates", "--plan");
         return new SoakOptions
         {
             Worlds = AtLeastOne(o, "--worlds"),
@@ -118,6 +126,7 @@ public static class Cli
             OutDir = Required(o, "--out"),
             Parallel = o.ContainsKey("--parallel") ? AtLeastOne(o, "--parallel") : Environment.ProcessorCount,
             Setup = Setup(o),
+            Plan = Plan(o),
         };
     }
 

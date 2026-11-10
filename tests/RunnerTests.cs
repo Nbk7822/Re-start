@@ -251,6 +251,8 @@ public class RunnerTests
     [InlineData("soak --worlds 3 --years 1 --out unused --parallel 0")]
     [InlineData("soak --worlds 3 --years 1 --out unused --parallel many")]
     [InlineData("soak --worlds 3 --years 1 --out unused --seed 2")]
+    [InlineData("run --seed 1 --years 1 --plan castle")]
+    [InlineData("soak --worlds 3 --years 1 --out unused --plan")]
     public void BadArgumentsPrintUsageAndExitWith2(string argLine)
     {
         var stdout = new StringWriter();
@@ -350,6 +352,62 @@ public class RunnerTests
             Assert.Equal(4, root.GetProperty("stories").GetInt32());
             Assert.Equal(1.33, root.GetProperty("storiesPerWorld").GetDouble());
             Assert.Equal(3UL, root.GetProperty("failures")[0].GetProperty("seed").GetUInt64());
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    /// <summary>Mixed plans vary apart from the ration policy: over any nine seeds in a row, every policy meets every plan once (ADR-0027).</summary>
+    [Fact]
+    public void MixedPlansAreIndependentOfTheRationPolicy()
+    {
+        Assert.Equal("camp", Autoplay.PlanFor("camp", 7));
+        Assert.Equal("none", Autoplay.PlanFor("none", 7));
+        for (ulong start = 0; start < 18; start += 9)
+        {
+            var pairs = new HashSet<(RationPolicy, string)>();
+            for (ulong seed = start; seed < start + 9; seed++) pairs.Add((Autoplay.PolicyFor(seed), Autoplay.PlanFor("mixed", seed)));
+            Assert.Equal(9, pairs.Count);
+        }
+    }
+
+    /// <summary>The plans build: beds alone in the shelter, then the hut, each once the camp has outgrown its beds; none builds nothing.</summary>
+    [Fact]
+    public void ThePlansBuildWhatTheySay()
+    {
+        World none = StoryLog.Simulate(TestContent.Db, 4, 1, "none").World;
+        World beds = StoryLog.Simulate(TestContent.Db, 4, 1, "beds").World;
+        World camp = StoryLog.Simulate(TestContent.Db, 4, 1, "camp").World;
+        Assert.DoesNotContain(none.Log.All, e => e.Key.StartsWith("event.world.plan", StringComparison.Ordinal));
+        Assert.Equal(4, none.Map.Beds.Count);
+        Assert.Equal(7, beds.Map.Beds.Count);
+        Assert.All(beds.Map.Beds, b => Assert.True(beds.Map.Shelter.Contains(b.Pos)));
+        Assert.Empty(beds.Map.Structures);
+        Assert.Equal(9, camp.Map.Beds.Count);
+        Assert.Equal(13, camp.Map.Structures.Count(s => s.DefId == "wall"));
+        Assert.Single(camp.Map.Structures, s => s.DefId == "door");
+        Assert.Equal(4, camp.Map.Roof.Count);
+        SimEvent firstPlan = camp.Log.All.First(e => e.Key == "event.world.planned");
+        Assert.Equal(8, Return.Sim.Core.Calendar.Hour(firstPlan.Tick, camp.Content.World));
+    }
+
+    [Fact]
+    public void ASoakWorldWithAPlanIsWhatRunPrintsForIt()
+    {
+        string dir = TempDir();
+        try
+        {
+            RunCli("soak", "--worlds", "1", "--years", "1", "--out", dir, "--plan", "camp", "--parallel", "1");
+            string run = RunCli("run", "--seed", "1", "--years", "1", "--plan", "camp");
+            Assert.Equal(Encoding.UTF8.GetBytes(run), File.ReadAllBytes(Path.Combine(dir, "world-1.txt")));
+            Assert.Contains("  Beds: 9, ", run);
+            using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(dir, "summary.json")));
+            Assert.Equal("camp", doc.RootElement.GetProperty("plan").GetString());
+            JsonElement byPlan = doc.RootElement.GetProperty("byPlan");
+            Assert.Equal("camp", byPlan[0].GetProperty("plan").GetString());
+            Assert.True(byPlan[0].GetProperty("treesLeft").GetDouble() < 24);
         }
         finally
         {

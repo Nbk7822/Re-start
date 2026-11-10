@@ -230,6 +230,49 @@ Oren, Ilex, Bram, Nia, Sera, Vale, Wren, Hollis, Thessil, Cindral and Sennet out
 - Built from stored state: the run memory (your people, gift, returns, when it ended) and who is still alive.
 - Why it matters: the design closes a life on who you were and who outlived you (§6.3); the build closed it on one line. Mira and Varrow are not on the list: they died before you did. Screenshots: `final-end-card.png`, `final-end-chronicle.png`.
 
+## 2026-11-09 — The Build menu, slice 1a (ADR-0027; soak 100 worlds × 1 year, `--plan mixed`)
+
+Building stories in 22 of the 66 worlds where the stand-in player made a plan (6 of 33 with beds alone, 16 of 33 with the camp), 35 stories from four sets of systems. Every one is headed by the player's plan and runs through a felling: the timber a plan needs is cut from the trees nearest the camp, and some of those belong to a dryad or a faith. Passing over fires (57 times in 29 of 33 camp worlds) but ends no story within a year, and the design's showcase, "The last of the timber", needs a vampire promised a roof, which no longer happens at this baseline (the old roof is mended on day 1); it is told by the scenario test below.
+
+### Three beds, and Thessil (seed 16, soak `--plan camp`; policy "promised meals come first")
+On the fourth morning the camp had outgrown its beds, and you marked out three more in the old shelter. An hour and a half later you went out with the axe yourself and felled a tree for the timber. Thessil, a dryad who had come to the camp that week, grieved for the tree you cut down; she held a grudge against you from that moment, and eighteen minutes later she had left the camp.
+- Chain: your plan (World) → you felled a tree for it (Work) → Thessil grieved, grudge, left (Social). 5 steps.
+- Why it matters: the felling cites the plan, so a stranger reads a decision about beds turning into a dryad walking out. Nobody is a villain; the beds were needed.
+
+### The sacred tree for the beds (seed 22, soak; plan beds; policy "promised meals come first")
+On Day 5 you marked out three beds in the shelter. Before noon you had felled a tree for the timber: the old tree sacred to the Faith of the Deep Root. Bram, who keeps that faith, held a grudge against you, and within the hour he had left the camp.
+- Chain: your plan (World) → felled (Work) → the sacred tree desecrated (Culture) → grudge → left (Social). 5 steps.
+- The same chain with a neighbour's axe ends in a festival instead (seed 15, plan camp, "the hungriest eat first"): Bram felled the tree sacred to the Green Way for your three beds on Day 4, Sera held a grudge against him, and at the harvest fire on Day 26 she set it down.
+
+### Mira and Thessil's tree (seed 39, soak; plan beds; policy "the hungriest eat first")
+On Day 4 you marked out three beds. Mira went to fell timber for them, and the tree she brought down was the one Thessil was bound to. Thessil cried out as it came down, and now holds a grudge against Mira.
+- Chain: your plan (World) → Mira felled the bound tree (Work) → Thessil cried out (Needs) → grudge (Social). 4 steps.
+- Seen beside it in camp worlds: a dryad whose tree fell for the hut withers, and each person who tends her makes a story of its own (ADR-0022's sibling seam). The camp plan leaves about 7 trees of 24 by the year's end.
+
+### The last of the timber (scenario test `TheLastTimberIsCitedWhenTheRoofPromiseBreaks`)
+Ilex, a vampire, agreed to stay after you promised a sound roof against the sun within two days. You had marked out a bed. Sera, who had no bed, built the bed before the roof, and in fetching its timber she used the last of what the roof needed: "Sera used the last of the timber on a bed." Ilex, passed over, thought less of her, and when the two days were out your promise broke, citing that moment.
+- Chain: your plan (World) → Sera used the last of the timber (Work) → promise broken → grudge (Social).
+- Why it matters: the design's own first story, in the engine. It waits in soaks for a camp whose roof is still broken when a vampire arrives.
+
+
+## 2026-11-09 — The Build menu, slice 1b: the view (ADR-0027 update; playtest)
+
+The view adds no mechanics, so the soak is unchanged (every one of the 100 `--plan mixed` world logs is byte-identical to slice 1a: 1,398 stories, 13.98 per world-year). What it adds is that a player can now start these chains from the map and watch them run. One playtest through the real tool, kept here because it shows the chain a player follows with their eyes, not because the analyzer counts it.
+
+### The first hut (seed 1, playtest through the Build menu)
+Paused on the first morning, you dragged out a 5×4 room east of the fire with Shift held, called off the wall piece facing the hearth and put a door there, dragged a roof over the inside and two beds against the east wall; the plans sat pale and dashed, "Takes effect when time moves". When time moved: "You marked out 13 walls.", a door, a roof section, 2 beds. There were two timber in store. Before noon you and Mira had the axes out, each felling citing the plan, and at 14:32 you were hurt in an accident at the work; the blood stayed where it fell. The walls rose course by course through the evening; Oren finished the thirteen at 21:30, you the door at 22:03, Mira the first bed at 22:12; Oren raised the roof the next morning and you built the second bed. Then the hut stood empty. Nobody in camp lacked a bed: three starters slept in the shelter's bedrolls and the fourth was free. Bram, who came later, claimed the bed Mira built on Day 4, and Sera the one you built on Day 5; on the sixth night both slept there under blankets of their own colours.
+- Chain: your plan (World) → fellings that cite it (Work) → an accident (Incident) → walls, door, beds and roof (Work) → claims days later (Social). No grudge, debt, death or departure, so no story by BIBLE section 1, as the design intends: finishing a building ends nothing by itself.
+- Why it matters: the founder can now do in play what the stand-in does in soaks, and see on the map what slice 1a measured. Here, as there, the timber was committed before anyone had a stake in it (ADR-0027 item 12). Built a week later, with newcomers sleeping on the floor, the same hut is where "the last of the timber" and slice 1c's envy begin.
+
+## 2026-11-09 — The Build menu, review (ADR-0027 review update; soak `--plan mixed`, 100 and 500 worlds × 1 year)
+
+Every slice 1a entry above still happens at the review's last commit, in the same words: seed 16 (Thessil leaves eighteen minutes after you fell the tree sacred to her faith for three beds), seed 22 (Bram leaves within the hour), seed 15 (Sera sets her grudge against Bram down at the harvest fire on Day 26), seed 39 (Thessil cries out as Mira fells her tree). Over 500 seeds the building stories (246, in 112 of the 333 worlds with a plan) are all still of one shape: the plan heads a felling, and the felling ends in a dryad's or a faith's grudge, sometimes a departure. Nothing built, claimed or taken down sits on any story's path yet, and passing over, now told only of people with no bed to go to, ends none within a year.
+
+### The hut's walls and Thessil's tree (seed 115, soak `--plan mixed` over 500 worlds; plan camp)
+On the eighth morning, the camp having outgrown its beds, you marked out the thirteen walls of a hut. Just after noon you had the axe out yourself, and the tree you brought down was the one Thessil was bound to. She cried out as it fell, held a grudge against you, and before the hour was out she had left the camp.
+- Chain: your plan (World) → you felled her tree for it (Work) → Thessil cried out (Needs) → grudge → left (Social). 5 steps.
+- Why it matters: seed 16's chain with the hut in place of the beds, six days after the design's fixed day 2 would have put it up (ADR-0027 item 12), when there was someone in camp for the felling to hurt.
+
 ## 2026-11-09 — The founder plays the return (ADR-0031 play check, first try; milestone-0 at 3f5068d)
 The founder played the merged slice of Who you are and Return by Death with `tools/play 23`: seed 23, where you wake as a vampire and, left alone, the build's own run dies of its wounds at 02:00 on Day 10 and comes back to Day 8, 15:00. It was a short session, well under ADR-0031's two hours, and before the opening act. Asked ADR-0031's four questions, the founder answered:
 1. Did you die and come back, and did you want to go on? "no"

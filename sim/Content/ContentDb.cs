@@ -85,6 +85,7 @@ public sealed partial class ContentDb
         db._wants = Index(db.Wants, d => d.Id);
         db.LoadCulture(dirs);
         db.LoadFate(dirs);
+        db.LoadBuildings(dirs);
         db._needs = Index(db.Needs, d => d.Id);
         db.Validate();
         return db;
@@ -150,6 +151,8 @@ public sealed partial class ContentDb
             if (!_work.ContainsKey(id)) Fail("work.json", $"the simulation needs work '{id}'");
         foreach (string id in RequiredContent.Thoughts)
             if (!_thoughts.ContainsKey(id)) Fail("thoughts.json", $"the simulation needs a thought '{id}'");
+        foreach (string id in RequiredContent.BuildThoughts)
+            if (!_thoughts.ContainsKey(id)) Fail("thoughts.json", $"the simulation needs a thought '{id}'");
         foreach ((string id, string[] ps) in RequiredContent.Incidents)
         {
             if (!_incidents.TryGetValue(id, out IncidentDef? inc)) { Fail("incidents.json", $"the simulation needs an incident '{id}'"); continue; }
@@ -185,6 +188,7 @@ public sealed partial class ContentDb
         ValidateWants();
         ValidateCulture();
         ValidateFate();
+        ValidateBuildings();
     }
 
     /// <summary>

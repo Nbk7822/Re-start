@@ -75,6 +75,9 @@ public struct FigureState
 
     /// <summary>How dark it is, 0 day … 1 deep night: a fae's wings catch the moonlight.</summary>
     public float Night;
+
+    /// <summary>The blanket over a sleeper in a bed: the bed's (its owner's cloth). Unset means the plain blanket.</summary>
+    public Color Blanket;
 }
 
 /// <summary>
@@ -922,7 +925,7 @@ public static class Figures
 
         // A blanket over a sleeper in a bed.
         if (s.Pose == Pose.Sleep && s.OnBed)
-            b.Clear().RoundRect(-16.5f, -4.8f - heave, 21f, 9.6f + heave * 2f, 3f).Lit(Palette.Cloth, 0.2f).Stroke(Palette.Ink, 0.8f);
+            b.Clear().RoundRect(-16.5f, -4.8f - heave, 21f, 9.6f + heave * 2f, 3f).Lit(s.Blanket.A > 0f ? s.Blanket : Palette.Cloth, 0.2f).Stroke(Palette.Ink, 0.8f);
 
         // Head and collar.
         if (look.Vampire) b.Clear().Add(6f, -4.5f).Add(8f, -9f).Add(9f, -3.5f).Fill(Palette.Collar).Stroke(Palette.Ink, 0.8f);

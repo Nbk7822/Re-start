@@ -9,12 +9,29 @@ public class DeterminismTests
 {
     private static int MiraId(Simulation s) => s.World.Characters.First(c => c.CastKey == "mira").Id;
 
-    private static Simulation Scripted(ulong seed, RationPolicy policy)
+    /// <summary>A ration policy, a priority, and (ADR-0027) a bed and a run of walls; the second plan puts the bed elsewhere.</summary>
+    private static Simulation Scripted(ulong seed, RationPolicy policy, bool otherPlan = false)
     {
         var s = Simulation.Create(TestContent.Db, seed);
         s.Enqueue(new SetRationPolicy(1_000, policy));
         s.Enqueue(new SetWorkPriority(2_000, MiraId(s), "forage", 1));
+        Return.Sim.Core.Point bed = BuildPlanTests.ShelterFloor(s.World), yard = BuildPlanTests.Yard(s.World, 0, 3);
+        if (otherPlan) bed = bed with { X = bed.X + 1 };
+        s.Enqueue(new PlaceBlueprint(3_000, "bed", new[] { new Return.Sim.Core.Rect(bed.X, bed.Y, 1, 1) }));
+        s.Enqueue(new PlaceBlueprint(3_000, "wall", Enumerable.Range(0, 4).Select(i => new Return.Sim.Core.Rect(yard.X + i, yard.Y, 1, 1)).ToList()));
         return s;
+    }
+
+    [Fact]
+    public void PlansAreBuiltTheSameWayEveryTimeAndADifferentPlanDiffers()
+    {
+        Simulation a = Scripted(42, RationPolicy.PromisesFirst), b = Scripted(42, RationPolicy.PromisesFirst), c = Scripted(42, RationPolicy.PromisesFirst, otherPlan: true);
+        a.Advance(20_000);
+        b.Advance(20_000);
+        c.Advance(20_000);
+        Assert.Equal(a.StateHash(), b.StateHash());
+        Assert.NotEqual(a.StateHash(), c.StateHash());
+        Assert.True(a.World.Map.Structures.Count + a.World.Map.Beds.Count(x => x.BuiltBy.Count > 0) > 0, "nothing was built in 20,000 ticks");
     }
 
     [Fact]
@@ -129,6 +146,36 @@ public class SnapshotTests
         }
     }
 
+    /// <summary>
+    /// A snapshot taken with a plan half built, timber lying on a site and a builder carrying timber restores to exactly
+    /// the same future (ADR-0027).
+    /// </summary>
+    [Fact]
+    public void ASnapshotMidBuildRestoresExactly()
+    {
+        var straight = Simulation.Create(TestContent.Db, 6);
+        World w = straight.World;
+        straight.Advance(7_200);
+        Return.Runner.Autoplay.Hut hut = Return.Runner.Autoplay.FindHut(w)!;
+        straight.Enqueue(new PlaceBlueprint(w.Tick, "wall", hut.Walls));
+        straight.Enqueue(new PlaceBlueprint(w.Tick, "roof", new[] { hut.Roof }));
+        straight.Enqueue(new PlaceBlueprint(w.Tick, "bed", hut.Beds));
+        bool Midway() =>
+            w.Blueprints.Any(b => b.Progress > 0 && b.Progress < w.Content.BuildingById(b.DefId).WorkFor(b.Area))
+            && w.Blueprints.Any(b => b.Delivered > 0)
+            && w.Characters.Any(c => c.Carrying is { DefId: "timber" } && c.Job is { Kind: JobKind.Build or JobKind.Deliver });
+        long limit = w.Tick + 3 * 7_200;
+        while (!Midway() && w.Tick < limit) straight.Step();
+        Assert.True(Midway(), "no moment with a plan half built, timber on a site and a builder carrying timber");
+        long at = w.Tick;
+        Simulation restored = Simulation.Restore(TestContent.Db, straight.Snapshot());
+        Assert.Equal(straight.StateHash(), restored.StateHash());
+        straight.Advance(4_000);
+        restored.Advance(4_000);
+        Assert.Equal(straight.StateHash(), restored.StateHash());
+        Assert.Equal(at + 4_000, restored.World.Tick);
+    }
+
     [Fact]
     public void RestoreUnderOneSecondAt200Characters()
     {
@@ -165,5 +212,28 @@ public class PerformanceTests
         sw.Stop();
         double nsPerCharTick = sw.Elapsed.TotalMilliseconds * 1_000_000.0 / (7_200.0 * characters);
         Assert.True(nsPerCharTick <= 2_000, $"tick cost {nsPerCharTick:F0} ns per character per tick exceeds the 2,000 ns budget (ADR-0005)");
+    }
+
+    /// <summary>The same budget with the stand-in's whole camp plan (shelter beds, the hut, its roof and beds) being built that day (ADR-0027).</summary>
+    [Fact]
+    public void TickCostUnderBudgetWhileTheCampIsBuilt()
+    {
+        var s = Simulation.Create(TestContent.Db, 3);
+        s.Advance(7_200);
+        World w = s.World;
+        Return.Runner.Autoplay.Hut hut = Return.Runner.Autoplay.FindHut(w)!;
+        s.Enqueue(new PlaceBlueprint(w.Tick, "wall", hut.Walls));
+        s.Enqueue(new PlaceBlueprint(w.Tick, "door", new[] { hut.Door }));
+        s.Enqueue(new PlaceBlueprint(w.Tick, "roof", new[] { hut.Roof }));
+        s.Enqueue(new PlaceBlueprint(w.Tick, "bed", hut.Beds));
+        s.Step();
+        Assert.True(w.Blueprints.Count >= 17);
+        int characters = w.Characters.Count;
+        var sw = Stopwatch.StartNew();
+        s.Advance(7_200);
+        sw.Stop();
+        double nsPerCharTick = sw.Elapsed.TotalMilliseconds * 1_000_000.0 / (7_200.0 * characters);
+        Assert.True(nsPerCharTick <= 2_000, $"tick cost {nsPerCharTick:F0} ns per character per tick exceeds the 2,000 ns budget (ADR-0005)");
+        Assert.True(w.Map.Structures.Count > 0, "nothing was built in the measured day");
     }
 }

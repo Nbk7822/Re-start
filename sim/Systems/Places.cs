@@ -94,40 +94,120 @@ public static class Places
     {
         Point best = Point.None;
         int bestDist = int.MaxValue;
+        bool[] cover = CoverArray(w);
         Map m = w.Map;
         for (int y = 0; y < m.Height; y++)
             for (int x = 0; x < m.Width; x++)
             {
                 var p = new Point(x, y);
-                if (!m.Covered(p) || !m.Passable(p)) continue;
+                if (!cover[m.Index(p)] || !m.Passable(p)) continue;
                 int d = p.ChebyshevTo(from);
                 if (d < bestDist) { best = p; bestDist = d; }
             }
         return best;
     }
 
-    /// <summary>Where this character should sleep: cover for those who burn, else a free bed under a sound roof, any free bed, the shelter floor, or right here.</summary>
+    /// <summary>
+    /// Where this character should sleep (build design 4.6): their own bed, an unclaimed bed they built, an
+    /// unclaimed bed under a roof, any unclaimed bed; else covered floor, the shelter floor, or right here.
+    /// Those who burn in daylight put cover first and take only a covered bed. Nobody sleeps in someone else's bed.
+    /// </summary>
     public static Point SleepSpot(World w, Character c)
     {
-        if (BurnsInDaylight(w, c))
+        bool burns = BurnsInDaylight(w, c);
+        Bed? bed = Building.SleepBed(w, c, coveredOnly: burns);
+        // By day, one who burns goes to their bed only if the way there is under cover; else they would walk into the sun.
+        if (bed != null && (!burns || !SunDanger(w) || CoveredWay(w, c.Pos, bed.Pos))) return bed.Pos;
+        if (burns)
         {
-            Point covered = CoveredSpot(w, c.Pos);
-            return covered == Point.None ? c.Pos : covered;
+            Point covered = CoveredSpot(w, c.Pos, c.Id);
+            return covered == Point.None ? NotOthersBed(w, c.Pos, c.Id) : covered;
         }
-        Bed? soundBed = null, anyBed = null;
-        foreach (Bed b in w.Map.Beds)
-        {
-            if (TakenBed(w, b.Pos, c.Id)) continue;
-            anyBed ??= b;
-            if (soundBed == null && w.Map.Covered(b.Pos)) soundBed = b;
-        }
-        if (soundBed != null) return soundBed.Pos;
-        if (anyBed != null) return anyBed.Pos;
-        Point floor = CoveredSpot(w, c.Pos);
+        Point floor = CoveredSpot(w, c.Pos, c.Id);
         if (floor != Point.None && !w.Map.CoveredRuins.Contains(floor)) return floor;
         Rect s = w.Map.Shelter;
         var inside = new Point(s.X + 1 + (c.Id % (s.W - 2)), s.Y + 1 + (c.Id % (s.H - 2)));
-        return w.Map.Passable(inside) ? inside : c.Pos;
+        return NotOthersBed(w, w.Map.Passable(inside) ? inside : c.Pos, c.Id);
+    }
+
+    /// <summary>Can one walk from one tile to another without leaving cover (8 ways, never cutting a corner)?</summary>
+    private static bool CoveredWay(World w, Point from, Point to)
+    {
+        Map m = w.Map;
+        bool[] cover = CoverArray(w);
+        bool Open(Point p) => m.Passable(p) && cover[m.Index(p)];
+        if (!Open(from) || !Open(to)) return false;
+        var seen = new bool[m.Width * m.Height];
+        var queue = new Queue<Point>();
+        seen[m.Index(from)] = true;
+        queue.Enqueue(from);
+        while (queue.Count > 0)
+        {
+            Point p = queue.Dequeue();
+            if (p == to) return true;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    var q = new Point(p.X + dx, p.Y + dy);
+                    if ((dx == 0 && dy == 0) || !Open(q) || seen[m.Index(q)]) continue;
+                    if (dx != 0 && dy != 0 && (!Open(new Point(p.X + dx, p.Y)) || !Open(new Point(p.X, p.Y + dy)))) continue;
+                    seen[m.Index(q)] = true;
+                    queue.Enqueue(q);
+                }
+        }
+        return false;
+    }
+
+    /// <summary>The tile itself, unless it is someone else's bed (or a free bed someone is in or heading for); then its first passable neighbour that is not.</summary>
+    private static Point NotOthersBed(World w, Point p, int id)
+    {
+        if (!SleepTaken(w, p, id)) return p;
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                var q = new Point(p.X + dx, p.Y + dy);
+                if (w.Map.Passable(q) && !SleepTaken(w, q, id)) return q;
+            }
+        return p;
+    }
+
+    private static bool SleepTaken(World w, Point p, int id) => Building.OthersBed(w, p, id) || (Building.BedAt(w, p) != null && TakenBed(w, p, id));
+
+    /// <summary>Nearest covered, passable tile to sleep on that is not someone else's bed (nor a free bed someone is in or heading for).</summary>
+    private static Point CoveredSpot(World w, Point from, int sleeperId)
+    {
+        Point best = Point.None;
+        int bestDist = int.MaxValue;
+        bool[] cover = CoverArray(w);
+        Map m = w.Map;
+        for (int y = 0; y < m.Height; y++)
+            for (int x = 0; x < m.Width; x++)
+            {
+                var p = new Point(x, y);
+                if (!cover[m.Index(p)] || !m.Passable(p)) continue;
+                int d = p.ChebyshevTo(from);
+                if (d < bestDist && !SleepTaken(w, p, sleeperId)) { best = p; bestDist = d; }
+            }
+        return best;
+    }
+
+    /// <summary>
+    /// Which tiles are covered, built in one pass over the roof sections. Map.Covered stays a live check (tests and
+    /// other systems change roofs directly); a scan over every tile uses this instead of asking each tile (ADR-0027).
+    /// </summary>
+    private static bool[] CoverArray(World w)
+    {
+        Map m = w.Map;
+        var cover = new bool[m.Width * m.Height];
+        void Mark(Rect r)
+        {
+            for (int y = Math.Max(0, r.Y); y < Math.Min(m.Height, r.Y + r.H); y++)
+                for (int x = Math.Max(0, r.X); x < Math.Min(m.Width, r.X + r.W); x++) cover[y * m.Width + x] = true;
+        }
+        Mark(m.CoveredRuins);
+        foreach (RoofSection s in m.Roof)
+            if (s.Sound) Mark(s.Area);
+        return cover;
     }
 
     public static bool TakenBed(World w, Point bed, int exceptId)
@@ -192,16 +272,17 @@ public static class Places
     /// <summary>False for those who never tire or sleep (the undead).</summary>
     public static bool Tires(World w, Character c) => w.Content.SpeciesById(c.SpeciesId).Tires;
 
+    /// <summary>Timber still wanted: for broken roof sections, plans (ADR-0027) and bargains, less the stock and what people carry.</summary>
     public static int TimberNeeded(World w)
     {
         int unsound = 0;
         foreach (RoofSection r in w.Map.Roof)
-            if (!r.Sound) unsound++;
+            if (!r.Sound && !r.Removed) unsound++;
         int perSection = w.Content.WorkById("repair_roof").TimberCost;
         int carried = 0;
         foreach (Character c in w.Characters)
             if (c.IsActive && c.Carrying is { DefId: "timber" } carry) carried += carry.Count;
-        return unsound * perSection + Bargains.Demand(w, "timber") - Stock.Count(w, "timber") - carried;
+        return unsound * perSection + Building.Owed(w, "timber") + Bargains.Demand(w, "timber") - Stock.Count(w, "timber") - carried;
     }
 
     public static SpeciesDef Species(World w, Character c) => w.Content.SpeciesById(c.SpeciesId);
