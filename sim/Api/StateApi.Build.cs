@@ -110,14 +110,20 @@ public static partial class StateApi
         return list;
     }
 
+    /// <summary>
+    /// How a plan stands now. A wall or door with its timber on the site and someone (or a body) on its tile is "in the way"
+    /// whether or not a builder has tried it yet: nobody takes it up while they are there (ADR-0027 review; it read "ready
+    /// to build" under a body for ever).
+    /// </summary>
     private static string StatusKey(World w, Blueprint bp, BuildingDef def)
     {
         if (bp.Blocked == BlockedReason.WouldShutIn && bp.BlockedRevision == w.Map.Revision) return "shut_in";
-        if (def.Kind is Building.Wall or Building.Door && bp.Blocked == BlockedReason.InTheWay && Building.InTheWay(w, new Point(bp.Area.X, bp.Area.Y))) return "in_the_way";
         if (def.Kind == Building.Roof && !Building.Supported(w, bp.Area, def)) return "waiting_for_walls";
         foreach (Character c in w.Characters)
             if (c.IsActive && c.Job is { Kind: JobKind.Build, TargetKind: TargetKind.Blueprint, Stage: >= 2 } j && j.TargetId == bp.Id) return "being_built";
-        return Building.Lacking(w, bp) > 0 ? "waiting_for_timber" : "ready";
+        if (Building.Lacking(w, bp) > 0) return "waiting_for_timber";
+        if (def.Kind is Building.Wall or Building.Door && Building.InTheWay(w, new Point(bp.Area.X, bp.Area.Y))) return "in_the_way";
+        return "ready";
     }
 
     private static string StatusText(World w, BuildingDef def, string key) =>

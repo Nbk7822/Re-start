@@ -90,6 +90,27 @@ public class BuildApiTests
         Assert.Equal(before, s.StateHash()); // reads never change state
     }
 
+    /// <summary>A wall ready to build with someone, or a body, on its tile says so before any builder tries it: nobody will while they are there.</summary>
+    [Fact]
+    public void AWallWithSomeoneOnItsTileSaysTheyAreInTheWay()
+    {
+        World w = WorkTests.Only(1, "you", "mira");
+        Point at = BuildPlanTests.Yard(w, 1, 1);
+        Blueprint wall = BuildTests.Plan(w, "wall", Tile(at)).Single();
+        string Status() => StateApi.Blueprints(w).Single(b => b.Id == wall.Id).StatusKey;
+        Character mira = Cast(w, "mira");
+        mira.Pos = at;
+        Assert.Equal("waiting_for_timber", Status()); // the timber still has to come, whoever stands there
+        wall.Delivered = 1;
+        Assert.Equal("in_the_way", Status());
+        Assert.Equal(BlockedReason.None, wall.Blocked); // no builder has tried it
+        mira.Pos = new Point(at.X + 2, at.Y);
+        Assert.Equal("ready", Status());
+        mira.Pos = at;
+        mira.Status = CharStatus.Dead;
+        Assert.Equal(("in_the_way", "someone is in the way"), (Status(), StateApi.Blueprints(w).Single(b => b.Id == wall.Id).Status));
+    }
+
     [Fact]
     public void ARoofPlanWaitsForWallsAndARefusedWallSaysSo()
     {
