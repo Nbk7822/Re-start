@@ -205,12 +205,23 @@ public static class WatchSystem
             Character? c = w.Find(s.WatcherId);
             if (c is not { Status: CharStatus.Member } || c.Downed || (c.Health < JobPicker.InjuredBelow && c.Job is not { Kind: JobKind.Fight or JobKind.Flee }))
             {
-                // Struck down or wounded at the post: that is why it is empty.
-                if (c is { Status: CharStatus.Member }) s.GapEvent = c.LastHealthEvent;
+                // Struck down or wounded at the post: that is why it is empty, and they leave it to lie down.
+                if (c is { Status: CharStatus.Member })
+                {
+                    s.GapEvent = c.LastHealthEvent;
+                    OffDuty(w, c);
+                }
                 if (c != null) c.LastWatchEndTick = w.Tick;
                 Vacate(w, s);
             }
             else if (c.Job is { Kind: JobKind.KeepWatch or JobKind.Fight or JobKind.Flee }) { }
+            else if (c.Job is { Kind: JobKind.Care or JobKind.Rescue } help)
+            {
+                // Gone from the fight to someone who fell: the fallen are why the post is empty.
+                s.GapEvent = help.CauseEvent;
+                c.LastWatchEndTick = w.Tick;
+                Vacate(w, s);
+            }
             else if (inHours && !c.Asleep && c.Job is not { Kind: JobKind.Eat or JobKind.RequestBlood or JobKind.SeekCover })
                 Post(w, c, s.TurnEvent); // back from a fight with the turn not done: to the post again, quietly
             else

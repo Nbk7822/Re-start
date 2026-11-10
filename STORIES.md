@@ -165,7 +165,7 @@ Day 8, 18:18: the camp sits round the fire (Hollis, Wren, Bram, Sera, Thessil an
 
 ## 2026-11-09 — Schedule slice 1: the camp's day and the watch in turns (ADR-0029; soak 100 worlds × 1 year)
 
-With the camp's default day and watch, 1,417 stories (1,423 at the merge base; 6,989 against 6,860 on 500 seeds), 170 of them through the watch or overwork, in 89 worlds. Humans now sleep 22:00–06:00 (a median 7.6 h, from 4.7) and the night is kept in four-hour turns, handed from person to person. Seeds are from `tools/soak --worlds 100 --years 1 --days <plan>`; the nightwatcher plan puts Mira on nights.
+With the camp's default day and watch, 1,412 stories (1,423 at the merge base; 6,976 against 6,860 on 500 seeds), 171 of them through the watch or overwork, in 88 worlds. Humans now sleep 22:00–06:00 (a median 7.6 h, from 4.7) and the night is kept in four-hour turns, handed from person to person. Seeds are from `tools/soak --worlds 100 --years 1 --days <plan>`; the nightwatcher plan puts Mira on nights.
 
 ### The walk to wake Sera (seed 92, soak `--days nightwatcher`; policy "you eat first")
 On the night of Day 38 Vale kept the first turn and Varrow the second. At 03:30 Varrow left the post to wake Sera for the last turn, and two minutes later, while he walked, a thief made off with 3 berries; nobody was on watch. By morning Nia was hungry, and at 12:27 she took the meal set aside for Mira. Mira held a grudge against Nia, was starving by mid-afternoon, and on Day 40 left the camp.

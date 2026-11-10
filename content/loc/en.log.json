@@ -4,11 +4,14 @@
   "log.header.years": "Years simulated: {years}",
   "log.header.calendar": "A year here lasts {days} days.",
   "log.list_sep": ", ",
+
   "log.cast.heading": "The people",
   "log.cast.line": "{name} ({species}, {belongs}): {traits}. {status}.",
   "log.cast.belongs": "of {culture}, {faith}",
   "log.cast.belongs_no_faith": "of {culture}",
   "log.cast.outsider": "from another world",
+  "log.cast.day": "{name} keeps their own hours: {summary}.",
+
   "log.peoples.heading": "Peoples and faiths",
   "log.peoples.culture": "Among {culture}: {customs}. Most follow {faith}.",
   "log.peoples.stances": "They {stances}.",
@@ -16,6 +19,7 @@
   "log.peoples.faith_ways": "Followers of {faith} honour {gods}. The faithful keep {customs}.",
   "log.peoples.god": "{god}, {epithet} ({temperament})",
   "log.peoples.god_sep": ", and ",
+
   "log.camp.heading": "{camp} at the end",
   "log.camp.members": "Living there: {names}",
   "log.camp.nobody": "Nobody lives there any more.",
@@ -26,9 +30,11 @@
   "log.camp.zone_sep": "; ",
   "log.camp.roof": "Shelter roof: {sound} of {total} sections sound",
   "log.camp.rationing": "When food runs short, {policy}.",
+
   "log.events.heading": "What happened",
   "log.events.line": "{when} — {text}",
   "log.events.none": "Nothing notable happened.",
+
   "log.stories.heading": "Stories",
   "log.stories.none": "No stories this time.",
   "log.story.heading": "Story {n}",
@@ -37,7 +43,9 @@
   "log.story.systems": "Systems: {systems}",
   "log.story.systems_sep": " → ",
   "log.story.people": "People: {people}",
+
   "log.counts": "Events logged: {events}. Notable: {notable}. Stories: {stories}.",
+
   "log.system.needs": "Needs",
   "log.system.mood": "Mood",
   "log.system.social": "Social",
@@ -48,7 +56,9 @@
   "log.system.world": "World",
   "log.system.growth": "Growth",
   "log.system.culture": "Culture",
+
   "log.run.wrote": "Wrote the story log for seed {seed} to {path}.",
+
   "log.soak.done": "Soak finished in {seconds} s. Worlds: {worlds} (seeds {first}–{last}). Years each: {years}. Threads: {threads}.",
   "log.soak.stories": "Stories: {stories} ({per_world} per world).",
   "log.soak.by_system_set": "Stories by system set:",
@@ -57,9 +67,8 @@
   "log.soak.culture": "Stories with culture or faith in them: {stories} ({share}% of all), in {worlds} of {total} worlds.",
   "log.soak.culture_links": "How culture entered them:",
   "log.soak.zone_plan": "Zones '{plan}', {worlds} worlds: {stories} stories, {zone} through a zone ({zone_worlds} worlds), {laid_out} through a zone the player laid out ({laid_out_worlds} worlds); thefts {thefts} ({unseen} unseen), spoiled {spoiled}, kept away {kept_away} ({kept_away_worlds} worlds), insults {insults}, accidents {accidents}.",
+  "log.soak.days_plan": "Days '{plan}', {worlds} worlds: {stories} stories, {watch} through the watch or overwork ({watch_worlds} worlds); humans sleep a median {asleep} h, {night_awake}% of night samples awake off watch; the post held {kept}% of watch hours, turns {turn_p90} h at the 90th percentile; {thefts} thefts from {thieves} thieves; refusals in {refusals} worlds ({forage_refusals} of {forage} with a forage-bound undead), a cover repaying a debt in {covers} ({forage_covers} of {forage}); worn out in {worn} worlds; insults {insults}.",
   "log.soak.crashed": "This world crashed at tick {tick}: {error}",
   "log.soak.crashed_list": "Worlds that crashed: {seeds}",
-  "log.soak.written": "Story logs and summary.json are in {dir}",
-  "log.cast.day": "{name} keeps their own hours: {summary}.",
-  "log.soak.days_plan": "Days '{plan}', {worlds} worlds: {stories} stories, {watch} through the watch or overwork ({watch_worlds} worlds); humans sleep a median {asleep} h, {night_awake}% of night samples awake off watch; the post held {kept}% of watch hours, turns {turn_p90} h at the 90th percentile; {thefts} thefts from {thieves} thieves; refusals in {refusals} worlds ({forage_refusals} of {forage} with a forage-bound undead), a cover repaying a debt in {covers} ({forage_covers} of {forage}); worn out in {worn} worlds; insults {insults}."
+  "log.soak.written": "Story logs and summary.json are in {dir}"
 }

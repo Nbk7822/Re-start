@@ -390,6 +390,27 @@ public class WatchTests
     }
 
     [Fact]
+    public void AWatcherWoundedAtThePostLeavesItAndTheWoundIsWhy()
+    {
+        Simulation s = Camp(1, "you", "mira");
+        World w = s.World;
+        Character you = w.Characters.First(c => c.CastKey == "you"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Plain(you, "practical");
+        w.Tick = Hours(w, 24 + 1);
+        Asleep(w, mira);
+        OnWatch(w, you, w.Tick + Hours(w, 3));
+        SimEvent hurt = Note(w, "event.test.wound", you.Id);
+        you.Health = 300;
+        you.LastHealthEvent = hurt.Id;
+        WatchSystem.Step(w);
+        Assert.Equal(0, w.Watch.WatcherId);
+        Assert.NotEqual(JobKind.KeepWatch, you.Job?.Kind);
+        Assert.Equal(hurt.Id, w.Watch.GapEvent);
+        WatchSystem.Step(w); // not taken back on as the watcher on the next step
+        Assert.Equal(0, w.Watch.WatcherId);
+    }
+
+    [Fact]
     public void WithNoWatchKeptATheftCitesOnlyTheThief()
     {
         Simulation s = Camp(1, "you");
