@@ -970,7 +970,7 @@ A `TruthId` value feeds the Truths hash, so once merged it never changes (ADR-00
 
 **Truths** (stateless; appended, never renumbered or reused)
 - **2A adds none.** This doc first proposed a Truth to vary each person's drain on their people's own needs (`NeedTolerance`). It is folded into question 8, which asks once whether every need should vary per person, food and rest included.
-- **Later, in landing order, from 50:** `CastPresence` (2B, question 2); `Mounds` (2C); `MoonPhase` (2D); `OldGraves` (2E); `EthicsLeaning`, per person and per axis, once species leanings change behaviour; `Lifespan`, once aging exists; `WandererSpecies`, the people of a generated wanderer, keyed by arrival slot.
+- **Later, in landing order, from 50:** `CastPresence` (2B, question 2); `Mounds` (2C); `MoonPhase` (2D); `OldGraves` (2E); `EthicsLeaning`, per person and per axis, once species leanings change behaviour; `WandererSpecies`, the people of a generated wanderer, keyed by arrival slot. (`Lifespan` and `AdultAge` belong to the player design's block, TruthIds 82 and 83.)
 - **Not drawn at all:**
   - A cast member's people is content (`cast.json`).
   - Answers to every ask (blood, leave, a tale, a contest) come from state. The same situation gives the same answer, and a refusal reads as a choice, not a roll. The ghoul's echo, the wolf's target and the feeplin's warning come from state too.
