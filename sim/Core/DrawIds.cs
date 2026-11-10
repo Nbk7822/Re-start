@@ -79,6 +79,10 @@ public enum DiceId : ushort
     FauxPas = 140,
     GuestOffer = 141,
     OmenRead = 142,
+
+    // 180–199: zones (ADR-0028). Compliance rolls draw from DiceSystem.Work, each with its rule's own tag.
+    /// <summary>Whether someone goes their own way tonight under the home area (zones step 3), through Compliance.Defies. Nothing draws it yet.</summary>
+    ZoneDefy = 180,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>

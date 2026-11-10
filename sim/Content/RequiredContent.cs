@@ -91,6 +91,9 @@ public static class RequiredContent
     /// <summary>The zone kinds WorldGen lays out in every camp (ADR-0028).</summary>
     public static readonly IReadOnlyList<string> Zones = new[] { "stockpile" };
 
+    /// <summary>The thoughts zones and the shared compliance rule give (ADR-0028), checked like <see cref="Thoughts"/>.</summary>
+    public static readonly IReadOnlyList<string> ZoneThoughts = new[] { "saw_rule_broken" };
+
     /// <summary>Every zone behaviour the simulation implements, with the layer it belongs on (ADR-0028).</summary>
     public static readonly IReadOnlyList<(string Behaviour, string Layer)> ZoneBehaviours = new (string, string)[]
     {

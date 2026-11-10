@@ -30,5 +30,7 @@
   "event.world.zone_items": "{a} chose to keep {item} in {zone} {place}.",
   "event.world.zone_items_not": "{a} chose to keep no {item} in {zone} {place}.",
 
-  "event.incident.stolen_unseen": "A thief made off with {n} {item} from the stockpile, out of sight of {b} on watch."
+  "event.incident.stolen_unseen": "A thief made off with {n} {item} from the stockpile, out of sight of {b} on watch.",
+
+  "thought.saw_rule_broken": "Saw someone break the camp's rules"
 }

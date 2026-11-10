@@ -70,5 +70,6 @@
   { "id": "courtesy_starved", "textKey": "thought.courtesy_starved", "mood": -14, "durationHours": 1, "emote": "gloom" },
   { "id": "spoke_truth", "textKey": "thought.spoke_truth", "mood": 2, "durationHours": 12 },
   { "id": "told_hard_truth", "textKey": "thought.told_hard_truth", "mood": -5, "opinion": -4, "durationHours": 48, "emote": "anger", "stackLimit": 2 },
-  { "id": "heard_hard_truth", "textKey": "thought.heard_hard_truth", "mood": 0, "opinion": -12, "durationHours": 72, "emote": "question", "stackLimit": 2 }
+  { "id": "heard_hard_truth", "textKey": "thought.heard_hard_truth", "mood": 0, "opinion": -12, "durationHours": 72, "emote": "question", "stackLimit": 2 },
+  { "id": "saw_rule_broken", "textKey": "thought.saw_rule_broken", "mood": -2, "opinion": -4, "durationHours": 48, "emote": "anger", "stackLimit": 3 }
 ]
