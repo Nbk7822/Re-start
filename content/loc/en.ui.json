@@ -64,6 +64,12 @@
   "ui.inspector.debt_owe_due": "Owes {other} {kind} by {when} ({status})",
   "ui.inspector.debt_owed": "{other} owes {kind} ({status})",
   "ui.inspector.debt_owed_due": "{other} owes {kind} by {when} ({status})",
+  "ui.inspector.nature": "Nature",
+  "ui.inspector.nature_need": "{need} ({standing})",
+  "ui.inspector.nature_bond": "{need} ({standing}): {bond}",
+  "ui.inspector.bargain": "{bound} and {patron}: to {service}, for {price} each dawn ({status})",
+  "ui.inspector.bargain_open": "{bound} and {patron}: to {service}, for {price} each dawn, until {when}",
+  "ui.inspector.work_refused": "{work} (never, by their nature)",
   "ui.list_separator": ", ",
 
   "ui.tooltip.terrain": "{terrain} ({x}, {y})",

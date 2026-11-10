@@ -9,8 +9,10 @@ namespace Return.Game;
 
 /// <summary>
 /// The person inspector, opened by clicking someone on the map: name, species, status, current
-/// job, needs and mood as small bars with numbers, traits, work priorities (click to change: an
-/// order through SimHost.Order), opinions, grudges, debts and recent thoughts, all from StateApi. It floats near the right edge, refreshes a few times a
+/// job, needs and mood as small bars with numbers, what their nature binds them to and their
+/// bargains (ADR-0022), traits, work priorities (click to change: an order through
+/// SimHost.Order; work their nature refuses is shown but cannot be picked), opinions, grudges,
+/// debts and recent thoughts, all from StateApi. It floats near the right edge, refreshes a few times a
 /// second, and closes with its × button, Esc, or a click on empty map.
 /// </summary>
 public partial class InspectorPanel : PanelContainer
@@ -36,6 +38,8 @@ public partial class InspectorPanel : PanelContainer
     private VBoxContainer _grudges = null!;
     private VBoxContainer _debts = null!;
     private VBoxContainer _thoughts = null!;
+    private VBoxContainer _natureSection = null!;
+    private VBoxContainer _nature = null!;
     private VBoxContainer _workSection = null!;
     private GridContainer _workGrid = null!;
     private readonly List<(Label Name, HBoxContainer Picker, List<(int Value, Button Button)> Buttons)> _workRows = new();
@@ -112,6 +116,16 @@ public partial class InspectorPanel : PanelContainer
         _bars.AddThemeConstantOverride("v_separation", 2);
         _content.AddChild(_bars);
 
+        // What a person's nature binds them to, and their bargains: only for those whose nature has a need.
+        _natureSection = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _natureSection.AddThemeConstantOverride("separation", 1);
+        _natureSection.AddChild(new Control { CustomMinimumSize = new Vector2(0, 4), MouseFilter = MouseFilterEnum.Ignore });
+        _natureSection.AddChild(Ui.MakeLabel(Ui.T("ui.inspector.nature"), Ui.SmallFontSize, Ui.Accent));
+        _nature = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _nature.AddThemeConstantOverride("separation", 1);
+        _natureSection.AddChild(_nature);
+        _content.AddChild(_natureSection);
+
         AddTitle(Ui.T("ui.inspector.traits"));
         _traits = WrappingLabel();
         _content.AddChild(_traits);
@@ -174,6 +188,12 @@ public partial class InspectorPanel : PanelContainer
         RefreshWork();
 
         var lines = new List<string>();
+        foreach (NatureNeedState n in StateApi.NatureNeeds(_host.World, s.Id)) lines.Add(ViewText.NatureLine(n));
+        lines.AddRange(ViewText.BargainLines(_host.World, s.Id));
+        _natureSection.Visible = lines.Count > 0;
+        if (lines.Count > 0) SetLines(_nature, lines);
+
+        lines.Clear();
         foreach (OpinionState o in s.Opinions) lines.Add(ViewText.OpinionLine(o));
         SetLines(_opinions, lines);
 
@@ -232,8 +252,14 @@ public partial class InspectorPanel : PanelContainer
             int? draft = _host.Drafts.Priority(c.Id, s.WorkId);
             int shown = draft ?? s.Priority;
             bool pending = s.Pending || (draft != null && draft != JobPickerPriority(c, s.WorkId));
-            _workRows[i].Name.Text = pending ? Ui.F("ui.inspector.work_pending", ("work", s.Work)) : s.Work;
-            foreach ((int value, Button button) in _workRows[i].Buttons) button.SetPressedNoSignal(value == shown);
+            // Work their nature refuses (a dryad's axe) shows as never, and cannot be picked.
+            bool refused = ViewText.RefusesByNature(w, c, s.WorkId);
+            _workRows[i].Name.Text = refused ? ViewText.WorkRefusedLabel(s.Work) : pending ? Ui.F("ui.inspector.work_pending", ("work", s.Work)) : s.Work;
+            foreach ((int value, Button button) in _workRows[i].Buttons)
+            {
+                button.Disabled = refused;
+                button.SetPressedNoSignal(refused ? value == 0 : value == shown);
+            }
         }
     }
 
@@ -255,6 +281,7 @@ public partial class InspectorPanel : PanelContainer
         if (_host == null || _host.SelectedId == 0 || row >= _workState.Count) return;
         if (_host.World.Find(_host.SelectedId) is not { Status: CharStatus.Member }) { Refresh(); return; }
         WorkPriorityState s = _workState[row];
+        if (ViewText.RefusesByNature(_host.World, _host.World.Get(_host.SelectedId), s.WorkId)) { Refresh(); return; }
         int shown = _host.Drafts.Priority(_host.SelectedId, s.WorkId) ?? s.Priority;
         if (value != shown) _host.Order(new SetWorkPriority(_host.World.Tick, _host.SelectedId, s.WorkId, value));
         Refresh();

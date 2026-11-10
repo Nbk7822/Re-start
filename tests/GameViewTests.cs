@@ -936,6 +936,46 @@ public class GameViewTests
     }
 
     [Fact]
+    public void NatureAndBargainLinesReadAsSentences()
+    {
+        Assert.Equal("Forest (met): Bound to the tree at (12, 8)", ViewText.NatureLine(new NatureNeedState("forest", "Forest", 800, "met", "Bound to the tree at (12, 8)")));
+        Assert.Equal("Courtesy (low)", ViewText.NatureLine(new NatureNeedState("courtesy", "Courtesy", 400, "low", "")));
+
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = InCamp(sim, "you", "mira", "qamar", "dryope");
+        Character you = w.Characters.First(c => c.CastKey == "you"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Character qamar = w.Characters.First(c => c.CastKey == "qamar"), dryope = w.Characters.First(c => c.CastKey == "dryope");
+        Assert.StartsWith("Forest (met): Bound to the tree at (", ViewText.NatureLine(StateApi.NatureNeeds(w, dryope.Id).Single()));
+
+        // Newest first; while a bargain is open it says until when; the player reads as "you".
+        long ends = Content.World.TicksPerDay * 9L + Content.World.TicksPerHour * 6L;
+        w.Contracts.Add(new Contract { Id = 1, BoundId = qamar.Id, PatronId = mira.Id, ServiceWork = "keep_watch", PriceItem = "timber", PriceAmount = 1, EndsTick = 100, Status = ContractStatus.Kept });
+        w.Contracts.Add(new Contract { Id = 2, BoundId = qamar.Id, PatronId = you.Id, ServiceWork = "forage", PriceItem = "berries", PriceAmount = 1, EndsTick = ends, Status = ContractStatus.Open });
+        Assert.Equal(new[] { "Qamar and you: to gather berries for the camp, for a share of the berries each dawn, until Day 10, 06:00" },
+            ViewText.BargainLines(w, you.Id));
+        Assert.Equal(new[] { "Qamar and Mira: to keep the night watch, for timber for the fire each dawn (kept)" }, ViewText.BargainLines(w, mira.Id));
+
+        // The djinn's own list leaves out the bargain it is bound by now: its bond line says it already.
+        Assert.Equal(new[] { "Qamar and Mira: to keep the night watch, for timber for the fire each dawn (kept)" }, ViewText.BargainLines(w, qamar.Id));
+        Assert.Contains("bound by a bargain with you until Day 10, 06:00", ViewText.NatureLine(StateApi.NatureNeeds(w, qamar.Id).Single()));
+        Assert.Empty(ViewText.BargainLines(w, dryope.Id));
+        w.Contracts.Add(new Contract { Id = 3, BoundId = qamar.Id, PatronId = mira.Id, ServiceWork = "forage", PriceItem = "timber", PriceAmount = 1, EndsTick = 200, Status = ContractStatus.Broken });
+        Assert.Equal(new[] { "Qamar and Mira: to gather berries for the camp, for timber for the fire each dawn (broken)" }, ViewText.BargainLines(w, qamar.Id, max: 1));
+    }
+
+    [Fact]
+    public void ADryadsNatureRefusesTheAxeInTheWorkPicker()
+    {
+        World w = WorkTests.Only(1, "dryope", "mira");
+        Character dryope = w.Characters.First(c => c.CastKey == "dryope"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Assert.True(ViewText.RefusesByNature(w, dryope, "gather_timber"));
+        Assert.False(ViewText.RefusesByNature(w, dryope, "forage"));
+        Assert.False(ViewText.RefusesByNature(w, mira, "gather_timber"));
+        Assert.Contains(StateApi.WorkPriorities(w, dryope.Id), p => p.WorkId == "gather_timber");
+        Assert.Equal("Gather timber (never, by their nature)", ViewText.WorkRefusedLabel("Gather timber"));
+    }
+
+    [Fact]
     public void GroundIsWornAroundTheCamp()
     {
         World w = Simulation.Create(Content, 1).World;
