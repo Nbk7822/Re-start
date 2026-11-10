@@ -19,12 +19,20 @@ namespace Return.Game;
 ///   RETURN_SEED=n        world seed (default 1)
 ///   RETURN_TICKS=n       advance n ticks before the first frame
 ///   RETURN_SELECT=key    open the inspector for that cast key (e.g. "you")
-///   RETURN_OPEN=name     open a bar list at start: orders, work, people or chronicle
+///   RETURN_OPEN=name     open a bar list at start: build, orders, work, people or chronicle
 ///   RETURN_PAUSE=1       start paused
-///   RETURN_PRESS=list    after 1 s, press buttons as a player would, comma-separated:
+///   RETURN_PRESS=list    after 1 s, press buttons as a player would, comma-separated (a press
+///                        begins with a word; the numbers after it are its own):
 ///                        "policy:N" presses ration policy N in Orders (0-based: 0 = the hungriest
 ///                        eat first); "priority:R:V" picks value V (1–4, or 0 for never) in work
-///                        row R of the open inspector (0-based: 0 = the first kind of work)
+///                        row R of the open inspector (0-based: 0 = the first kind of work);
+///                        "build:ID:x,y[,w,h]" picks building ID in the Build list and drags from
+///                        tile (x, y) across w by h tiles through the real tool (a click without
+///                        w, h; a wall, door or bed rectangle at least 2 by 2 is a Shift-drag, its
+///                        outline); "takedown:x,y[,w,h]" and "calloff:x,y[,w,h]" do the same with
+///                        those tools; the tool stays in hand, as it does for a player, until
+///                        "stop"; "wait:N" lets N ticks pass at once (drafts go out first, as time
+///                        moves), so a plan can be seen part built or finished
 ///   RETURN_SCREENSHOT=p  save the window to PNG file p about 3 s after start, then quit
 /// </summary>
 public partial class SimHost : Node
@@ -58,6 +66,12 @@ public partial class SimHost : Node
 
     /// <summary>Choices made while paused, sent when time moves (see <see cref="OrderDrafts"/>).</summary>
     public OrderDrafts Drafts { get; } = new();
+
+    /// <summary>The Build tool in hand, if any (build design 3.3): the bar's Build list picks it, the map takes its gestures.</summary>
+    public BuildTool Build { get; } = new();
+
+    /// <summary>Ends the Build tool's gesture: the plan, call-off or marks it asked for go out through <see cref="Order"/>.</summary>
+    public void FinishGesture() => Build.Release(World, Drafts, Order);
 
     /// <summary>
     /// The only way the view changes the world. While time runs, a choice is a tick-stamped command
@@ -144,7 +158,8 @@ public partial class SimHost : Node
                 SpeedChanged?.Invoke();
                 break;
             case Key.Escape:
-                if (!_bar.ClosePopups()) Select(0);
+                if (Build.Active) Build.Stop();
+                else if (!_bar.ClosePopups()) Select(0);
                 break;
             default:
                 int speed = SpeedForKey(key.Keycode);
@@ -210,24 +225,71 @@ public partial class SimHost : Node
         return null;
     }
 
-    /// <summary>Presses UI buttons through their real signals, for RETURN_PRESS checks.</summary>
+    /// <summary>Presses UI buttons through their real signals, and makes Build gestures through the real tool, for RETURN_PRESS checks.</summary>
     private void PressForCheck(string list)
     {
-        foreach (string item in list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (string item in CheckPresses.Split(list))
         {
             string[] parts = item.Split(':');
-            int[] n = new int[parts.Length - 1];
-            bool numbers = parts.Length >= 2;
-            for (int i = 1; i < parts.Length && numbers; i++)
-                numbers = int.TryParse(parts[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out n[i - 1]);
-            bool ok = numbers && (parts[0], n.Length) switch
+            bool ok = parts[0] switch
             {
-                ("policy", 1) => _bar.PressPolicy(n[0]),
-                ("priority", 2) => _inspector.PressPriority(n[0], n[1]),
+                "build" when parts.Length == 3 => _bar.PressBuilding(parts[1]) && Gesture(parts[2]),
+                "takedown" when parts.Length == 2 => StartTool(BuildMode.TakeDown) && Gesture(parts[1]),
+                "calloff" when parts.Length == 2 => StartTool(BuildMode.CallOff) && Gesture(parts[1]),
+                "stop" when parts.Length == 1 => StopTool(),
+                "wait" when parts.Length == 2 && Numbers(parts, out int[] t) => Wait(t[0]),
+                "policy" when parts.Length == 2 && Numbers(parts, out int[] n) => _bar.PressPolicy(n[0]),
+                "priority" when parts.Length == 3 && Numbers(parts, out int[] n) => _inspector.PressPriority(n[0], n[1]),
                 _ => false,
             };
             if (!ok) GD.PushWarning("Return: RETURN_PRESS could not press '" + item + "'.");
         }
+    }
+
+    /// <summary>The whole numbers after a press's word, or false.</summary>
+    private static bool Numbers(string[] parts, out int[] n)
+    {
+        n = new int[parts.Length - 1];
+        for (int i = 1; i < parts.Length; i++)
+            if (!int.TryParse(parts[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out n[i - 1])) return false;
+        return true;
+    }
+
+    private bool StartTool(BuildMode mode)
+    {
+        if (mode == BuildMode.TakeDown) Build.TakeDown();
+        else Build.CallOff();
+        return true;
+    }
+
+    private bool StopTool()
+    {
+        Build.Stop();
+        return true;
+    }
+
+    /// <summary>
+    /// A press, drag and release of the tool in hand over "x,y[,w,h]", as the mouse would make it; a wall, door or
+    /// bed rectangle at least 2 by 2 is made with Shift held (its outline). The cursor stays at the release tile.
+    /// </summary>
+    private bool Gesture(string coords)
+    {
+        if (!Build.Active || !CheckPresses.TryGesture(coords, out SimPoint from, out SimPoint to)) return false;
+        Build.Shift = Build.Mode == BuildMode.Place && World.Content.TryBuilding(Build.BuildingId) is { Spans: false } && from.X != to.X && from.Y != to.Y;
+        Build.Hover(from, pinned: true);
+        Build.Press(from);
+        Build.Hover(to, pinned: true);
+        FinishGesture();
+        return true;
+    }
+
+    /// <summary>Lets ticks pass at once, as the warm-up does (every tick witnessed by the map); drafts go out first, as time moves.</summary>
+    private bool Wait(int ticks)
+    {
+        if (ticks < 0) return false;
+        if (Drafts.Count > 0) Drafts.Flush(Sim);
+        ViewStepper.Run(Sim, ticks, _witness);
+        return true;
     }
 
     private async void ScreenshotAndQuit(string path)

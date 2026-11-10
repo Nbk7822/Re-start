@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using Return.Game.Logic;
 using Return.Sim;
@@ -7,7 +8,9 @@ namespace Return.Game;
 
 /// <summary>
 /// Hover a tile for a moment to see what is on it: terrain, contents and who stands there, from
-/// StateApi.Location. Hidden while the mouse is over the bar or a panel, or outside the map.
+/// StateApi.Location, and what is drafted there while paused. Hidden while the mouse is over the bar
+/// or a panel, or outside the map. With a Build tool in hand it is the hint by the cursor instead
+/// (build design 3.3): what the gesture marks and costs, and why a tile cannot take it.
 /// </summary>
 public partial class TileTooltip : PanelContainer
 {
@@ -51,6 +54,11 @@ public partial class TileTooltip : PanelContainer
     public override void _Process(double delta)
     {
         if (_host == null || _map == null) return;
+        if (_host.Build.Active)
+        {
+            ShowBuildHint();
+            return;
+        }
         Vector2 mouse = GetViewport().GetMousePosition();
         Vector2I tile = _map.TileUnderMouse();
         bool overUi = GetViewport().GuiGetHoveredControl() != null || OverPanel(mouse);
@@ -98,19 +106,40 @@ public partial class TileTooltip : PanelContainer
     {
         World w = _host!.World;
         LocationState s = StateApi.Location(w, _tile.X, _tile.Y);
-        _text.Text = string.Join("\n", ViewText.TileLines(w, s));
+        var lines = new List<string>(ViewText.TileLines(w, s));
+        lines.AddRange(BuildTool.DraftLines(w, _host.Drafts, _tile.X, _tile.Y));
+        _text.Text = string.Join("\n", lines);
     }
 
-    private void PlaceNearMouse()
+    /// <summary>The Build tool's hint, by the tile under its cursor (where a check hook's gesture ended, too), at once and kept current.</summary>
+    private void ShowBuildHint()
+    {
+        BuildTool tool = _host!.Build;
+        _tile = new Vector2I(-1, -1);
+        IReadOnlyList<string> lines = tool.Hint(_host.World, _host.Drafts, _host.Clock.Paused);
+        if (lines.Count == 0 || !_mouseInWindow && !tool.Pinned)
+        {
+            Visible = false;
+            return;
+        }
+        string text = string.Join("\n", lines);
+        if (text != _text.Text) _text.Text = text;
+        Visible = true;
+        float tile = _map!.TileOnScreen;
+        PlaceNear(_map.ScreenOfTile(tool.Cursor) + new Vector2(tile * 0.5f, tile * 0.5f) - MouseGap);
+    }
+
+    private void PlaceNearMouse() => PlaceNear(GetViewport().GetMousePosition());
+
+    private void PlaceNear(Vector2 anchor)
     {
         Vector2 vp = GetViewportRect().Size;
-        Vector2 mouse = GetViewport().GetMousePosition();
         Vector2 size = GetCombinedMinimumSize();
         Size = size;
-        Vector2 pos = mouse + MouseGap;
+        Vector2 pos = anchor + MouseGap;
         float bottom = vp.Y - _host!.BarHeight;
-        if (pos.X + size.X > vp.X - 4) pos.X = mouse.X - size.X - 8;
-        if (pos.Y + size.Y > bottom - 4) pos.Y = mouse.Y - size.Y - 8;
+        if (pos.X + size.X > vp.X - 4) pos.X = anchor.X - size.X - 8;
+        if (pos.Y + size.Y > bottom - 4) pos.Y = anchor.Y - size.Y - 8;
         Position = new Vector2(Mathf.Max(4, pos.X), Mathf.Max(4, pos.Y));
     }
 }

@@ -59,6 +59,15 @@ public sealed class BuildTool
     /// <summary>The cursor was put there by a check hook (RETURN_PRESS), not the mouse; real mouse movement takes over again.</summary>
     public bool Pinned { get; private set; }
 
+    /// <summary>
+    /// A gesture has just ended and the pointer has not left the tile it ended on: the hint keeps saying what that
+    /// gesture did (not that the tile is now planned), and no new ghost is drawn over the plan just made.
+    /// </summary>
+    public bool Settled { get; private set; }
+
+    private SimPoint _settledAt = SimPoint.None;
+    private List<string> _settledHint = new();
+
     public bool Active => Mode != BuildMode.None;
 
     /// <summary>Starts placing a building.</summary>
@@ -78,6 +87,7 @@ public sealed class BuildTool
         Dragging = false;
         Anchor = SimPoint.None;
         Pinned = false;
+        Settled = false;
     }
 
     private void Begin(BuildMode mode, string buildingId)
@@ -86,11 +96,13 @@ public sealed class BuildTool
         BuildingId = buildingId;
         Dragging = false;
         Anchor = SimPoint.None;
+        Settled = false;
     }
 
     /// <summary>The pointer is over this tile (None when off the map); <paramref name="pinned"/> when a check hook put it there.</summary>
     public void Hover(SimPoint tile, bool pinned = false)
     {
+        if (tile != _settledAt) Settled = false;
         Cursor = tile;
         Pinned = pinned;
     }
@@ -102,6 +114,7 @@ public sealed class BuildTool
         Anchor = tile;
         Cursor = tile;
         Dragging = true;
+        Settled = false;
     }
 
     /// <summary>Drops the gesture in progress without doing anything.</summary>
@@ -293,6 +306,9 @@ public sealed class BuildTool
         IReadOnlyList<SimRect> pieces = Pieces(w);
         SimRect area = Area;
         bool click = IsClick;
+        _settledHint = new List<string>(Hint(w, drafts, paused: false));
+        _settledAt = Cursor;
+        Settled = true;
         CancelDrag();
         switch (Mode)
         {
@@ -338,7 +354,8 @@ public sealed class BuildTool
     {
         var lines = new List<string>();
         if (!Active || Cursor == SimPoint.None) return lines;
-        switch (Mode)
+        if (Settled) lines.AddRange(_settledHint);
+        else switch (Mode)
         {
             case BuildMode.Place:
                 PlaceHint(w, drafts, lines);

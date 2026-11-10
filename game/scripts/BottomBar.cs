@@ -8,11 +8,11 @@ using Return.Sim.Api;
 namespace Return.Game;
 
 /// <summary>
-/// The one menu bar along the bottom edge (ADR-0008): Build, Zones and Schedule (shown but disabled
-/// until the sim has them), Orders (the ration policy) and Work (who does what first), People and
-/// Chronicle, each opening a small list on demand; then the clock, and pause plus the speed buttons
-/// with the active one highlighted. Nothing else stays on screen. Choices become commands through
-/// SimHost.Order.
+/// The one menu bar along the bottom edge (ADR-0008): Build (what the camp should build; its list is
+/// in BottomBar.Build.cs), Zones and Schedule (shown but disabled until the sim has them), Orders (the
+/// ration policy) and Work (who does what first), People and Chronicle, each opening a small list on
+/// demand; then the clock, and pause plus the speed buttons with the active one highlighted. Nothing
+/// else stays on screen. Choices become commands through SimHost.Order.
 /// </summary>
 public partial class BottomBar : PanelContainer
 {
@@ -60,8 +60,9 @@ public partial class BottomBar : PanelContainer
         _work = new ListPopup(layer, Ui.T("ui.work.title"), 380f);
         _people = new ListPopup(layer, Ui.T("ui.people.title"), 300f);
         _chronicle = new ListPopup(layer, Ui.T("ui.chronicle.title"), 540f);
+        _build = new ListPopup(layer, Ui.T("ui.build.title"), 300f);
 
-        row.AddChild(NotYet("ui.bar.build"));
+        row.AddChild(Toggle(_build, Ui.T("ui.bar.build"), Ui.T("ui.bar.build_hint")));
         row.AddChild(Toggle(_orders, Ui.T("ui.bar.orders"), Ui.T("ui.bar.orders_hint")));
         row.AddChild(NotYet("ui.bar.zones"));
         row.AddChild(Toggle(_work, Ui.T("ui.bar.work"), Ui.T("ui.bar.work_hint")));
@@ -98,10 +99,10 @@ public partial class BottomBar : PanelContainer
         UpdateClock();
     }
 
-    /// <summary>Opens a list by name (orders, work, people, chronicle); false if there is no such list.</summary>
+    /// <summary>Opens a list by name (build, orders, work, people, chronicle); false if there is no such list.</summary>
     public bool Open(string name)
     {
-        ListPopup? popup = name switch { "orders" => _orders, "work" => _work, "people" => _people, "chronicle" => _chronicle, _ => null };
+        ListPopup? popup = name switch { "build" => _build, "orders" => _orders, "work" => _work, "people" => _people, "chronicle" => _chronicle, _ => null };
         if (popup == null) return false;
         SetOpen(popup);
         return true;
@@ -127,6 +128,7 @@ public partial class BottomBar : PanelContainer
             if (_open == _people) RefreshPeople();
             else if (_open == _chronicle) RefreshChronicle();
             else if (_open == _orders) RefreshOrders();
+            else if (_open == _build) RefreshBuild();
             else RefreshWork();
         }
         Place(_open);
@@ -151,7 +153,7 @@ public partial class BottomBar : PanelContainer
     private void SetOpen(ListPopup? popup)
     {
         _open = popup;
-        foreach (ListPopup p in new[] { _orders, _work, _people, _chronicle })
+        foreach (ListPopup p in new[] { _build, _orders, _work, _people, _chronicle })
         {
             bool open = p == popup;
             p.Panel.Visible = open;
