@@ -202,6 +202,16 @@ public class StoresTests
         Assert.Equal(new[] { raid.Id }, stolen.Causes);
     }
 
+    /// <summary>With you on watch the unseen theft speaks to you (ADR-0017's second person), not of "you" in the third.</summary>
+    [Fact]
+    public void AnUnseenTheftWhileYouKeepWatchSaysItWasOutOfYourSight()
+    {
+        World w = WorkTests.Only(1, "you");
+        SimEvent stolen = w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen_unseen", Array.Empty<int>(), Array.Empty<long>(), null,
+            EventArg.Num("n", 3), EventArg.Item("item", "berries"), EventArg.Char("b", w.PlayerId));
+        Assert.Equal("A thief made off with 3 berries from the stockpile, out of your sight while you kept watch.", EventText.Describe(w, stolen));
+    }
+
     [Fact]
     public void ABerriesOnlyStockpileTurnsTimberAwayAndGoodsGoToTheNearestStockpile()
     {

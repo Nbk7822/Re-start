@@ -165,18 +165,23 @@ public class ComplianceTests
         string sim = Path.Combine(TestPaths.Root, "sim");
         string compliance = File.ReadAllText(Path.Combine(sim, "Systems", "Compliance.cs"));
         Assert.Equal(new[] { "DiceSystem.Work" }, Regex.Matches(compliance, @"DiceSystem\.\w+").Select(m => m.Value).Distinct());
+        var uses = new HashSet<string>(); // membership only; ordered before it is compared
         foreach (string file in Directory.EnumerateFiles(sim, "*.cs", SearchOption.AllDirectories))
         {
             if (file.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)) continue;
             string text = File.ReadAllText(file);
             string name = Path.GetFileName(file);
             if (name is "DrawIds.cs" or "Compliance.cs") continue;
-            foreach (Match m in Regex.Matches(text, @"DiceId\.ZoneDefy"))
+            // Each rule's own tag (the home area's, and the Schedule's day-change and watch tags) appears only as an argument to Compliance.Defies.
+            foreach (Match m in Regex.Matches(text, @"DiceId\.(ZoneDefy|DayChangeDefy|WatchDefy)\b"))
             {
                 int line = text.LastIndexOf('\n', m.Index);
                 string context = text.Substring(Math.Max(0, line), m.Index - Math.Max(0, line));
-                Assert.True(context.Contains("Compliance.Defies("), $"{name} draws DiceId.ZoneDefy outside Compliance.Defies");
+                if (context.Contains("//")) continue; // a comment names the tag; it draws nothing
+                Assert.True(context.Contains("Compliance.Defies("), $"{name} draws {m.Value} outside Compliance.Defies");
+                uses.Add(m.Groups[1].Value);
             }
         }
+        Assert.Equal(new[] { "DayChangeDefy", "WatchDefy", "ZoneDefy" }, uses.Order(StringComparer.Ordinal));
     }
 }

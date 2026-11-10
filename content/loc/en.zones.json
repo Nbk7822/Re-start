@@ -46,6 +46,7 @@
   "event.world.home_removed": "{a} took away the home area; people may go where they like after dark.",
 
   "event.incident.stolen_unseen": "A thief made off with {n} {item} from the stockpile, out of sight of {b} on watch.",
+  "event.incident.stolen_unseen_you_b": "A thief made off with {n} {item} from the stockpile, out of your sight while you kept watch.",
 
   "thought.saw_rule_broken": "Saw someone break the camp's rules",
   "thought.sat_apart": "Sat apart from the others",
