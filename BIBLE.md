@@ -49,6 +49,7 @@ Fixed tick. `content/world.json` sets the calendar (300 ticks per hour, 24 hours
 | Growth (wants, arcs, trait origins; section 5) | traits, species, roles, social (chemistry), incidents (arrivals) | in M0 only the story log, the inspector and the text-state API; from M1, traits (and through them needs, mood, social, work, combat) |
 | Culture and faith (customs, gods, omens; section 6) | social, needs, incidents, work, map | mood, social (warmth, consent, grudges ended), work (feasts, guest-bread, repayments), rations (who goes without) |
 | Zones (stockpiles, meeting places; section 7) | work (who carries what), map (cover), items, social (opinions, grudges) | needs and rations (where food lies and is eaten), incidents (the damp, what a thief can take), combat (where the watch must look), work (where the idle go), mood (sitting apart) |
+| Schedule (the camp's day, own hours, the watch in turns, overwork; section 8) | needs (rest, food, health), work (priorities, the job in hand), social (grudges, debts, opinion of you), natures (an undead's purpose, a djinn's bargain), culture (festivals) | work (when people work and who keeps watch), needs (sleep, naps, wear, asleep at the post), mood (overwork, woken, refusals, covers, evenings by the fire), social (refusals, covers that repay or open debts, grudges), incidents (thefts at an empty post, accidents when worn out), combat (who stands at the post) |
 
 Every system touches at least two others; that is the cut rule from CLAUDE.md. Growth is the one exception for now: by the founder's M0 scope for fixed decision 12 (section 5.3) it reads three systems (traits, social chemistry, incidents) but writes back only beats, and M1's trait changes close the loop.
 
@@ -103,7 +104,7 @@ Four more come in their own season (ADR-0022), each on a Dice day within a windo
 
 ### 4.9 Player input in M0
 
-Only intentions, never orders: a ration policy for short food (hungriest first, promises first, or yourself first) and per-person work priorities. Both are tick-stamped commands, so they are part of the determinism test.
+Only intentions, never orders: a ration policy for short food (hungriest first, promises first, or yourself first), per-person work priorities, zones (section 7) and the camp's day, the watch hours and one person's own day (section 8). All are tick-stamped commands, so they are part of the determinism test.
 
 ### 4.9a Food and winter
 
@@ -225,3 +226,37 @@ Zones on the bottom bar opens a short list (the kinds to mark, Unmark, the camp'
 ### 7.5 Not yet
 
 The home area (step 3, on the Schedule's day and watch); keep-out and leave-be ground, the burial ground and thieves who waylay people in the dark (slice 2); growing plots (after the items milestone) and grazing (after animals).
+
+## 8. Schedule
+
+Slice 1 of the schedule design (ADR-0029). The player says when the camp sleeps, works and keeps watch; people do the rest, and every bend in it is spoken by a named person.
+
+### 8.1 Days
+
+- **The camp's day** is 24 hours of sleep, work and free time, painted on the Schedule list. Each kind of day has its own (content, `rhythms.json`): the day folk sleep 22:00–06:00, work until 19:00 and have the evening free; the night folk (vampires) sleep 06:00–14:00, keep under cover until dusk and work through the night; those who never tire (the undead) work from dawn until 22:00 and have the night free. Who sleeps at all is the body's call, never the day's.
+- **One person's own hours** are painted in their inspector ("Mira on nights"). Anyone a change touches may go their own way by the one rule (section 7.3): over the camp's day they keep the old hours as their own, over their own day they keep the day they had, and the Chronicle says so. Never the player.
+- **In their sleeping hours** everyone who tires goes to bed and stays there: they rise only for real hunger, the sun, a harming need of their nature, or the end of those hours. **In free time** there is no ordinary work: a nap if tired, then company and the fire; urgent help (care, rescue, promises, guest-bread, blood) still happens. A change of hours never pulls anyone off a job in hand.
+
+### 8.2 The watch
+
+- The player sets only the hours (19:00–06:00 by default, or none). One person holds the post at a time, in turns of four hours. When a turn ends the watcher asks the next: someone awake walks over; a sleeper must be walked to and woken, and the post stands empty while the watcher walks.
+- Who is asked: the awake before the sleeping, those whose nature calls them to the watch (an undead whose purpose is the watch keeps it until that purpose is met), the watch priority set in Work, whoever has waited longest since their last watch, and only then whom the watcher likes least.
+- A sleeper may refuse: still hurt, too tired, hungry, a grudge against whoever woke them, or simply their own way. Whoever keeps a turn refused for a good reason keeps it in the refuser's place, which repays what they owed or puts the refuser in their debt; a turn refused for no good reason is held against the refuser. With nobody left to ask, the Oathbound stay one more turn and the Protective keep a hurt or weary refuser's turn; anyone else leaves the post empty.
+- Watchers leave for food and fall asleep at the post when spent (the lantern goes dark). While a festival runs nobody keeps watch. An empty post always has a reason, and a thief who finds it says why: "A thief made off with 3 berries; nobody was on watch."
+
+### 8.3 Overwork
+
+Each person's last 24 hours as lived (slept, worked, on watch, free, needs) sit beside their planned day in the inspector, with a notch wherever an hour bent. Long hours weigh on mood, a day with no time to oneself weighs too, and an evening by the fire with others lifts it. Spent after long duty, someone is worn out: twice as likely to be hurt at risky work, and the accident says why. Overwork never drains health or kills by itself; the undead pay none of it.
+
+### 8.4 Blood at night
+
+A thirsty vampire asks someone awake before a sleeper and never anyone on watch; a sleeper woken short of rest says no, and is asked again once rested. Feeding drifts to the camp's evening, when both kinds are awake.
+
+### 8.5 Where it shows
+
+Schedule on the bottom bar opens a list: the camp's day, the night folk's day and the sleepless day as strips to paint, the watch as a row to drag (or No watch), who keeps it now and who kept it last night, and whose day differs (a click opens their day). Every strip is one day; there is never a table of people against hours. The inspector's Day section shows a person's planned hours (their own bright, the camp's dim, the sun's hatched) above the last 24 hours as lived, with the plain source of their day and the latest schedule line about them. Choices made while paused wait, edged, until time moves.
+
+### 8.6 Not yet
+
+Observances (rest days, festivals as hours, vigils) and "Coming days" (with culture-faith slice 2), a fixed body clock (a Truth), a watch captain from the court, a choice of turn length, a watcher's shout that wakes sleepers to fight, one watcher per post when Build adds posts, and hours on zones (with the home area).
+

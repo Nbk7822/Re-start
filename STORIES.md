@@ -162,3 +162,35 @@ On the first night Oren felled a tree for timber: the old tree sacred to the Old
 ### Mira apart at dusk (seed 27, playtest view)
 Day 8, 18:18: the camp sits round the fire (Hollis, Wren, Bram, Sera, Thessil and you), and Mira stands alone by the shelter's west wall with the gloom mark over her head, nineteen minutes after she kept away from the fire while Oren sat there. The screenshot is ADR-0028's.
 
+
+## 2026-11-09 — Schedule slice 1: the camp's day and the watch in turns (ADR-0029; soak 100 worlds × 1 year)
+
+With the camp's default day and watch, 1,417 stories (1,423 at the merge base; 6,989 against 6,860 on 500 seeds), 170 of them through the watch or overwork, in 89 worlds. Humans now sleep 22:00–06:00 (a median 7.6 h, from 4.7) and the night is kept in four-hour turns, handed from person to person. Seeds are from `tools/soak --worlds 100 --years 1 --days <plan>`; the nightwatcher plan puts Mira on nights.
+
+### The walk to wake Sera (seed 92, soak `--days nightwatcher`; policy "you eat first")
+On the night of Day 38 Vale kept the first turn and Varrow the second. At 03:30 Varrow left the post to wake Sera for the last turn, and two minutes later, while he walked, a thief made off with 3 berries; nobody was on watch. By morning Nia was hungry, and at 12:27 she took the meal set aside for Mira. Mira held a grudge against Nia, was starving by mid-afternoon, and on Day 40 left the camp.
+- Chain: took the watch, took the watch, went to wake (Work) → the theft, citing the walk (Incident) → hungry (Needs) → took the meal → grudge (Social); a second story runs on through Mira's hunger to her leaving.
+- Why it matters: the schedule design's first story, arising unprompted. The empty post during a handover is a real window on the map, and the theft says why the post was empty.
+
+### Bram would not get up (seed 77, soak; policy "you eat first")
+Bram had held a grudge against Varrow since Day 25, and every morning kept away from the fire while Varrow sat there. Three nights running, at 23:29, Varrow walked to wake him for his turn on watch, and three times Bram would not get up for Varrow. The third time, Varrow held a grudge against Bram. The next morning Varrow felled the tree Thessil was bound to, and on Day 38 he left the camp.
+- Chain the analyzer found: took the watch, went to wake (Work) → would not get up → grudge → left (Social). Off the chain, in what happened: the mornings at the fire and the other two nights.
+- Why it matters: a grudge now shows at night as well as at the fire. The fair rota sent Varrow to the person he liked least among those equally due, and a refusal from the same person three nights over is what turned him.
+
+### Sera's watch (seed 32, soak; policy "you eat first")
+At 03:00 on Day 40 a thief crept in; Ilex spotted it, but it made off with 3 berries. By 09:00 Sera was starving. That night, when Vale's turn ended, Vale woke her: Sera, hungry, would not take the watch. Vale went to wake you instead, and at 23:56 you kept the watch in Sera's place. Sera owes you for a watch kept in their place.
+- Chain: night thief (Incident) → spotted (Combat) → theft → starving (Needs) → refused, hungry (Social) → kept in her place (Work) → owes (Social). Five systems.
+- Why it matters: a debt that comes from the watch, and the theft the night before is why. ADR-0018 noted that most debts are never repaid; a watch kept in someone's place can close an old one or open a new one, and here it opens a debt from Sera to you.
+
+### The Longest Night, and after (seed 67, soak `--days nightwatcher`; policy "promised meals come first")
+At dusk on Day 38 the River-Born began to keep the Longest Night by the hearth, and nobody kept watch. After the fire, at 23:19, Vale took the watch. At 03:24 Vale woke Mira, who told Vale to find someone else; Sera was too tired; Vale left the watch with nobody to take it. At 04:53 Varrow came to the empty post and kept the watch in Sera's place, and Sera owes Varrow for it.
+- Chain: the festival (Culture) → took the watch → went to wake → told to find someone else, too tired (Social) → left the watch → kept in Sera's place (Work) → owes (Social).
+- Why it matters: the festival leaves the post empty on purpose and is the first link, and an Independent's own way and a tired refusal make the rest of the night.
+
+### Sennet's sworn watch (seed 3, soak; policy "the hungriest eat first")
+On Day 34 two berries spoiled in the damp; by 19:00 Sennet, one of the Good Folk, was starving. At 23:28 Varrow woke Sennet for the watch, and Sennet, hungry, would not take it. Varrow kept the watch in Sennet's place, and Sennet swore to repay him.
+- Chain: food spoils (Incident) → hungry, starving (Needs) → refused, hungry (Social) → kept in Sennet's place (Work) → swore to repay (Social).
+- Why it matters: a fae cannot owe without swearing. A watch debt is a debt like any other, so the Good Folk's oath comes with it.
+
+### Your night on watch (seed 1, playtest view)
+Day 2, 09:00. Last night Oren kept the watch until 23:00, then woke you; you kept it until 04:00 and woke Mira. Your inspector's lived strip shows the five hours on watch, each notched where your planned day said sleep, and a nap from 18:00 to 21:00 the evening before, notched again. The Schedule list beside it reads "Last night: Oren 19:00–23:00 · You 23:00–04:00 · Mira 04:00–06:00". On Day 22 at midnight the lantern burns over Vale at the post; the night folk keep most watches once they have come.
