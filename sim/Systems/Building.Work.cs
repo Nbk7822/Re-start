@@ -225,13 +225,17 @@ public static partial class Building
         }
     }
 
-    /// <summary>Takes material from the stock for a plan: it is now carried, committed to the plan. Whoever it leaves without is passed over.</summary>
+    /// <summary>
+    /// Takes material from the stock for a plan: it is now carried, committed to the plan. Whoever it leaves without is passed
+    /// over. It came from the stores and stays stores while carried, as a hauler's load does (ADR-0028): dropped on the way, it
+    /// lies where it fell as stores, counted, until someone carries it on.
+    /// </summary>
     private static void Commit(World w, Character c, Blueprint bp, BuildingDef def, int take)
     {
         List<Character> passed = PassedOver(w, bp, def, take, c.Id);
         int taken = Stock.Take(w, def.Material.Item, take);
         if (taken <= 0) return;
-        c.Carrying = new Carry { DefId = def.Material.Item, Count = taken };
+        c.Carrying = new Carry { DefId = def.Material.Item, Count = taken, Stored = true };
         if (passed.Count > 0) PassOver(w, c, bp, def, passed);
     }
 

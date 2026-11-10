@@ -400,6 +400,32 @@ public class BuildTests
         return d;
     }
 
+    /// <summary>
+    /// Timber taken from the stores for a plan is still the camp's stores while it is carried: a deliverer who drops it on the
+    /// way (starving, spent, or caught by the sun) leaves stores where it fell, counted and carried on later, so nobody fells
+    /// another tree for timber the camp still has (merge review).
+    /// </summary>
+    [Fact]
+    public void TimberADelivererDropsOnTheWayIsStillStores()
+    {
+        World w = WorkTests.Only(1, "mira");
+        Character mira = Cast(w, "mira");
+        Works(mira, ("haul", 1));
+        SetTimber(w, 2);
+        Blueprint bp = Plan(w, "bed", Tile(BuildPlanTests.ShelterFloor(w))).Single();
+        Run(w, 3_000, () => mira.Carrying != null && !Zones.Accepts(w, mira.Pos, "timber"));
+        Assert.Equal(JobKind.Deliver, mira.Job?.Kind);
+        Assert.Equal(0, Stock.Count(w, "timber")); // committed to the plan: it left the stock
+        mira.Food = NeedsSystem.StarvingBelow - 1; // starving, she drops what she carries where she stands
+        Run(w, WorkSystem.InterruptEveryTicks, () => mira.Carrying == null);
+        Assert.Null(mira.Carrying);
+        Assert.Equal(0, bp.Delivered);
+        ItemStack dropped = w.Items.Single(s => s.DefId == "timber");
+        Assert.False(Zones.Accepts(w, dropped.Pos, "timber"));
+        Assert.True(dropped.Stored);
+        Assert.Equal(2, Stock.Count(w, "timber"));
+    }
+
     /// <summary>While a roof promise is open, deliverers leave a roof section's timber in stock; above it, they deliver.</summary>
     [Fact]
     public void DeliverersLeaveTheRoofsTimberWhileARoofPromiseIsOpen()

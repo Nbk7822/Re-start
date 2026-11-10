@@ -52,7 +52,7 @@ public class ZoneYearInvariantTests
             {
                 if (c.Status is not (CharStatus.Member or CharStatus.Hostile)) continue;
                 Assert.True(w.Map.Passable(c.Pos), $"{when}: {c.CastKey} on impassable {c.Pos}");
-                if (c.Carrying is { Stored: true }) Assert.Equal(JobKind.Haul, c.Job?.Kind);
+                if (c.Carrying is { Stored: true }) Assert.True(c.Job?.Kind is JobKind.Haul or JobKind.Deliver or JobKind.Build, $"{when}: {c.CastKey} carries stores at {c.Job?.Kind}"); // stores in hand: hauled, or taken for a plan
             }
             for (; checkedEvents < w.Log.All.Count; checkedEvents++)
             {
