@@ -32,6 +32,9 @@ public static class JobRunner
         JobKind.RepayDebt => CultureJobs.RepayDebt(w, c, j),
         JobKind.TendTree => Forest.Tend(w, c, j),
         JobKind.OfferBargain => Bargains.Offer(w, c, j),
+        JobKind.Build => Building.Build(w, c, j),
+        JobKind.Deliver => Building.Deliver(w, c, j),
+        JobKind.TakeDown => Building.TakeDown(w, c, j),
         _ => true,
     };
 

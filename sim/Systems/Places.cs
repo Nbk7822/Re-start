@@ -243,16 +243,17 @@ public static class Places
     /// <summary>False for those who never tire or sleep (the undead).</summary>
     public static bool Tires(World w, Character c) => w.Content.SpeciesById(c.SpeciesId).Tires;
 
+    /// <summary>Timber still wanted: for broken roof sections, plans (ADR-0027) and bargains, less the stock and what people carry.</summary>
     public static int TimberNeeded(World w)
     {
         int unsound = 0;
         foreach (RoofSection r in w.Map.Roof)
-            if (!r.Sound) unsound++;
+            if (!r.Sound && !r.Removed) unsound++;
         int perSection = w.Content.WorkById("repair_roof").TimberCost;
         int carried = 0;
         foreach (Character c in w.Characters)
             if (c.IsActive && c.Carrying is { DefId: "timber" } carry) carried += carry.Count;
-        return unsound * perSection + Bargains.Demand(w, "timber") - Stock.Count(w, "timber") - carried;
+        return unsound * perSection + Building.Owed(w, "timber") + Bargains.Demand(w, "timber") - Stock.Count(w, "timber") - carried;
     }
 
     public static SpeciesDef Species(World w, Character c) => w.Content.SpeciesById(c.SpeciesId);

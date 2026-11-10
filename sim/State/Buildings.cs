@@ -89,6 +89,12 @@ public sealed class Structure
     /// <summary>For graves, later: who lies here.</summary>
     public int ForId { get; set; }
 
-    /// <summary>The event that marked it to be taken down; 0 if it is not marked.</summary>
+    /// <summary>The event that marked it to be taken down; 0 if it is not marked (kept once it is taken down).</summary>
     public long MarkedEvent { get; set; }
+
+    /// <summary>
+    /// Taken down: the terrain is back to <see cref="Ground"/>, and the record stays (like a roof section's) so
+    /// a wall run taken down is told once, with whoever built it, and who built what is not forgotten.
+    /// </summary>
+    public bool Removed { get; set; }
 }

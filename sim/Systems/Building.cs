@@ -48,17 +48,18 @@ public static partial class Building
         return null;
     }
 
+    /// <summary>The standing wall or door built here in this playthrough (none for the old camp's).</summary>
     public static Structure? StructureAt(World w, Point p)
     {
         foreach (Structure s in w.Map.Structures)
-            if (s.Pos == p) return s;
+            if (!s.Removed && s.Pos == p) return s;
         return null;
     }
 
     public static Structure? StructureById(World w, int id)
     {
         foreach (Structure s in w.Map.Structures)
-            if (s.Id == id) return s;
+            if (!s.Removed && s.Id == id) return s;
         return null;
     }
 
