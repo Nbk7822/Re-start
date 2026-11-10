@@ -39,12 +39,16 @@ public static class CultureGen
                 var weights = new List<int>(slot.Domains.Count);
                 foreach (DomainWeight d in slot.Domains) weights.Add(d.Weight);
                 DomainDef domain = db.DomainById(slot.Domains[Ways.WeightedIndex(t, TruthId.GodNature, gkey, 0, weights)].Domain);
+                // Two gods of one faith may share a domain, but each takes an epithet the other has not, while there is one.
+                var epithets = new List<string>(domain.EpithetKeys);
+                epithets.RemoveAll(e => faith.Gods.Exists(g => g.EpithetKey == e));
+                if (epithets.Count == 0) epithets.AddRange(domain.EpithetKeys);
                 faith.Gods.Add(new SeededGod
                 {
                     Slot = s,
                     DomainId = domain.Id,
                     NameKey = slot.NameKeys[t.Range(TruthId.GodNature, gkey, 1, 0, slot.NameKeys.Count)],
-                    EpithetKey = domain.EpithetKeys[t.Range(TruthId.GodNature, gkey, 2, 0, domain.EpithetKeys.Count)],
+                    EpithetKey = epithets[t.Range(TruthId.GodNature, gkey, 2, 0, epithets.Count)],
                     Wrath = t.Range(TruthId.GodNature, gkey, 3, slot.Wrath.Min, slot.Wrath.Max + 1),
                     Grace = t.Range(TruthId.GodNature, gkey, 4, slot.Grace.Min, slot.Grace.Max + 1),
                 });

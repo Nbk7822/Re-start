@@ -66,6 +66,29 @@ public class CultureSeedTests
         Assert.True(combos.Count >= 3);
     }
 
+    /// <summary>
+    /// Two gods of one faith may share a domain, but not an epithet while the domain has another:
+    /// "Vaunor, the Witness, and Ennet, the Witness" names neither.
+    /// </summary>
+    [Fact]
+    public void GodsOfOneFaithBearDifferentEpithets()
+    {
+        int sharedDomains = 0;
+        for (ulong seed = 1; seed <= 200; seed++)
+        {
+            World w = WorldGen.Create(Db, seed);
+            foreach (SeededFaith f in w.Culture.Faiths)
+                for (int i = 0; i < f.Gods.Count; i++)
+                    for (int j = i + 1; j < f.Gods.Count; j++)
+                    {
+                        if (f.Gods[i].DomainId != f.Gods[j].DomainId) continue;
+                        sharedDomains++;
+                        Assert.NotEqual(f.Gods[i].EpithetKey, f.Gods[j].EpithetKey);
+                    }
+        }
+        Assert.True(sharedDomains > 0, "no faith had two gods of one domain in 200 worlds, so nothing was checked");
+    }
+
     [Fact]
     public void EveryoneButTheOtherworlderBelongs()
     {
