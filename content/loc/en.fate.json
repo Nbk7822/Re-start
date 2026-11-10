@@ -84,9 +84,9 @@
   "gift.familiar_faces.name": "Familiar faces",
   "gift.familiar_faces.summary": "Those close to you in a future that never came feel they have known you for years.",
   "gift.familiar_faces.grows": "It grows each time a familiar face becomes your friend, or does you a kindness, soon after you come back.",
-  "gift.familiar_faces.stage1": "they keep a quarter of what they felt",
-  "gift.familiar_faces.stage2": "they keep two fifths of what they felt",
-  "gift.familiar_faces.stage3": "they keep three fifths of what they felt",
+  "gift.familiar_faces.stage1": "keeps a quarter of what people felt for you",
+  "gift.familiar_faces.stage2": "keeps two fifths of what people felt for you",
+  "gift.familiar_faces.stage3": "keeps three fifths of what people felt for you",
   "gift_seen.hidden": "Nobody can see it.",
   "gift_seen.seen": "Others can see it at work.",
   "gift_seen.loud": "Everyone near can see it at work.",
@@ -115,8 +115,8 @@
   "event.gift.familiar.dreamed_you_a": "{a} dreamed of faces you had never seen, who all knew your name.",
   "event.gift.familiar.knew_you": "{a} looked at {b} as if they had known {b} for years.",
   "event.gift.familiar.uneasy": "{a} looked at {b} warily, as if remembering something {b} had done.",
-  "event.gift.grew": "{a}'s gift grew stronger: {gift} {stage}.",
-  "event.gift.grew_you_a": "Your gift grew stronger: {gift} {stage}.",
+  "event.gift.grew": "{a}'s gift grew stronger: {gift} now {stage}.",
+  "event.gift.grew_you_a": "Your gift grew stronger: {gift} now {stage}.",
 
   "job.gift_share": "Sharing from the satchel",
 

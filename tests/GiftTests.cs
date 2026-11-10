@@ -136,7 +136,7 @@ public class GiftTests
         // Three lifts out of starving: the satchel grows to its second stage.
         SimEvent grew = w.Log.All.Single(e => e.Key == "event.gift.grew");
         Assert.Equal(EffectKind.GiftGrew, grew.Effects.Single().Kind);
-        Assert.Equal("Your gift grew stronger: Bottomless satchel holds 6 meals.", EventText.Describe(w, grew));
+        Assert.Equal("Your gift grew stronger: Bottomless satchel now holds 6 meals.", EventText.Describe(w, grew));
         Assert.Equal(1, w.Gift.Tier);
         Assert.Equal(6, Satchel.Capacity(w, Gifts.Held(w)!));
         Assert.Equal(1, w.Fate.GiftMastery);
