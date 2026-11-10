@@ -67,6 +67,9 @@ public sealed class SoakSummary
 
     /// <summary>Named people who left or died, by species id; most first (the vampire guard of ADR-0023 reads it).</summary>
     public IReadOnlyList<Tally> DeparturesAndDeathsBySpecies { get; init; } = Array.Empty<Tally>();
+
+    /// <summary>Return by Death and the gifts (ADR-0030).</summary>
+    public FateSummary Fates { get; init; } = new();
 }
 
 /// <summary>
@@ -87,7 +90,7 @@ public static class Soak
     /// per story its culture link ("" for none); and the species of each named person who left or died.
     /// </summary>
     internal sealed record WorldResult(ulong Seed, int Events, IReadOnlyList<string> SystemSets, IReadOnlyList<string> TerminalKeys, SoakFailure? Failure,
-        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null);
+        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null, FateTally? Fates = null);
 
     /// <summary>The family of a Culture event: the custom id in "event.culture.&lt;id&gt;.&lt;moment&gt;", or the generic key's last part (omen_anger, word_spread); "" for any other key.</summary>
     internal static string CultureLink(string key)
@@ -171,6 +174,9 @@ public static class Soak
         lost.Sort(MostFirst);
 
         int worlds = results.Count;
+        var fates = new List<FateTally>(results.Count);
+        foreach (WorldResult r in results)
+            if (r.Fates != null) fates.Add(r.Fates);
         return new SoakSummary
         {
             Worlds = worlds,
@@ -191,6 +197,7 @@ public static class Soak
             CultureWorlds = cultureWorlds,
             ByCultureLink = links,
             DeparturesAndDeathsBySpecies = lost,
+            Fates = SoakFates.Summarize(fates, worlds, options.Years),
         };
     }
 
@@ -216,6 +223,7 @@ public static class Soak
             json.WriteNumber("cultureWorlds", s.CultureWorlds);
             WriteTallies(json, "byCultureLink", s.ByCultureLink);
             WriteTallies(json, "departuresAndDeathsBySpecies", s.DeparturesAndDeathsBySpecies);
+            SoakFates.Write(json, s.Fates);
             json.WriteStartArray("perWorld");
             foreach (WorldTally t in s.PerWorld)
             {
@@ -269,6 +277,19 @@ public static class Soak
             Line(o, loc.Get("log.soak.culture_links"));
             WriteTop(o, loc, s.ByCultureLink);
         }
+        FateSummary f = s.Fates;
+        Line(o, Format(loc, "log.soak.fates", ("returns", Num(f.Returns)), ("worlds", Num(f.ReturnWorlds)), ("total", Num(s.Worlds)),
+            ("natural", Num(f.NaturalReturns)), ("natural_worlds", Num(f.NaturalReturnWorlds)),
+            ("days", f.AverageDaysBack.ToString("0.00", Inv)), ("deep", Num(f.DeepPermille))));
+        Line(o, Format(loc, "log.soak.fates_stories", ("futures", Num(f.LostFutures)), ("with_story", Num(f.LostFuturesWithStory)),
+            ("lost", Num(f.LostStories)), ("crossing", Num(f.CrossingStories)), ("crossing_worlds", Num(f.CrossingWorlds))));
+        Line(o, Format(loc, "log.soak.companion_deaths", ("n", Num(f.CompanionDeaths)), ("per_year", f.CompanionDeathsPerWorldYear.ToString("0.00", Inv))));
+        Line(o, Format(loc, "log.soak.death_loops", ("n", Num(f.ThreeDeathsInThreeDaysWorlds))));
+        if (f.NaturalDeathsByCause.Count > 0)
+        {
+            Line(o, loc.Get("log.soak.deaths"));
+            WriteTop(o, loc, f.NaturalDeathsByCause);
+        }
         if (s.Failures.Count > 0)
             Line(o, Format(loc, "log.soak.crashed_list", ("seeds", List(loc, s.Failures.Select(f => Num(f.Seed))))));
         Line(o, Format(loc, "log.soak.written", ("dir", s.OutDir)));
@@ -309,7 +330,7 @@ public static class Soak
             foreach (SimEvent e in w.Log.All)
                 foreach (Effect f in e.Effects)
                     if (f.Kind is EffectKind.Departure or EffectKind.Death && w.Find(f.A) is { Named: true } who) losses.Add(who.SpeciesId);
-            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses);
+            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses, SoakFates.Tally(w, analysis.Stories));
         }
         catch (Exception ex)
         {

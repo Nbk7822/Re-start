@@ -242,14 +242,18 @@ public sealed class GiftState
     /// <summary>Bottomless satchel: who has seen something vanish from nowhere in this timeline (ascending ids).</summary>
     public List<int> SeenBy { get; set; } = new();
 
-    /// <summary>Familiar faces: who has felt they know you since the last return (ascending ids).</summary>
+    /// <summary>Familiar faces: who has felt they know you since the last return, in the order they did.</summary>
     public List<int> Familiar { get; set; } = new();
+
+    /// <summary>Familiar faces: the line that said so, for each of <see cref="Familiar"/> (parallel).</summary>
+    public List<long> FamiliarEvents { get; set; } = new();
 
     /// <summary>Familiar faces: those whose friendship or kindness has already counted toward the gift's growth (ascending ids).</summary>
     public List<int> Counted { get; set; } = new();
 
-    /// <summary>When you last came back (Familiar faces counts friendships within days of it); -1 = never.</summary>
+    /// <summary>When you last came back, and the line that said so (Familiar faces counts friendships within days of it); -1 and 0 = never.</summary>
     public long ReturnedTick { get; set; } = -1;
+    public long ReturnedEvent { get; set; }
 }
 
 /// <summary>A memory applied in this world's history, so a restore that already holds it does not apply it twice.</summary>

@@ -106,10 +106,12 @@ public static class CombatSystem
         Character target = defenders[0];
         if (dice.Chance(DiceId.CombatHit, HitPermille))
         {
-            Hurt(w, target, dice.Range(DiceId.CombatDamage, DamageMin, DamageMax + 1), tj.CauseEvent, "event.combat.died_wounds", SystemTag.Combat);
-            if (target.Status == CharStatus.Member && target.Downed)
-                w.Log.Emit(w, SystemTag.Combat, "event.combat.downed", new[] { target.Id, thief.Id }, new[] { target.LastHealthEvent }, null,
-                    EventArg.Char("a", target.Id), EventArg.Char("b", thief.Id));
+            int damage = dice.Range(DiceId.CombatDamage, DamageMin, DamageMax + 1);
+            (Character hit, long why) = Gifts.TurnHarm(w, target, damage, tj.CauseEvent, blow: true); // Fortune's favourite (ADR-0030)
+            Hurt(w, hit, damage, why, "event.combat.died_wounds", SystemTag.Combat);
+            if (hit.Status == CharStatus.Member && hit.Downed)
+                w.Log.Emit(w, SystemTag.Combat, "event.combat.downed", new[] { hit.Id, thief.Id }, new[] { hit.LastHealthEvent }, null,
+                    EventArg.Char("a", hit.Id), EventArg.Char("b", thief.Id));
         }
         foreach (Character d in defenders)
         {

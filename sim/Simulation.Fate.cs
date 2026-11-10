@@ -138,12 +138,14 @@ public sealed partial class Simulation
         WorldGen.RedrawArrivals(restored);
         restored.Gift.ReturnedTick = restored.Tick;
         restored.Gift.Familiar.Clear();
+        restored.Gift.FamiliarEvents.Clear();
 
         restored.Hooks.AddRange(dying.Hooks);
         World = restored;
         _delivered = restored.Log.All.Count;
         SimEvent back = restored.Log.Emit(restored, SystemTag.Fate, Fate.ReturnedKey, new[] { you.Id }, new[] { knot.TriggerEvent }, null,
             EventArg.Char("a", you.Id), EventArg.Num("future", futureIndex));
+        restored.Gift.ReturnedEvent = back.Id;
         Memories.Apply(restored, back.Id);
         Gifts.OnReturned(restored, back);
         DeliverToHooks();

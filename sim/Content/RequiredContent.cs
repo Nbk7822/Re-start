@@ -100,7 +100,7 @@ public static class RequiredContent
     /// </summary>
     public static readonly IReadOnlyList<(string Id, string[] Params, string[] Choices)> Gifts = new (string, string[], string[])[]
     {
-        ("satchel", new[] { "capacity", "sight" }, new[] { "keep", "share", "empty" }),
+        ("satchel", new[] { "capacity", "sight", "grudgeIntensity" }, new[] { "keep", "share", "empty" }),
         ("fortunes_favourite", new[] { "reach", "deathPasses", "sight", "witnessPct" }, Array.Empty<string>()),
         ("familiar_faces", new[] { "echoPct", "echoAtLeast", "withinDays" }, Array.Empty<string>()),
     };

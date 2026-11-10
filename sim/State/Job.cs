@@ -35,6 +35,10 @@ public enum JobKind
     TendTree,
     /// <summary>A djinn going to someone to offer the camp a bargain.</summary>
     OfferBargain,
+
+    // The player (ADR-0030).
+    /// <summary>You, taking a meal from your satchel to someone starving.</summary>
+    GiftShare,
 }
 
 /// <summary>What a character is doing right now. Stage and Progress are job-specific counters.</summary>

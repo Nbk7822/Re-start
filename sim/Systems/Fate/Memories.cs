@@ -5,11 +5,13 @@ namespace Return.Sim.Systems;
 
 /// <summary>
 /// What you carry back about people (the player design §5.3, lead's call): for each cast member, the strongest thing
-/// between you after the knot (a grudge you formed against them, else their death while you were friends, else a
-/// kindness they did you) becomes a memory at half the feeling the lost future built (rebirth.json's strengthPct),
-/// at most four per return. Memories gather across returns, one per person, the newest winning. In the new timeline
-/// each acts as a thought and a change of your opinion, without your say, as everything your character feels does;
-/// it is applied only where the restored world does not already hold it, so a memory never stacks.
+/// between you after the knot becomes a memory at half the feeling the lost future built (rebirth.json's strengthPct),
+/// at most four per return. In order: a grudge you formed against them; else their death while you were friends; else
+/// a feeling the lost future moved by at least minFeeling, a wrong if it fell (a refusal, an insult, a felled tree) or a
+/// kindness if it rose (tending, blood, a rescue, a kept promise), quoting the thought about them that moved it most.
+/// Memories gather across returns, one per person, the newest winning. In the new timeline each acts as a thought and a
+/// change of your opinion, without your say, as everything your character feels does; it is applied only where the
+/// restored world does not already hold it, so a memory never stacks.
 /// </summary>
 public static class Memories
 {
@@ -56,11 +58,11 @@ public static class Memories
                 }
             }
 
-            Debt? kindness = null;
-            foreach (Debt d in dying.Debts)
-                if (d.DebtorId == you.Id && d.CreditorId == x.Id && !d.IsPromise && d.FormedEvent > cut) kindness = d;
-            if (kindness != null && now > then)
-                list.Add(new Found(x.Id, MemoryKind.Kindness, Math.Max(1, (now - then) * pct / 100), kindness.CauseEvent > cut ? kindness.CauseEvent : kindness.FormedEvent));
+            int delta = now - then;
+            if (Math.Abs(delta) < dying.Content.Rebirth.Memory.MinFeeling) continue;
+            long moved = StrongestThought(dying, you, x.Id, cut, delta < 0);
+            if (moved != 0)
+                list.Add(new Found(x.Id, delta < 0 ? MemoryKind.Wrong : MemoryKind.Kindness, delta * pct / 100 == 0 ? Math.Sign(delta) : delta * pct / 100, moved));
         }
         list.Sort((a, b) =>
         {
@@ -70,6 +72,24 @@ public static class Memories
         int max = dying.Content.Rebirth.Memory.MaxPerReturn;
         if (list.Count > max) list.RemoveRange(max, list.Count - max);
         return list;
+    }
+
+    /// <summary>
+    /// The event behind your thought about someone that moved your regard most in one direction, of those thought after
+    /// the knot (a refusal's sting, a tending's warmth); 0 if none can be quoted.
+    /// </summary>
+    private static long StrongestThought(World w, Character you, int aboutId, int cut, bool negative)
+    {
+        long best = 0;
+        int strongest = 0;
+        foreach (Thought t in you.Thoughts)
+        {
+            if (t.AboutId != aboutId || t.CauseEvent <= cut) continue;
+            int opinion = w.Content.ThoughtById(t.DefId).Opinion;
+            if (negative ? opinion >= 0 : opinion <= 0) continue;
+            if (Math.Abs(opinion) >= strongest) { strongest = Math.Abs(opinion); best = t.CauseEvent; }
+        }
+        return best;
     }
 
     private static SimEvent? DeathAfter(World w, int id, int cut)

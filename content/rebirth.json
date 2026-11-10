@@ -22,5 +22,5 @@
     "safeHealthAtLeast": 400
   },
   "return": { "recentDays": 3, "tailPermille": 150, "minHoursBeforeDeath": 2 },
-  "memory": { "strengthPct": 50, "maxPerReturn": 4 }
+  "memory": { "strengthPct": 50, "maxPerReturn": 4, "minFeeling": 10 }
 }

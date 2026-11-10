@@ -14,7 +14,7 @@
       { "at": 8, "stageKey": "gift.satchel.stage3", "params": { "capacity": 10 } }
     ],
     "order": { "id": "gift.satchel", "choices": ["keep", "share", "empty"], "default": "keep" },
-    "params": { "sight": 8 }
+    "params": { "sight": 8, "grudgeIntensity": 30 }
   },
   {
     "id": "fortunes_favourite",

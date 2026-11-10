@@ -32,6 +32,7 @@ public static class JobRunner
         JobKind.RepayDebt => CultureJobs.RepayDebt(w, c, j),
         JobKind.TendTree => Forest.Tend(w, c, j),
         JobKind.OfferBargain => Bargains.Offer(w, c, j),
+        JobKind.GiftShare => Satchel.ShareMeal(w, c, j),
         _ => true,
     };
 

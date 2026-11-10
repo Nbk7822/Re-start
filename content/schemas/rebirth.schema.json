@@ -45,10 +45,11 @@
     "memory": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["strengthPct", "maxPerReturn"],
+      "required": ["strengthPct", "maxPerReturn", "minFeeling"],
       "properties": {
         "strengthPct": { "description": "A remembered feeling carries this share of what you felt in the lost future", "type": "integer", "minimum": 0, "maximum": 100 },
-        "maxPerReturn": { "type": "integer", "minimum": 0 }
+        "maxPerReturn": { "type": "integer", "minimum": 0 },
+        "minFeeling": { "description": "Without a grudge or a friend's death, a feeling is remembered only if the lost future moved your regard by at least this much", "type": "integer", "minimum": 1 }
       }
     }
   },

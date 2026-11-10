@@ -76,6 +76,9 @@ public static class JobPicker
         Job? promise = PromiseJob(w, c);
         if (promise != null) return promise;
 
+        Job? gift = Gifts.Job(w, c, sunBlocked); // your satchel, shared with the starving if that is your order (ADR-0030)
+        if (gift != null) return gift;
+
         if (Traits.Sum(w, c, t => t.CareUrgency) > 0 || PriorityOf(c, "care") == 1)
         {
             Job? rescue = RescueJob(w, c, sunBlocked);

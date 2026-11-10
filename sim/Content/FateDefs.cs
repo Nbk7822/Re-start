@@ -37,6 +37,9 @@ public sealed class MemoryRulesDef
 {
     public int StrengthPct { get; init; }
     public int MaxPerReturn { get; init; }
+
+    /// <summary>Without a grudge or a friend's death, a feeling is remembered only if the lost future moved your regard by at least this much.</summary>
+    public int MinFeeling { get; init; }
 }
 
 /// <summary>rebirth.json: the peoples you can be, your soul's span, and the rules of knots, returns and memories.</summary>

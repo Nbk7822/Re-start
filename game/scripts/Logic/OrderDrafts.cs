@@ -35,6 +35,15 @@ public sealed class OrderDrafts
         }
     }
 
+    /// <summary>The drafted choice for a gift's standing order (ADR-0030), if any.</summary>
+    public string? StandingOrder(string orderId)
+    {
+        string? choice = null;
+        foreach (Command d in _drafts)
+            if (d is SetStandingOrder s && s.OrderId == orderId) choice = s.ChoiceId;
+        return choice;
+    }
+
     /// <summary>The drafted priority for one person and one kind of work, if any.</summary>
     public int? Priority(int characterId, string workId)
     {
@@ -54,6 +63,7 @@ public sealed class OrderDrafts
             {
                 SetRationPolicy p => p.Policy != w.Policy,
                 SetWorkPriority p => w.Find(p.CharacterId) is { Status: CharStatus.Member } c && JobPicker.PriorityOf(c, p.WorkId) != p.Priority,
+                SetStandingOrder s => Gifts.Held(w)?.Order is { } order && order.Id == s.OrderId && Gifts.Order(w, order) != s.ChoiceId,
                 _ => true,
             };
             if (changes) sim.Enqueue(d with { Tick = w.Tick });
@@ -65,6 +75,7 @@ public sealed class OrderDrafts
     {
         (SetRationPolicy, SetRationPolicy) => true,
         (SetWorkPriority x, SetWorkPriority y) => x.CharacterId == y.CharacterId && x.WorkId == y.WorkId,
+        (SetStandingOrder x, SetStandingOrder y) => x.OrderId == y.OrderId,
         _ => false,
     };
 }

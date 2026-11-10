@@ -118,6 +118,8 @@
   "event.gift.grew": "{a}'s gift grew stronger: {gift} {stage}.",
   "event.gift.grew_you_a": "Your gift grew stronger: {gift} {stage}.",
 
+  "job.gift_share": "Sharing from the satchel",
+
   "order.gift.satchel.title": "Your satchel",
   "order.gift.satchel.keep": "Keep a reserve for yourself",
   "order.gift.satchel.keep.hint": "You fill it when you forage and eat from it when you are hungry.",
