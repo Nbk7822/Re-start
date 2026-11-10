@@ -5,6 +5,8 @@ You are lead engineer and designer on Return: a 2D, top-down, pausable simulatio
 
 Settled with the founder the same day: the unique ability is rolled each run on top of Return by Death, and both the race and the ability are fixed for that world (Truths). The win is total domination of the world, reached within one lifetime: old age is the only death that does not rewind, and it ends the run. Every feature, plan and brief is checked against this principle (ADR-0024).
 
+Added by the founder the same day: "the goal is for this game to be infinitely replayable and every playthrough is a story that is so unique and chaotic but fun that the player can't forget" (ADR-0031).
+
 ## The game in one paragraph
 The player is a person from Earth reincarnated, with nothing, into a procedurally generated fantasy world that already has civilizations, cultures, peoples and faiths, as a member of a randomly rolled race with one rolled unique ability. They adventure, meet procedurally generated people, make allies, gather followers and friends who grow with them, build a village, then a civilization, on the path to total domination of the world. Domination is the win, and it must come within one lifetime: old age is the only death that does not rewind, and it ends the run. Every other death rewinds time to a random earlier "fate knot" in the same playthrough. The player keeps their memories; the world does not.
 
@@ -18,7 +20,7 @@ The player is a person from Earth reincarnated, with nothing, into a procedurall
 7. Rival otherworlders arrive over time (a Truth).
 8. Storyteller/director: incident library, pressure pacing, one hidden personality per playthrough, arc detection, fate-knot marking.
 9. Rewinds generate story: a Distortion meter spawns anomalies; a Chronicle of Lost Futures records abandoned timelines as legends.
-10. Characters: RimWorld-grade needs, mood and traits, plus a relationship graph where grudges, debts, oaths and ambitions are first-class objects. Dialogue is templated in v1; any generative text must derive from stored state.
+10. Characters: RimWorld-grade needs, mood and traits, plus a relationship graph where grudges, debts, oaths, ambitions and bonds (friendship, love, loyalty) are first-class objects (bonds added by the founder 2026-11-09, ADR-0031). Dialogue is templated in v1; any generative text must derive from stored state.
 11. Art: very basic and functional in the RimWorld spirit, with our own silhouette language. Prototype art is colored rectangles and text.
 12. Character growth and arcs: companions visibly change over a lifetime (body, role, traits, heart); static pawns are a failure state. Growth is event-driven, never grind-driven, and every change is a logged story beat with a cause: an arc per character (want, obstacle, turning point, resolution), trait mutation through experience, rare evolutions, niches, shared memories, underdog payoffs and decline. Truths keep a character's nature; Dice re-roll their experiences. Full addendum, data model, scope and acceptance: BIBLE.md section 5.
 
@@ -44,6 +46,8 @@ STORIES.md  notable emergent stories from soaks and playtests
 ## How we work
 - Prototype before architecture. Build the smallest system set that produces stories: needs, mood, traits, relationships, work, incidents, travel, simple combat.
 - A system must interact with at least two others or it is cut.
+- A feature must give the player something worth knowing next time, or someone worth losing (ADR-0031).
+- A slice is done when it has been played, not when its soak passes: a play check joins the soak and the stranger check in its acceptance (ADR-0031).
 - Each session: state the plan, work in small commits, run tests and a headless soak, append notable stories to STORIES.md, log decisions to DECISIONS.md.
 - Ask before: changing a fixed decision, adding a dependency, changing a content schema, or touching anything that affects determinism.
 - Definition of a story: a chain of 3 or more causally linked events across 2 or more systems, involving a named character, ending in a persistent state change. Soak output must detect and count these.
