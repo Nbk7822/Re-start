@@ -45,3 +45,31 @@ Exit criterion: "a stranger reading the story log retells one story unprompted."
 - Seed 4: "Ilex, the vampire who had fought off thieves for the camp twice, asked all eight humans for blood one after another. Every one of them said no, and Ilex left at three in the morning."
 
 What the readers found mechanical is listed under ADR-0018's known seams.
+
+## 2026-11-09 — Culture and faith, slice 1 (soak of 100 worlds × 1 year, ADR-0023)
+
+Culture stories (a Culture event on the chain) are 356 of 1,020 (34.9%), in 89 of 100 worlds; nine distinct ways in. Seeds and lines are from `tools/soak --worlds 100 --years 1` on this branch.
+
+### The rain was Wenlow's anger (seed 4, soak; policy "the hungriest eat first")
+In the last days of winter the vampire Vale went from person to person for blood. Sera and Bram and Wren were too hungry themselves; you, Mira and Hollis simply said no. On the morning of day 38 it rained, and Vale, devout in the Ember, took the rain as Wenlow's anger at Hollis for refusing blood. Vale now held a grudge against Hollis, and two days later left the camp.
+- Chain: went without (Needs) → hungry, starving → refusals (Social) → the rain read as an omen (Culture) → grudge → left (Social). 14 steps.
+- Why it matters: the design's own example, arising unprompted. The god did nothing; a believer read the weather, and that reading is what crossed the grudge line.
+
+### Vale's debt of honour (seed 3, soak; policy "you eat first")
+On day 7 the vampire Vale, thirsting, asked Bram for blood; Bram refused, because the Old Roots forbid it. Oren refused, and so did Nia and Mira. By morning Vale was weak with blood hunger. That afternoon you, the stranger with no people and no faith, gave Vale your blood. Twenty-seven days later, in the winter famine, Vale brought you food to settle what was owed, as the Lantern-Shy do, and the debt was closed.
+- Chain: thirst (Needs) → refusals, one for the taboo (Social, Culture) → gave blood (Work) → owes (Social) → repaid with food (Culture) → debt repaid (Social). 11 steps.
+- Why it matters: before this slice most blood debts were never repaid (ADR-0018's seam). Here a vampire repays an outsider in berries when the outsider is starving, and the taboo is why the outsider was asked at all.
+
+### The sacred tree and the harvest fire (seed 27, soak; policy "the hungriest eat first")
+On the first night Oren, of the Longtable Kin, felled a tree for timber: the old tree sacred to the Old Roots. Mira, who follows the Old Roots, held a grudge against him from that hour, and on day 11 insulted him, so Oren took a grudge of his own. At the harvest fire on day 28 (the Old Roots keep it on day 8 of autumn) Mira set down her grudge against Oren. On day 36, in the winter hunger, Oren insulted her, and she took it up again.
+- Chains: felled (Work) → desecrated (Culture) → grudge (Social) → set down at the harvest fire (Culture, GrudgeEnded); and felled → desecrated → grudge → insults → Oren's grudge → insult → Mira's grudge again.
+- Why it matters: a feud with a cause on day 1, a truce the calendar brings, and a relapse the winter brings. Two systems the player never touched (a builder's nearest tree, a faith's festival day) frame it.
+
+### A leader eats last (seed 8, soak; policy "you eat first")
+Winter came on day 31. On day 39, at the small-hours share-out, Oren went without while you ate; among the Folk of the Kept Fire, a leader eats last. He held a grudge against you from that moment, and within the hour he had left the camp.
+- Chain: winter (World) → hungry, starving, went without (Needs) → offended (Culture) → grudge → left (Social).
+- Why it matters: the day-1 ration policy is read by a people's custom, not only by hunger.
+
+### The vampire who fed a guest (seed 11, soak; policy "you eat first")
+Bram wandered in on day 36, hungry and alone, and stayed after you promised him a meal within two days. By evening he was starving, and at the 02:20 share-out he went without. Half an hour later Ilex, a vampire of the Folk of the Long Dark, went out in the dark and found him something to eat, as the Folk of the Long Dark do for a guest. Your promise was kept, Bram owed Ilex a meal, and on day 38 Bram, who is Generous, repaid it.
+- Chain: arrival (Incident) → promise on joining (Social) → hungry, starving, went without (Needs) → guest-bread (Culture) → promise kept → owes a meal → repaid (Social).
