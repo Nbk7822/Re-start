@@ -53,10 +53,10 @@ public static class FamiliarFaces
             new[] { x.Id, you.Id }, new[] { back, arrival }, null, EventArg.Char("a", x.Id), EventArg.Char("b", you.Id));
         w.Gift.Familiar.Add(x.Id);
         w.Gift.FamiliarEvents.Add(e.Id);
+        // Someone already your friend before they felt they knew you does not become one: that friendship cannot grow the gift.
+        if (IsFriend(w, x, you)) w.Gift.FamiliarFriends.Insert(~w.Gift.FamiliarFriends.BinarySearch(x.Id), x.Id);
         MoodSystem.AddThought(w, x, warm ? "familiar" : "uneasy_familiar", you.Id, e.Id);
         Relations.ChangeOpinion(w, x, you.Id, echo.Opinion * g.Num("echoPct", w.Gift.Tier) / 100, e.Id);
-        // Already your friend, before or by the gift's own warmth: that friendship is not one they come to, so it cannot grow the gift.
-        if (IsFriend(w, x, you)) w.Gift.FamiliarFriends.Insert(~w.Gift.FamiliarFriends.BinarySearch(x.Id), x.Id);
         if (warm) Gifts.Awaken(w, e.Id, dream: false);
     }
 
@@ -66,9 +66,8 @@ public static class FamiliarFaces
 
     /// <summary>
     /// Within days of a return, each familiar face who becomes your friend (their regard for you comes to the friend line
-    /// after they felt they knew you, not before nor by the gift's own warmth) or does you a kindness (you come to owe
-    /// them) counts once toward the gift's growth, citing the kindness or the recognition. Growth comes of what follows a
-    /// recognition, never of the recognition alone.
+    /// as they feel they know you, or after; someone already your friend before does not become one) or does you a
+    /// kindness (you come to owe them) counts once toward the gift's growth, citing the kindness or the recognition.
     /// </summary>
     public static void Hourly(World w, Character you, GiftDef g)
     {
