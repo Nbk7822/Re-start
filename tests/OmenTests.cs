@@ -70,8 +70,13 @@ public class OmenTests
         Assert.True(readings >= 3, $"only {readings} of 12 devout readers read the rain");
     }
 
+    /// <summary>
+    /// No reading, and no roll, for a lapsed follower, for a sign the god does not speak through, or
+    /// for a deed older than the deed memory. (A distant god's followers do read signs, at lower odds:
+    /// temperament is a word for wrath and grace, which scale the odds.)
+    /// </summary>
     [Fact]
-    public void TheLapsedAndTheDistantReadNothing()
+    public void NoReadingForTheLapsedAnUnspokenSignOrAnOldDeed()
     {
         (World w, Character you, Character mira, Character oren) = Faithful(1);
         mira.Devotion = 20; // lapsed: below the Sworn Word's omen devotion
