@@ -23,6 +23,10 @@
   "log.camp.members": "Living there: {names}",
   "log.camp.nobody": "Nobody lives there any more.",
   "log.camp.stockpile": "Stockpile: berries ×{berries}, timber ×{timber}",
+  "log.camp.zones": "Zones: {zones}.",
+  "log.camp.zone": "{zone} {place} ({n} tiles)",
+  "log.camp.zone_one": "{zone} {place} (1 tile)",
+  "log.camp.zone_sep": "; ",
   "log.camp.roof": "Shelter roof: {sound} of {total} sections sound",
   "log.camp.rationing": "When food runs short, {policy}.",
 

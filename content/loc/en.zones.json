@@ -1,4 +1,32 @@
 {
   "zone.stockpile.name": "Stockpile",
-  "zone.stockpile.hint": "Where the camp keeps its goods"
+  "zone.stockpile.hint": "Where the camp keeps its goods",
+  "zone.stockpile.a": "a stockpile",
+  "zone.stockpile.the": "the stockpile",
+
+  "zone_check.outside": "Off the map",
+  "zone_check.blocked": "Nothing can be kept here",
+  "zone_check.hearth": "The hearth",
+  "zone_check.bush": "A berry bush",
+  "zone_check.bed": "A bed",
+
+  "place_phrase.covered_ruins": "in the covered ruins",
+  "place_phrase.shelter": "in the shelter",
+  "place_phrase.hearth": "by the hearth",
+  "place_phrase.watch_post": "by the watch post",
+  "place_phrase.river": "by the river",
+  "place_phrase.open": "out in the open",
+
+  "place.zone.stores": "{zone} ({items})",
+  "place.zone.item_sep": ", ",
+  "place.waiting_to_be_carried": "{item} ×{n}, waiting to be carried to a stockpile",
+
+  "event.world.zone_marked": "{a} marked {zone} {place} ({n} tiles).",
+  "event.world.zone_marked_one": "{a} marked {zone} {place} (1 tile).",
+  "event.world.zone_moved": "{a} moved {zone}; it now lies {place}.",
+  "event.world.zone_changed": "{a} changed {zone} {place}; it now covers {n} tiles.",
+  "event.world.zone_changed_one": "{a} changed {zone} {place}; it now covers 1 tile.",
+  "event.world.zone_removed": "{a} took away {zone} {place}.",
+  "event.world.zone_items": "{a} chose to keep {item} in {zone} {place}.",
+  "event.world.zone_items_not": "{a} chose to keep no {item} in {zone} {place}."
 }

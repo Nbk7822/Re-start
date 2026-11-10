@@ -21,7 +21,8 @@ public sealed partial class ContentDb
     {
         foreach (ZoneDef z in Zones)
         {
-            RequireLoc("zones.json", z.Id, z.NameKey, z.HintKey);
+            // The Chronicle names a zone mid-sentence ("You marked a stockpile …", "You moved the stockpile …").
+            RequireLoc("zones.json", z.Id, z.NameKey, z.HintKey, Systems.Zones.ArticleKey(z.Id, indefinite: true), Systems.Zones.ArticleKey(z.Id, indefinite: false));
             string? layer = null;
             foreach ((string behaviour, string onLayer) in RequiredContent.ZoneBehaviours)
                 if (behaviour == z.Behaviour) layer = onLayer;

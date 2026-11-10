@@ -287,14 +287,15 @@ public static partial class StateApi
         foreach (Bed b in m.Beds)
             if (b.Pos == p) contents.Add(loc.Get("place.bed"));
         if (m.Hearth == p) contents.Add(FestivalHearthLine(w) ?? loc.Get("place.hearth"));
-        if (Systems.Zones.UseZoneAt(w, p) is { } zone && Systems.Zones.IsStores(w, zone)) contents.Add(loc.Get("place.stockpile"));
+        if (ZoneLine(w, p) is { } zone) contents.Add(zone); // "Stockpile (berries, timber)" (ADR-0028)
         if (m.WatchPost == p) contents.Add(loc.Get("place.watch_post"));
         if (m.CoveredRuins.Contains(p)) contents.Add(loc.Get("place.covered_ruins"));
         foreach (RoofSection r in m.Roof)
             if (r.Area.Contains(p)) contents.Add(loc.Get(r.Sound ? "place.roof_sound" : "place.roof_broken"));
         foreach (ItemStack s in w.Items)
             if (s.Pos == p)
-                contents.Add(loc.Format("place.item", new[]
+                // Stores no stockpile here keeps (the stockpile moved) are waiting to be carried (ADR-0028).
+                contents.Add(loc.Format(s.Stored && !Systems.Zones.Accepts(w, p, s.DefId) ? "place.waiting_to_be_carried" : "place.item", new[]
                 {
                     new KeyValuePair<string, string>("item", loc.Get(w.Content.ItemById(s.DefId).NameKey)),
                     new KeyValuePair<string, string>("n", s.Count.ToString(Inv)),

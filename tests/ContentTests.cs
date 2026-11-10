@@ -158,6 +158,8 @@ public class ContentTests
         string mod = Path.Combine(Path.GetTempPath(), "return-mod-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(mod);
         string granary = "[{ \"id\": \"granary\", \"nameKey\": \"zone.stockpile.name\", \"hintKey\": \"zone.stockpile.hint\", \"behaviour\": \"stores\", \"layer\": \"LAYER\" }]";
+        Directory.CreateDirectory(Path.Combine(mod, "loc"));
+        File.WriteAllText(Path.Combine(mod, "loc", "en.granary.json"), "{ \"zone.granary.a\": \"a granary\", \"zone.granary.the\": \"the granary\" }");
         File.WriteAllText(Path.Combine(mod, "zones.json"), granary.Replace("LAYER", "use", StringComparison.Ordinal));
         Assert.Equal("stores", ContentDb.Load(ContentDir, new[] { mod }).ZoneById("granary").Behaviour);
         File.WriteAllText(Path.Combine(mod, "zones.json"), granary.Replace("LAYER", "area", StringComparison.Ordinal));

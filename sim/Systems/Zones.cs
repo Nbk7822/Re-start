@@ -8,7 +8,7 @@ namespace Return.Sim.Systems;
 /// ask of zones ("is this tile a stockpile that keeps berries?"). Zones are intentions: nothing here
 /// orders anyone. Every query is a lookup; ties always break by zone id, then (y, x).
 /// </summary>
-public static class Zones
+public static partial class Zones
 {
     /// <summary>The behaviour of a stockpile: goods put down there are the camp's stores.</summary>
     public const string Stores = "stores";

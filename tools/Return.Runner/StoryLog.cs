@@ -53,10 +53,14 @@ public static class StoryLog
             foreach (long id in s.Chain) inStory.Add(id);
         var notable = new List<SimEvent>();
         foreach (SimEvent e in all)
-            if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture || inStory.Contains(e.Id))
+            if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture || inStory.Contains(e.Id)
+                || IsZoneEvent(e))
                 notable.Add(e);
         return new LogAnalysis(stories, notable);
     }
+
+    /// <summary>Zone events explain behaviour to a stranger reader, as incidents do (ADR-0028): a stockpile marked or moved.</summary>
+    internal static bool IsZoneEvent(SimEvent e) => e.Key.StartsWith("event.world.zone_", StringComparison.Ordinal);
 
     internal static void Render(World w, LogAnalysis analysis, TextWriter writer)
     {
@@ -201,6 +205,14 @@ public static class StoryLog
             Line(o, Indent + Format(loc, "log.camp.members", ("names", List(loc, names))));
         }
         Line(o, Indent + Format(loc, "log.camp.stockpile", ("berries", Num(camp.Berries)), ("timber", Num(camp.Timber))));
+        var zones = new List<string>();
+        foreach (Zone z in w.Map.Zones)
+        {
+            int n = Return.Sim.Systems.Zones.Count(z.Tiles);
+            zones.Add(Format(loc, n == 1 ? "log.camp.zone_one" : "log.camp.zone", ("zone", loc.Get(Return.Sim.Systems.Zones.ArticleKey(z.Kind, indefinite: true))),
+                ("place", loc.Get(Return.Sim.Systems.Zones.PlacePhraseKey(w, z.Tiles))), ("n", Num(n))));
+        }
+        if (zones.Count > 0) Line(o, Indent + Format(loc, "log.camp.zones", ("zones", string.Join(loc.Get("log.camp.zone_sep"), zones))));
         Line(o, Indent + Format(loc, "log.camp.roof", ("sound", Num(camp.RoofSound)), ("total", Num(camp.RoofTotal))));
         Line(o, Indent + Format(loc, "log.camp.rationing", ("policy", camp.RationPolicy)));
         Line(o);

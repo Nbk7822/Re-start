@@ -10,6 +10,9 @@ namespace Return.Sim;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(SetRationPolicy), "setRationPolicy")]
 [JsonDerivedType(typeof(SetWorkPriority), "setWorkPriority")]
+[JsonDerivedType(typeof(MarkZone), "markZone")]
+[JsonDerivedType(typeof(RemoveZone), "removeZone")]
+[JsonDerivedType(typeof(SetZoneItems), "setZoneItems")]
 public abstract record Command(long Tick)
 {
     /// <summary>Order of enqueueing; ties on the same tick apply in this order.</summary>
