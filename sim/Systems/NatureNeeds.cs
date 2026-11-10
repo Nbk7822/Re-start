@@ -51,6 +51,14 @@ public static class NatureNeeds
                 deathKey = def.DeathKey;
                 c.LastHealthEvent = n.LastEvent;
             }
+            else if (WearsYouDown(w, c, n, def))
+            {
+                // You never leave the camp, so a need that would drive anyone else away harms you instead, at hunger's
+                // rate, once its leaving clock has run; it can kill you, and that returns you (ADR-0030).
+                damage += NeedsSystem.StarvationDamagePerHour;
+                deathKey = def.DeathKey;
+                c.LastHealthEvent = n.LastEvent;
+            }
         }
         return damage;
     }
@@ -66,6 +74,11 @@ public static class NatureNeeds
         if (delta < 0 && cause != 0) n.LastEvent = cause;
         else if (delta > 0 && n.Value >= def.SatisfiedAt) n.LastEvent = 0;
     }
+
+    /// <summary>For you alone: a need that drives others away has been critical, and still is, for as long as it would take them to leave.</summary>
+    public static bool WearsYouDown(World w, Character c, NatureNeed n, NeedDef def) =>
+        c.Id == w.PlayerId && def.LeavesAfterCriticalHours > 0 && n.Stage >= 2 && n.Value < def.CriticalBelow
+        && w.Tick - n.CriticalSince >= (long)def.LeavesAfterCriticalHours * w.Content.World.TicksPerHour;
 
     /// <summary>The event to cite when a need that drives people away has been critical long enough; 0 if none has.</summary>
     public static long DepartureCause(World w, Character c)

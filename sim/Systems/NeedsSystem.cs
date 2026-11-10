@@ -51,6 +51,13 @@ public static class NeedsSystem
                 c.LastHealthEvent = c.LastFoodEvent;
             }
             if (c.NatureNeeds.Count > 0) damage += NatureNeeds.Hourly(w, c, ref deathKey);
+            if (c.Bleed > 0)
+            {
+                // A wound nobody has tended goes on bleeding, and a death of it is the wound's own (ADR-0030).
+                damage += c.Bleed;
+                deathKey = c.BleedDeath.Length > 0 ? c.BleedDeath : "event.combat.died_wounds";
+                c.LastHealthEvent = c.BleedCause;
+            }
             if (sp.DaylightBurnPerHour > 0 && daylight && !w.Map.Covered(c.Pos))
             {
                 // Only harm that is still going on (starving now, or burning last hour) is a cause of this burn.

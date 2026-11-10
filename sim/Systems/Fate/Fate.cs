@@ -94,8 +94,9 @@ public static class Fate
         FateBook f = w.Fate;
         KnotRulesDef rules = w.Content.Rebirth.Knots;
         WorldDef def = w.Content.World;
+        // The arrival knot is tied on the first tick whatever your state: there must always be somewhere to go back to.
+        if (f.Knots.Count == 0) return w.Find(w.PlayerId) is { Status: CharStatus.Member } ? (true, KnotReason.Arrival, 0, "") : default;
         if (!Safe(w)) return default;
-        if (f.Knots.Count == 0) return (true, KnotReason.Arrival, 0, "");
         long last = f.Knots[^1].Tick;
         if (w.Tick - last < (long)rules.MinHoursBetween * def.TicksPerHour) return default;
         int today = Calendar.Day(w.Tick, def), tied = 0;

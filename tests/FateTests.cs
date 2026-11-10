@@ -250,7 +250,8 @@ public class FateTests
             KnotRecord k = w.Fate.Knots[i];
             World knot = sim.KnotWorld(k.Id)!;
             Assert.Equal(k.Tick, knot.Tick);
-            Assert.True(Fate.Safe(knot), $"knot {k.Id} at tick {k.Tick} was tied while you were not safe");
+            if (k.Reason != KnotReason.Arrival) // the arrival knot is tied on the first tick whatever your state
+                Assert.True(Fate.Safe(knot), $"knot {k.Id} at tick {k.Tick} was tied while you were not safe");
             if (i > 0) Assert.True(k.Tick - w.Fate.Knots[i - 1].Tick >= 2 * Hour);
         }
         Assert.All(w.Fate.Knots.GroupBy(k => k.Tick / Day), g => Assert.True(g.Count() <= 6));
@@ -395,7 +396,7 @@ public class FateTests
         Relations.FormGrudge(dying, you, mira, 30, wrong.Id);
         dying.Fate.GiftAwakened = true;
         dying.Fate.GiftMastery = 1;
-        int items = dying.Items.Sum(i => i.Count);
+        int items = dying.Items.Sum(i => i.Count), futures = dying.Fate.LostFutures.Count;
 
         World w = DieAndReturn(sim);
         KnotRecord knot = w.Fate.Knots.Single(k => k.Tick == w.Tick);
@@ -403,7 +404,7 @@ public class FateTests
         Character back = You(w);
 
         // You keep: the lost future, your memory of the wrong (half strength), the custom, whom you met, what you know of your gift.
-        Assert.Single(w.Fate.LostFutures);
+        Assert.Equal(futures + 1, w.Fate.LostFutures.Count); // (seed 9 also dies once on its own, early on)
         Memory memory = w.Fate.Memories.Single(m => m.PersonId == mira.Id);
         Assert.Equal(MemoryKind.Wrong, memory.Kind);
         Assert.True(memory.Opinion <= -25, $"a memory at half of a −60 drop is about −30, got {memory.Opinion}");
@@ -412,8 +413,9 @@ public class FateTests
         Assert.True(w.Fate.GiftAwakened);
         Assert.Equal(1, w.Fate.GiftMastery);
         Assert.Contains(back.Thoughts, t => t.DefId == "remembered_wrong" && t.AboutId == mira.Id);
-        Assert.Equal(Relations.Opinion(atKnot, atKnot.PlayerId, mira.Id) + memory.Opinion, Relations.Opinion(w, back.Id, mira.Id));
-        SimEvent remembered = w.Log.All.Single(e => e.Key == "event.fate.remembered_wrong");
+        int older = atKnot.Remembered.Find(m => m.PersonId == mira.Id)?.Opinion ?? 0; // a memory of her the knot already held is replaced, not added to
+        Assert.Equal(Relations.Opinion(atKnot, atKnot.PlayerId, mira.Id) + memory.Opinion - older, Relations.Opinion(w, back.Id, mira.Id));
+        SimEvent remembered = w.Log.All.Last(e => e.Key == "event.fate.remembered_wrong");
         Assert.Equal("You remembered a wrong from a future that never came: Mira insulted you.", EventText.Describe(w, remembered));
 
         // And nothing else: the grudge, the others, the stores and the camp are the knot's.

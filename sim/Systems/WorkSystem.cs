@@ -75,8 +75,15 @@ public static class WorkSystem
             return true;
         if (c.Food < NeedsSystem.StarvingBelow && j.Kind is not (JobKind.Eat or JobKind.RequestBlood or JobKind.GiveBlood or JobKind.Sleep or JobKind.Forage))
             return true;
+        if (AwaitsTending(w, c) && j.Kind is not (JobKind.Wander or JobKind.Sleep or JobKind.SeekCover)) return true;
         return c.Rest < 60 && Places.Tires(w, c) && j.Kind is not (JobKind.Sleep or JobKind.Eat or JobKind.SeekCover or JobKind.RequestBlood or JobKind.GiveBlood);
     }
+
+    /// <summary>
+    /// Someone bleeding whom a carer is on their way to tend stops where they are and waits (ADR-0030): a wound cannot be
+    /// tended on the move, and the undead, who never lie down, would otherwise walk away from whoever came to help.
+    /// </summary>
+    public static bool AwaitsTending(World w, Character c) => c.Bleed > 0 && Places.Targeted(w, JobKind.Care, c.Id, c.Id);
 
     private static void RegrowBushes(World w)
     {

@@ -174,12 +174,12 @@ public static class IncidentSystem
         {
             SimEvent turn = w.Log.Get(turned)!;
             Culture.Omens.OnSign(w, "work_accident", turn);
-            CombatSystem.Hurt(w, hurt, damage, turn.Id, "event.incident.died_accident", SystemTag.Incident);
+            CombatSystem.Hurt(w, hurt, damage, turn.Id, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
             return turn;
         }
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
         Culture.Omens.OnSign(w, "work_accident", e);
-        CombatSystem.Hurt(w, c, damage, e.Id, "event.incident.died_accident", SystemTag.Incident);
+        CombatSystem.Hurt(w, c, damage, e.Id, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
         return e;
     }
 
