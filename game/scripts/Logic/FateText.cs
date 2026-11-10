@@ -61,6 +61,12 @@ public static class FateText
         return EventText.Describe(w, f.Lines[f.DeathLine]);
     }
 
+    /// <summary>
+    /// Who stays selected once a return has folded back: anyone the world gone back to holds, else nobody. Someone made
+    /// after the knot (a thief) has no place in it, and an inspector left open on them would read a person who is not there.
+    /// </summary>
+    public static int SelectionAfterReturn(World restored, int selected) => selected != 0 && restored.Find(selected) == null ? 0 : selected;
+
     /// <summary>The last card of a return: when you came back to, and that you remember everything.</summary>
     public static IReadOnlyList<string> CameBack(World w) => new[]
     {

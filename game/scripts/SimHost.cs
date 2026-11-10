@@ -213,6 +213,8 @@ public partial class SimHost : Node
         _pendingReturn = null;
         _map.ResetFor(Sim.World);
         FocusOnYou(Sim.World);
+        // Someone made after the knot (the thief who struck you down) is not in the world gone back to: close their inspector.
+        SelectedId = FateText.SelectionAfterReturn(Sim.World, SelectedId);
         SelectionChanged?.Invoke();
     }
 

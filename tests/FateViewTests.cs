@@ -32,6 +32,30 @@ public class FateViewTests
         Assert.All(seen, w => Assert.Same(sim.World, w));
     }
 
+    /// <summary>
+    /// An inspector left open on someone made after the knot (the thief who struck you down) would read a person the world
+    /// gone back to does not hold, and StateApi throws for them; at the fold the view lets go of them, and of nobody else.
+    /// </summary>
+    [Fact]
+    public void AnInspectorOnSomeoneMadeAfterTheKnotClosesAtTheFold()
+    {
+        var sim = Simulation.Create(TestContent.Db, 15);
+        sim.Advance(Day + 6 * Hour);
+        IncidentSystem.Fire(sim.World, "night_thief");
+        int thief = sim.World.Characters.Last(c => c.Status == CharStatus.Hostile).Id;
+        int mira = sim.World.Characters.First(c => c.CastKey == "mira").Id;
+        Assert.Equal(thief, FateText.SelectionAfterReturn(sim.World, thief)); // in the lost world they are there to read
+        Assert.True(sim.ForceDeath());
+        sim.Step();
+        World back = sim.World;
+        Assert.Equal(1, back.Fate.Returns);
+        Assert.Null(back.Find(thief));
+        Assert.Throws<KeyNotFoundException>(() => Return.Sim.Api.StateApi.Character(back, thief));
+        Assert.Equal(0, FateText.SelectionAfterReturn(back, thief));
+        Assert.Equal(mira, FateText.SelectionAfterReturn(back, mira));
+        Assert.Equal(0, FateText.SelectionAfterReturn(back, 0));
+    }
+
     /// <summary>ADR-0019's guarantee across a return: a world watched by the map's gore log (reset at the return, as MapView does) hashes the same as one nobody watched.</summary>
     [Fact]
     public void WatchingAcrossAReturnChangesNothing()
