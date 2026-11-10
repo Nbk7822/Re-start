@@ -257,11 +257,11 @@ Slice 1 of the schedule design (ADR-0029). The player says when the camp sleeps,
 - The player sets only the hours (19:00–06:00 by default, or none). One person holds the post at a time, in turns of four hours. When a turn ends the watcher asks the next: someone awake walks over; a sleeper must be walked to and woken, and the post stands empty while the watcher walks.
 - Who is asked: the awake before the sleeping, those whose nature calls them to the watch (an undead whose purpose is the watch keeps it until that purpose is met), the watch priority set in Work, whoever has waited longest since their last watch, and only then whom the watcher likes least.
 - A sleeper may refuse: still hurt, too tired, hungry, a grudge against whoever woke them, or simply their own way. Whoever keeps a turn refused for a good reason keeps it in the refuser's place, which repays what they owed or puts the refuser in their debt; a turn refused for no good reason is held against the refuser. With nobody left to ask, the Oathbound stay one more turn and the Protective keep a hurt or weary refuser's turn; anyone else leaves the post empty.
-- Watchers leave for food and fall asleep at the post when spent (the lantern goes dark). While a festival runs nobody keeps watch. An empty post always has a reason, and a thief who finds it says why: "A thief made off with 3 berries; nobody was on watch."
+- Watchers leave for food and fall asleep at the post when spent (the lantern goes dark). One drawn off by a fight goes back to the post afterwards, unless now starving; one who leaves the camp or dies at the post leaves it empty for that reason. While a festival runs nobody keeps watch. An empty post always has a reason, and a thief who finds it says why: "A thief made off with 3 berries; nobody was on watch." The one quiet gap is the night folk going in before the sun, in the watch's last hour.
 
 ### 8.3 Overwork
 
-Each person's last 24 hours as lived (slept, worked, on watch, free, needs) sit beside their planned day in the inspector, with a notch wherever an hour bent. Long hours weigh on mood, a day with no time to oneself weighs too, and an evening by the fire with others lifts it. Spent after long duty, someone is worn out: twice as likely to be hurt at risky work, and the accident says why. Overwork never drains health or kills by itself; the undead pay none of it.
+Each person's last 24 hours as lived (slept, worked, on watch, free, needs) sit beside their planned day in the inspector, with a notch wherever an hour bent. Long hours weigh on mood, a day with no time to oneself weighs too, and an evening by the fire with others lifts it. Spent after long duty, someone is worn out: twice as likely to be hurt at risky work, and the accident says why. A watch or a late promise is the cause of that only within the last day; wear after an ordinary long day's work names no cause. Overwork never drains health or kills by itself; the undead pay none of it.
 
 ### 8.4 Blood at night
 
@@ -269,7 +269,7 @@ A thirsty vampire asks someone awake before a sleeper and never anyone on watch;
 
 ### 8.5 Where it shows
 
-Schedule on the bottom bar opens a list: the camp's day, the night folk's day and the sleepless day as strips to paint, the watch as a row to drag (or No watch), who keeps it now and who kept it last night, and whose day differs (a click opens their day). Every strip is one day; there is never a table of people against hours. The inspector's Day section shows a person's planned hours (their own bright, the camp's dim, the sun's hatched) above the last 24 hours as lived, with the plain source of their day and the latest schedule line about them. Choices made while paused wait, edged, until time moves.
+Schedule on the bottom bar opens a list: the camp's day, the night folk's day and the sleepless day as strips to paint, the watch as a row to drag (or No watch), who keeps it now, who has kept it so far tonight and who kept it last night, and whose day differs (a click opens their day). Every strip is one day; there is never a table of people against hours. The inspector's Day section shows a person's planned hours (their own bright, the camp's dim, the sun's hatched) above the last 24 hours as lived, with the plain source of their day and the latest schedule line about them. Choices made while paused wait, edged, until time moves.
 
 ### 8.6 Not yet
 
