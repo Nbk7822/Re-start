@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Return.Sim;
+using Return.Sim.Api;
 using Return.Sim.Content;
 using Return.Sim.Events;
 using Return.Sim.Stories;
@@ -24,7 +25,21 @@ public sealed class SoakOptions
 
     /// <summary>The stand-in player's zone plan (Autoplay.ZonePlans): none, dry or mixed (ADR-0028).</summary>
     public string Zones { get; init; } = "none";
+
+    /// <summary>The stand-in player's schedule plan (Autoplay.DaysPlans): default, nowatch, nightwatcher or mixed (ADR-0029).</summary>
+    public string Days { get; init; } = "default";
 }
+
+/// <summary>
+/// One schedule plan's worlds (ADR-0029; design 8.2): their stories and those whose chain runs through the watch or
+/// overwork (with their worlds); humans' median hours asleep a day and how many night samples (01:00-05:00) find a
+/// human awake off watch; how much of the watch hours someone held the post and the 90th percentile of a turn; thieves
+/// and thefts; worlds with a refusal, with a cover that repaid a debt and with someone worn out (each also over the
+/// worlds whose undead is bound to forage, which the design's acceptance reads); and insults.
+/// </summary>
+public sealed record DaysPlanTally(string Plan, int Worlds, int Stories, int WatchStories, int WatchStoryWorlds,
+    double MedianHoursAsleep, double NightAwakePct, double WatchKeptPct, double TurnP90Hours, int Thieves, int Thefts,
+    int RefusalWorlds, int CoverRepaidWorlds, int WornOutWorlds, int ForageWorlds, int ForageRefusalWorlds, int ForageCoverRepaidWorlds, int Insults);
 
 /// <summary>
 /// One zone plan's worlds (ADR-0028): their stories; stories whose chain holds a zone event (a zone marked or
@@ -80,6 +95,10 @@ public sealed class SoakSummary
     /// <summary>The zone plan the soak ran (--zones) and its measures per plan a world ran under, plans in ordinal order (ADR-0028).</summary>
     public string Zones { get; init; } = "none";
     public IReadOnlyList<ZonePlanTally> ByZonePlan { get; init; } = Array.Empty<ZonePlanTally>();
+
+    /// <summary>The schedule plan the soak ran (--days) and its measures per plan a world ran under, plans in ordinal order (ADR-0029).</summary>
+    public string Days { get; init; } = "default";
+    public IReadOnlyList<DaysPlanTally> ByDaysPlan { get; init; } = Array.Empty<DaysPlanTally>();
 }
 
 /// <summary>
@@ -100,7 +119,11 @@ public static class Soak
     /// per story its culture link ("" for none); and the species of each named person who left or died.
     /// </summary>
     internal sealed record WorldResult(ulong Seed, int Events, IReadOnlyList<string> SystemSets, IReadOnlyList<string> TerminalKeys, SoakFailure? Failure,
-        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null, ZoneWorld? Zones = null);
+        IReadOnlyList<string>? CultureLinks = null, IReadOnlyList<string>? Losses = null, ZoneWorld? Zones = null, DaysWorld? Days = null);
+
+    /// <summary>One world's schedule measures, folded into <see cref="DaysPlanTally"/> by plan.</summary>
+    internal sealed record DaysWorld(string Plan, int WatchStories, DaysMeter Meter, int Thieves, int Thefts, bool Refused, bool CoverRepaid, bool WornOut,
+        bool ForageUndead, int Insults);
 
     /// <summary>One world's zone measures, folded into <see cref="ZonePlanTally"/> by plan.</summary>
     internal sealed record ZoneWorld(string Plan, int ZoneStories, int LaidOutStories, int Thefts, int UnseenThefts, int Spoiled, int KeptAway, int Insults, int Accidents);
@@ -131,7 +154,7 @@ public static class Soak
 
         var results = new WorldResult[options.Worlds];
         Parallel.For(0, options.Worlds, new ParallelOptions { MaxDegreeOfParallelism = options.Parallel },
-            i => results[i] = RunWorld(content, options.FirstSeed + (ulong)i, options.Years, outDir, options.Zones));
+            i => results[i] = RunWorld(content, options.FirstSeed + (ulong)i, options.Years, outDir, options.Zones, options.Days));
         clock.Stop();
 
         SoakSummary summary = Summarize(options, outDir, results, clock.Elapsed);
@@ -211,6 +234,13 @@ public static class Soak
         }
         plans.Sort((a, b) => string.CompareOrdinal(a.Plan, b.Plan));
 
+        var dayPlans = new List<string>();
+        foreach (WorldResult r in results)
+            if (r.Days is { } d && !dayPlans.Contains(d.Plan)) dayPlans.Add(d.Plan);
+        dayPlans.Sort(StringComparer.Ordinal);
+        var byDays = new List<DaysPlanTally>(dayPlans.Count);
+        foreach (string plan in dayPlans) byDays.Add(DaysTally(plan, results));
+
         int worlds = results.Count;
         return new SoakSummary
         {
@@ -234,7 +264,44 @@ public static class Soak
             DeparturesAndDeathsBySpecies = lost,
             Zones = options.Zones,
             ByZonePlan = plans,
+            Days = options.Days,
+            ByDaysPlan = byDays,
         };
+    }
+
+    /// <summary>Folds one schedule plan's worlds into its tally (histograms summed, then read).</summary>
+    private static DaysPlanTally DaysTally(string plan, IReadOnlyList<WorldResult> results)
+    {
+        var asleep = new int[241];
+        var turns = new int[241];
+        int worlds = 0, stories = 0, watchStories = 0, watchWorlds = 0, thieves = 0, thefts = 0, refused = 0, covered = 0, worn = 0, forage = 0, forageRefused = 0, forageCovered = 0, insults = 0;
+        long night = 0, nightAwake = 0, watch = 0, kept = 0;
+        foreach (WorldResult r in results)
+        {
+            if (r.Days is not { } d || d.Plan != plan) continue;
+            worlds++;
+            stories += r.SystemSets.Count;
+            watchStories += d.WatchStories;
+            if (d.WatchStories > 0) watchWorlds++;
+            for (int i = 0; i < asleep.Length; i++) { asleep[i] += d.Meter.AsleepTenths[i]; turns[i] += d.Meter.TurnTenths[i]; }
+            night += d.Meter.NightSamples;
+            nightAwake += d.Meter.NightAwakeOffWatch;
+            watch += d.Meter.WatchSamples;
+            kept += d.Meter.WatchKept;
+            thieves += d.Thieves;
+            thefts += d.Thefts;
+            if (d.Refused) refused++;
+            if (d.CoverRepaid) covered++;
+            if (d.WornOut) worn++;
+            insults += d.Insults;
+            if (!d.ForageUndead) continue;
+            forage++;
+            if (d.Refused) forageRefused++;
+            if (d.CoverRepaid) forageCovered++;
+        }
+        return new DaysPlanTally(plan, worlds, stories, watchStories, watchWorlds, DaysMeter.Quantile(asleep, 0.5),
+            Math.Round(nightAwake * 100.0 / Math.Max(1, night), 1, MidpointRounding.AwayFromZero), Math.Round(kept * 100.0 / Math.Max(1, watch), 1, MidpointRounding.AwayFromZero),
+            DaysMeter.Quantile(turns, 0.9), thieves, thefts, refused, covered, worn, forage, forageRefused, forageCovered, insults);
     }
 
     /// <summary>Writes summary.json with keys in the order the summary lists them; '+' in keys stays literal.</summary>
@@ -278,6 +345,32 @@ public static class Soak
                 json.WriteNumber("keptAwayWorlds", p.KeptAwayWorlds);
                 json.WriteNumber("insults", p.Insults);
                 json.WriteNumber("accidents", p.Accidents);
+                json.WriteEndObject();
+            }
+            json.WriteEndArray();
+            json.WriteString("days", s.Days);
+            json.WriteStartArray("byDaysPlan");
+            foreach (DaysPlanTally p in s.ByDaysPlan)
+            {
+                json.WriteStartObject();
+                json.WriteString("plan", p.Plan);
+                json.WriteNumber("worlds", p.Worlds);
+                json.WriteNumber("stories", p.Stories);
+                json.WriteNumber("watchStories", p.WatchStories);
+                json.WriteNumber("watchStoryWorlds", p.WatchStoryWorlds);
+                json.WriteNumber("medianHoursAsleep", p.MedianHoursAsleep);
+                json.WriteNumber("nightAwakePct", p.NightAwakePct);
+                json.WriteNumber("watchKeptPct", p.WatchKeptPct);
+                json.WriteNumber("turnP90Hours", p.TurnP90Hours);
+                json.WriteNumber("thieves", p.Thieves);
+                json.WriteNumber("thefts", p.Thefts);
+                json.WriteNumber("refusalWorlds", p.RefusalWorlds);
+                json.WriteNumber("coverRepaidWorlds", p.CoverRepaidWorlds);
+                json.WriteNumber("wornOutWorlds", p.WornOutWorlds);
+                json.WriteNumber("forageWorlds", p.ForageWorlds);
+                json.WriteNumber("forageRefusalWorlds", p.ForageRefusalWorlds);
+                json.WriteNumber("forageCoverRepaidWorlds", p.ForageCoverRepaidWorlds);
+                json.WriteNumber("insults", p.Insults);
                 json.WriteEndObject();
             }
             json.WriteEndArray();
@@ -339,6 +432,13 @@ public static class Soak
                 ("zone", Num(p.ZoneStories)), ("zone_worlds", Num(p.ZoneStoryWorlds)), ("laid_out", Num(p.LaidOutStories)), ("laid_out_worlds", Num(p.LaidOutWorlds)),
                 ("thefts", Num(p.Thefts)), ("unseen", Num(p.UnseenThefts)), ("spoiled", Num(p.Spoiled)), ("kept_away", Num(p.KeptAway)),
                 ("kept_away_worlds", Num(p.KeptAwayWorlds)), ("insults", Num(p.Insults)), ("accidents", Num(p.Accidents))));
+        foreach (DaysPlanTally p in s.ByDaysPlan)
+            Line(o, Format(loc, "log.soak.days_plan", ("plan", p.Plan), ("worlds", Num(p.Worlds)), ("stories", Num(p.Stories)),
+                ("watch", Num(p.WatchStories)), ("watch_worlds", Num(p.WatchStoryWorlds)), ("asleep", p.MedianHoursAsleep.ToString("0.0", Inv)),
+                ("night_awake", p.NightAwakePct.ToString("0.0", Inv)), ("kept", p.WatchKeptPct.ToString("0.0", Inv)), ("turn_p90", p.TurnP90Hours.ToString("0.0", Inv)),
+                ("thieves", Num(p.Thieves)), ("thefts", Num(p.Thefts)), ("refusals", Num(p.RefusalWorlds)), ("forage_refusals", Num(p.ForageRefusalWorlds)),
+                ("forage", Num(p.ForageWorlds)), ("covers", Num(p.CoverRepaidWorlds)), ("forage_covers", Num(p.ForageCoverRepaidWorlds)),
+                ("worn", Num(p.WornOutWorlds)), ("insults", Num(p.Insults))));
         if (s.Failures.Count > 0)
             Line(o, Format(loc, "log.soak.crashed_list", ("seeds", List(loc, s.Failures.Select(f => Num(f.Seed))))));
         Line(o, Format(loc, "log.soak.written", ("dir", s.OutDir)));
@@ -348,15 +448,22 @@ public static class Soak
     /// Runs one world on the calling thread and writes its log. A world that throws becomes a failure
     /// in the summary (its file says where it stopped) instead of ending the whole soak.
     /// </summary>
-    private static WorldResult RunWorld(ContentDb content, ulong seed, int years, string outDir, string zones)
+    private static WorldResult RunWorld(ContentDb content, ulong seed, int years, string outDir, string zones, string days)
     {
         string path = Path.Combine(outDir, "world-" + Num(seed) + ".txt");
         Simulation? sim = null;
         try
         {
             sim = Simulation.Create(content, seed);
-            Autoplay.Begin(sim, zones);
-            sim.Advance(StoryLog.TicksFor(content.World, years));
+            Autoplay.Begin(sim, zones, days);
+            var meter = new DaysMeter();
+            long ticks = StoryLog.TicksFor(content.World, years);
+            for (long t = 0; t < ticks; t += DaysMeter.EveryTicks)
+            {
+                sim.Advance(Math.Min(DaysMeter.EveryTicks, ticks - t));
+                meter.Sample(sim.World);
+            }
+            meter.Finish();
             World w = sim.World;
             LogAnalysis analysis = StoryLog.Analyze(w);
             var log = new StringWriter(Inv);
@@ -379,7 +486,8 @@ public static class Soak
             foreach (SimEvent e in w.Log.All)
                 foreach (Effect f in e.Effects)
                     if (f.Kind is EffectKind.Departure or EffectKind.Death && w.Find(f.A) is { Named: true } who) losses.Add(who.SpeciesId);
-            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses, MeasureZones(w, analysis, Autoplay.ZonePlanFor(zones, seed)));
+            return new WorldResult(seed, w.Log.All.Count, sets, endings, null, links, losses, MeasureZones(w, analysis, Autoplay.ZonePlanFor(zones, seed)),
+                MeasureDays(w, analysis, Autoplay.DaysPlanFor(days, seed), meter));
         }
         catch (Exception ex)
         {
@@ -426,6 +534,34 @@ public static class Soak
             if (e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal)) keptAway++;
         }
         return new ZoneWorld(plan, zoneStories, laidOut, thefts, unseen, spoiled, keptAway, insults, accidents);
+    }
+
+    /// <summary>A world's schedule measures: stories through the watch or overwork, thefts, refusals, covers that repaid a debt, wear, insults.</summary>
+    private static DaysWorld MeasureDays(World w, LogAnalysis analysis, string plan, DaysMeter meter)
+    {
+        int watchStories = 0;
+        foreach (Story story in analysis.Stories)
+            foreach (long id in story.Chain)
+                if (w.Log.Get(id) is { } e && StateApi.IsScheduleLine(e.Key)) { watchStories++; break; }
+        int thieves = 0, thefts = 0, insults = 0;
+        bool refused = false, coverRepaid = false, worn = false;
+        foreach (SimEvent e in w.Log.All)
+        {
+            switch (e.Key)
+            {
+                case "event.incident.night_thief": thieves++; break;
+                case "event.incident.stolen": case "event.incident.stolen_unseen": case "event.incident.stolen_unwatched": thefts++; break;
+                case "event.social.insulted": insults++; break;
+                case "event.needs.worn_out": worn = true; break;
+            }
+            if (e.Key.StartsWith("event.social.watch_refused", StringComparison.Ordinal)) refused = true;
+            foreach (Effect f in e.Effects)
+                if (f.Kind == EffectKind.DebtRepaid && e.Causes.Exists(c => w.Log.Get(c)?.Key == "event.work.covered_watch")) coverRepaid = true;
+        }
+        bool forage = false;
+        foreach (Character c in w.Characters)
+            if (Return.Sim.Systems.NatureNeeds.Get(c, Return.Sim.Systems.Purpose.NeedId) is { BondWork: "forage" }) forage = true;
+        return new DaysWorld(plan, watchStories, meter, thieves, thefts, refused, coverRepaid, worn, forage, insults);
     }
 
     private static void Validate(SoakOptions o)

@@ -29,10 +29,10 @@ public static class StoryLog
     }
 
     /// <summary>Creates the world for a seed, lets the stand-in player set its ration policy and lay out its zones, and runs it for whole years. `run` and `soak` both use this.</summary>
-    internal static Simulation Simulate(ContentDb content, ulong seed, int years, string zones = "none")
+    internal static Simulation Simulate(ContentDb content, ulong seed, int years, string zones = "none", string days = "default")
     {
         Simulation sim = Simulation.Create(content, seed);
-        Autoplay.Begin(sim, zones);
+        Autoplay.Begin(sim, zones, days);
         sim.Advance(TicksFor(content.World, years));
         return sim;
     }
@@ -54,10 +54,18 @@ public static class StoryLog
         var notable = new List<SimEvent>();
         foreach (SimEvent e in all)
             if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture || inStory.Contains(e.Id)
-                || IsZoneEvent(e) || e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal))
+                || IsZoneEvent(e) || e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal) || IsScheduleNotable(e.Key))
                 notable.Add(e);
         return new LogAnalysis(stories, notable);
     }
+
+    /// <summary>
+    /// Schedule lines a stranger needs to follow the nights (ADR-0029): your decisions about the days and the watch, anyone
+    /// going their own way over them, refusals, covers, stays, an empty post and why, and wear. Routine turns and wakings
+    /// show only inside a story.
+    /// </summary>
+    internal static bool IsScheduleNotable(string key) =>
+        StateApi.IsScheduleLine(key) && key is not ("event.work.took_watch" or "event.work.went_to_wake");
 
     /// <summary>Zone events explain behaviour to a stranger reader, as incidents do (ADR-0028): a stockpile marked or moved.</summary>
     internal static bool IsZoneEvent(SimEvent e) => e.Key.StartsWith("event.world.zone_", StringComparison.Ordinal);
@@ -159,6 +167,9 @@ public static class StoryLog
             Line(o, Indent + Format(loc, "log.cast.line",
                 ("name", s.Name), ("species", s.Species), ("belongs", belongs), ("traits", List(loc, s.Traits)), ("status", s.Status)));
         }
+        // Whose day differs from their kind's camp day, in plain words (ADR-0029).
+        foreach (PersonDaySummary d in StateApi.Schedule(w).Different)
+            Line(o, Indent + Format(loc, "log.cast.day", ("name", d.Name), ("summary", d.Summary)));
         Line(o);
     }
 
