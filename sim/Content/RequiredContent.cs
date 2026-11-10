@@ -52,7 +52,7 @@ public static class RequiredContent
         ("contract", new[]
         {
             "boundRestorePerHour", "priceAmount", "reserveDays", "serviceBias", "offerCooldownHours", "minTermDays", "betrayalLoss",
-            "grudgeIntensity", "troubleTimber",
+            "grudgeIntensity", "refusedGrudgeIntensity", "troubleTimber", "fireGrudgeIntensity",
         }),
         ("courtesy", new[]
         {

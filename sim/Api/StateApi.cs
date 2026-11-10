@@ -157,7 +157,7 @@ public static class StateApi
         {
             if (k.BoundId != id && k.PatronId != id) continue;
             list.Add(new ContractState(k.Id, k.BoundId, EventText.Name(w, k.BoundId), k.PatronId, EventText.Name(w, k.PatronId),
-                loc.Get("bargain.service." + k.ServiceWork), loc.Get("bargain.price." + k.PriceItem), k.PriceAmount,
+                loc.Get(Systems.Bargains.ServiceKey(k.ServiceWork)), loc.Get(Systems.Bargains.PriceKey(k.PriceItem)), k.PriceAmount,
                 loc.Get("contract_status." + Names.Snake(k.Status.ToString())), k.NextDueTick, k.EndsTick, k.FormedEvent));
         }
         return list;
@@ -177,7 +177,7 @@ public static class StateApi
                 : Say("bond.tree", ("x", tree.Pos.X.ToString(Inv)), ("y", tree.Pos.Y.ToString(Inv)));
         if (n.BondItem.Length > 0)
         {
-            string terms = Say("bond.bargain_terms", ("service", loc.Get("bargain.service." + n.BondWork)), ("price", loc.Get("bargain.price." + n.BondItem)));
+            string terms = Say("bond.bargain_terms", ("service", loc.Get(Systems.Bargains.ServiceKey(n.BondWork))), ("price", loc.Get(Systems.Bargains.PriceKey(n.BondItem))));
             return Systems.Bargains.Binding(w, c.Id) is { } k
                 ? Say("bond.bargain_open", ("terms", terms), ("patron", EventText.ResolveMid(w, "c:" + k.PatronId.ToString(Inv))), ("when", EventText.When(w, k.EndsTick)))
                 : terms;

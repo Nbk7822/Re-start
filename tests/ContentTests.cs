@@ -128,6 +128,21 @@ public class ContentTests
         Assert.Contains("bread", ex.Message);
     }
 
+    /// <summary>A bargain's offer reads from text keyed by its service and price; a service with no words for it fails at load, not in play.</summary>
+    [Fact]
+    public void ABargainServiceWithoutWordsIsRejected()
+    {
+        string dir = CopyContent();
+        string needs = Path.Combine(dir, "needs.json");
+        string text = File.ReadAllText(needs);
+        const string offer = "\"bondWorks\": [\"keep_watch\", \"forage\"],\n    \"bondItems\"";
+        Assert.Contains(offer, text); // the djinn's need: the one whose bond works come with items
+        File.WriteAllText(needs, text.Replace(offer, "\"bondWorks\": [\"keep_watch\", \"haul\"],\n    \"bondItems\"", StringComparison.Ordinal));
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(dir));
+        Assert.Contains("needs.json", ex.Message);
+        Assert.Contains("bargain.service.haul", ex.Message);
+    }
+
     /// <summary>Every content id named as a string in sim/ is in RequiredContent, so ContentDb checks it at load.</summary>
     [Fact]
     public void RequiredContentCoversIdsNamedInCode()

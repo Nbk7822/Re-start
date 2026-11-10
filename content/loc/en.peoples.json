@@ -65,7 +65,7 @@
   "thought.bargain_betrayed": "A bargain broken",
   "thought.fire_loosed": "The djinn's fire burned our timber",
 
-  "event.incident.djinn_arrives": "{a} came in on the evening wind, a being of smokeless fire, looking for a bargain.",
+  "event.incident.djinn_arrives": "{a} came in on a hot, dry wind, a being of smokeless fire, looking for a bargain.",
   "event.needs.restless": "{a} is restless without a bargain.",
   "event.needs.unbound": "{a} burns with nothing to bind them.",
   "event.social.bargain_offered": "{a} offered {b} a bargain: to {service}, for {price} each dawn until the season turns.",

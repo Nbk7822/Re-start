@@ -66,17 +66,18 @@ public static class Bargains
         long why = n.LastEvent != 0 ? n.LastEvent : j.CauseEvent;
         SimEvent offer = w.Log.Emit(w, SystemTag.Social, "event.social.bargain_offered", new[] { djinn.Id, to.Id }, new[] { why }, null,
             EventArg.Char("a", djinn.Id), EventArg.Char("b", to.Id),
-            EventArg.Key("service", "bargain.service." + n.BondWork), EventArg.Key("price", "bargain.price." + n.BondItem));
+            EventArg.Key("service", ServiceKey(n.BondWork)), EventArg.Key("price", PriceKey(n.BondItem)));
         string? refusal = RefusalKey(w, to, djinn, n.BondItem, amount);
         if (refusal == null) Strike(w, djinn, to, n, def, amount, offer.Id);
         else Refuse(w, djinn, to, n, refusal, offer.Id);
         return true;
     }
 
-    /// <summary>Null if they agree; otherwise why not: an unsafe bargain (Proud, and the camp could not pay two dawns), or too little regard for the djinn.</summary>
+    /// <summary>Null if they agree; otherwise why not: an unsafe bargain (Proud, and the camp could not pay the dawns of its reserve), or too little regard for the djinn.</summary>
     public static string? RefusalKey(World w, Character offeree, Character djinn, string item, int amount)
     {
-        if (Traits.Any(w, offeree, t => t.RefusesUnsafeBargain) && Stock.Count(w, item) < 2 * amount) return "event.social.bargain_refused_unsafe";
+        int reserve = w.Content.NeedById(NeedId).Param("reserveDays") * amount;
+        if (Traits.Any(w, offeree, t => t.RefusesUnsafeBargain) && Stock.Count(w, item) < reserve) return "event.social.bargain_refused_unsafe";
         int required = -Traits.Sum(w, offeree, t => t.ConsentBias);
         return Relations.Opinion(w, offeree.Id, djinn.Id) >= required ? null : "event.social.bargain_refused";
     }
@@ -116,6 +117,12 @@ public static class Bargains
         return n * days;
     }
 
+    /// <summary>The loc key of a service a bargain offers ("keep the night watch"); ContentDb checks one exists for every service a need can offer.</summary>
+    public static string ServiceKey(string work) => "bargain.service." + work;
+
+    /// <summary>The loc key of a bargain's price ("timber for the fire").</summary>
+    public static string PriceKey(string item) => "bargain.price." + item;
+
     /// <summary>The bargain that wants this item gathered (the oldest open one), as a cause for the gathering; 0 if none.</summary>
     public static long DemandCause(World w, string item)
     {
@@ -149,7 +156,7 @@ public static class Bargains
         MoodSystem.AddThought(w, djinn, "bargain_refused", offeree.Id, no.Id);
         n.LastEvent = no.Id;
         if (Relations.Opinion(w, djinn.Id, offeree.Id) <= SocialSystem.GrudgeAtOpinion && Relations.ActiveGrudge(w, djinn.Id, offeree.Id) == null)
-            Relations.FormGrudge(w, djinn, offeree, 20, no.Id);
+            Relations.FormGrudge(w, djinn, offeree, w.Content.NeedById(NeedId).Param("refusedGrudgeIntensity"), no.Id);
     }
 
     private static bool Pay(World w, Contract k, Character djinn, Character patron, NeedDef def)
@@ -208,7 +215,7 @@ public static class Bargains
             if (m.Status != CharStatus.Member || m.Id == djinn.Id) continue;
             MoodSystem.AddThought(w, m, "fire_loosed", djinn.Id, fire.Id);
             if (Relations.Opinion(w, m.Id, djinn.Id) <= SocialSystem.GrudgeAtOpinion && Relations.ActiveGrudge(w, m.Id, djinn.Id) == null)
-                Relations.FormGrudge(w, m, djinn, 20, fire.Id);
+                Relations.FormGrudge(w, m, djinn, def.Param("fireGrudgeIntensity"), fire.Id);
         }
     }
 

@@ -53,7 +53,7 @@
     "bondItems": ["timber", "berries"],
     "params": {
       "boundRestorePerHour": 60, "priceAmount": 1, "reserveDays": 2, "serviceBias": 3, "offerCooldownHours": 3,
-      "minTermDays": 3, "betrayalLoss": 400, "grudgeIntensity": 50, "troubleTimber": 3
+      "minTermDays": 3, "betrayalLoss": 400, "grudgeIntensity": 50, "refusedGrudgeIntensity": 20, "troubleTimber": 3, "fireGrudgeIntensity": 20
     }
   },
   {

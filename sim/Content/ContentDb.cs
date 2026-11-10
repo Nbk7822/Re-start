@@ -192,6 +192,12 @@ public sealed class ContentDb
                 if (!_work.ContainsKey(work)) Fail("needs.json", $"'{n.Id}' can be bound to unknown work '{work}'");
             foreach (string item in n.BondItems)
                 if (!_items.ContainsKey(item)) Fail("needs.json", $"'{n.Id}' can ask for unknown item '{item}'");
+            // A need that asks for items is a bargain: its offer reads "to {service}, for {price}", in text keyed by work and item.
+            if (n.BondItems.Count > 0)
+            {
+                foreach (string work in n.BondWorks) RequireLoc("needs.json", n.Id, Systems.Bargains.ServiceKey(work));
+                foreach (string item in n.BondItems) RequireLoc("needs.json", n.Id, Systems.Bargains.PriceKey(item));
+            }
             bool known = false;
             foreach ((string id, string[] _) in RequiredContent.Needs) if (id == n.Id) known = true;
             if (!known) Fail("needs.json", $"'{n.Id}' has no behaviour in this version of the simulation");
