@@ -438,6 +438,171 @@ public class FateTests
         Assert.True(items > 0);
     }
 
+    /// <summary>
+    /// A return restores the knot exactly (§5.3, §5.4): the world gone back to is the archived knot field by field, but
+    /// for what the design says you keep and what the return itself does. Everyone else is the knot's (Familiar faces may
+    /// move only their thoughts of you and their regard for you); you differ only in the customs you learned, whom you met,
+    /// and the thoughts and regard your memories bring; the log, the grudges, the applied memories and the ids only grow,
+    /// by the return's own lines and the grudges memories bring back; the gift's state is the knot's but for when you came
+    /// back; the arrivals still to come are the same people within the same windows; the run memory is the dying world's,
+    /// so the Truths hold; and the Dice are reseeded from the timeline and the death. Natural and forced returns, every
+    /// gift, with memories made on purpose in half the worlds.
+    /// </summary>
+    [Fact]
+    public void AReturnRestoresTheKnotExactlyButForWhatYouKeep()
+    {
+        int returns = 0;
+        var peoples = new HashSet<string>();
+        var gifts = new HashSet<string>();
+        for (ulong seed = 1; seed <= 12; seed++)
+        {
+            var sim = Simulation.Create(TestContent.Rolled, seed);
+            FateBook start = sim.World.Fate;
+            (string People, string Gift, long Soul) truths = (start.PeopleId, start.GiftId, start.SoulEndTick);
+            var ages = sim.World.Characters.Select(c => (c.Id, c.SpeciesId, c.BirthTick, c.OldAgeTick)).ToList();
+            peoples.Add(truths.People);
+            gifts.Add(truths.Gift);
+            sim.Returned += r =>
+            {
+                AssertRestoredExactly(sim, r);
+                Assert.Equal(truths, (r.Restored.Fate.PeopleId, r.Restored.Fate.GiftId, r.Restored.Fate.SoulEndTick));
+                Assert.Equal(ages, r.Restored.Characters.Take(ages.Count).Select(c => (c.Id, c.SpeciesId, c.BirthTick, c.OldAgeTick)).ToList());
+                returns++;
+            };
+            long forceAt = 3L * Day + (long)seed * Hour;
+            bool forced = false;
+            for (int steps = 0; !(forced && sim.World.Fate.Returns > 0) && steps < 10 * Day; steps++)
+            {
+                World w = sim.World;
+                if (!forced && w.Tick >= forceAt)
+                {
+                    if (seed % 2 == 0)
+                    {
+                        // Something to remember: a wrong, a custom learned, someone met, all after the last knot.
+                        Character you = You(w), mira = Cast(w, "mira");
+                        Relations.ChangeOpinion(w, you, mira.Id, -40, 0);
+                        SimEvent insult = w.Log.Emit(w, SystemTag.Social, "event.social.insulted", new[] { mira.Id, you.Id }, Array.Empty<long>(), null,
+                            EventArg.Char("a", mira.Id), EventArg.Char("b", you.Id));
+                        Relations.FormGrudge(w, you, mira, 30, insult.Id);
+                        you.LearnedCustoms.Add(w.Content.Customs.First(c => c.Kind == "greeting").Id);
+                        Relations.Meet(w, you, Cast(w, "oren"));
+                    }
+                    forced = sim.ForceDeath();
+                }
+                sim.Step();
+            }
+            Assert.True(forced, $"seed {seed}: no forced death");
+        }
+        Assert.True(returns >= 12, $"only {returns} returns were checked");
+        Assert.True(peoples.Count >= 4, "too few peoples among the seeds: " + string.Join(", ", peoples));
+        Assert.Equal(new[] { Gifts.LuckId, Gifts.FamiliarId, Gifts.SatchelId }.OrderBy(g => g), gifts.OrderBy(g => g));
+    }
+
+    private static System.Text.Json.Nodes.JsonObject Node<T>(T x) =>
+        System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(x, SnapshotSerializer.Options))!.AsObject();
+
+    private static bool Same(System.Text.Json.Nodes.JsonNode? a, System.Text.Json.Nodes.JsonNode? b) => System.Text.Json.Nodes.JsonNode.DeepEquals(a, b);
+
+    /// <summary>The world a return produced against the knot it went back to: only what the design keeps, and the return's own doing, differ.</summary>
+    private static void AssertRestoredExactly(Simulation sim, FateReturn r)
+    {
+        World back = r.Restored;
+        KnotRecord rec = back.Fate.Knots.Single(k => k.Tick == back.Tick);
+        World knot = sim.KnotWorld(rec.Id)!;
+        int you = knot.PlayerId, cut = knot.Log.All.Count;
+        System.Text.Json.Nodes.JsonObject a = Node(knot), b = Node(back);
+
+        // Everything the return does not touch is the knot's, byte for byte.
+        string[] touched = { "Fate", "Rng", "Arrivals", "Gift", "Log", "Grudges", "Remembered", "NextId", "Characters" };
+        foreach (KeyValuePair<string, System.Text.Json.Nodes.JsonNode?> p in a)
+            if (!touched.Contains(p.Key)) Assert.True(Same(p.Value, b[p.Key]), $"{p.Key} is not the knot's after the return");
+
+        // The run memory is the dying world's, carried forward (it holds your Truths).
+        Assert.Same(r.Lost.Fate, back.Fate);
+
+        // The return's own lines follow the knot's log, at the moment gone back to.
+        Assert.Equal(cut, knot.Log.NextId - 1);
+        Assert.True(Same(Node(new { knot.Log.All }), Node(new { All = back.Log.All.Take(cut).ToList() })), "the log before the knot changed");
+        var added = back.Log.All.Skip(cut).ToList();
+        Assert.Equal(Fate.ReturnedKey, added[0].Key);
+        Assert.All(added, e =>
+        {
+            Assert.Equal(back.Tick, e.Tick);
+            Assert.True(e.Key.StartsWith("event.fate.", StringComparison.Ordinal) || e.Key == "event.social.grudge_formed"
+                || e.Key.StartsWith("event.gift.familiar.", StringComparison.Ordinal), $"a return logged '{e.Key}'");
+        });
+        var memoryLines = added.Where(e => e.Key.StartsWith("event.fate.remembered", StringComparison.Ordinal)).ToList();
+        var remembered = memoryLines.Select(e => e.Actors[1]).ToHashSet();
+
+        // Grudges and ids only grow: by the grudges memories bring back.
+        Assert.True(Same(Node(new { knot.Grudges }), Node(new { Grudges = back.Grudges.Take(knot.Grudges.Count).ToList() })), "a grudge of the knot's changed");
+        var newGrudges = back.Grudges.Skip(knot.Grudges.Count).ToList();
+        Assert.All(newGrudges, g =>
+        {
+            Assert.Equal(you, g.HolderId);
+            Assert.Contains(g.CauseEvent, memoryLines.Select(e => e.Id));
+        });
+        Assert.Equal(knot.NextId + newGrudges.Count, back.NextId);
+
+        // Applied memories only change for the people remembered now.
+        foreach (AppliedMemory m in knot.Remembered.Where(m => !remembered.Contains(m.PersonId)))
+            Assert.True(Same(Node(m), Node(back.Remembered.Single(x => x.PersonId == m.PersonId))));
+
+        // Everyone else is the knot's; under Familiar faces only their thoughts of you and their regard for you may move.
+        bool familiar = back.Fate.GiftId == Gifts.FamiliarId;
+        Assert.Equal(knot.Characters.Count, back.Characters.Count);
+        foreach (Character k in knot.Characters)
+        {
+            Character c = back.Get(k.Id);
+            System.Text.Json.Nodes.JsonObject x = Node(k), y = Node(c);
+            var differs = x.Where(p => !Same(p.Value, y[p.Key])).Select(p => p.Key).ToList();
+            if (k.Id == you)
+            {
+                Assert.All(differs, d => Assert.Contains(d, new[] { "LearnedCustoms", "Met", "Thoughts", "Opinions" }));
+                Assert.Subset(c.LearnedCustoms.ToHashSet(), k.LearnedCustoms.ToHashSet());
+                Assert.Subset(c.Met.ToHashSet(), k.Met.ToHashSet());
+                // A thought is only ever added, or refreshed in place at its stack limit: the knot's stay where they were.
+                for (int t = 0; t < k.Thoughts.Count; t++)
+                    if (!k.Thoughts[t].DefId.StartsWith("remembered_", StringComparison.Ordinal)) Assert.True(Same(Node(k.Thoughts[t]), Node(c.Thoughts[t])));
+                Assert.All(c.Thoughts.Skip(k.Thoughts.Count), t => Assert.StartsWith("remembered_", t.DefId));
+                foreach (Opinion o in k.Opinions.Where(o => !remembered.Contains(o.TargetId)))
+                    Assert.Equal(o.Value, Relations.Opinion(back, you, o.TargetId));
+            }
+            else if (familiar)
+            {
+                Assert.All(differs, d => Assert.Contains(d, new[] { "Thoughts", "Opinions" }));
+                for (int t = 0; t < k.Thoughts.Count; t++)
+                    if (k.Thoughts[t].DefId is not ("familiar" or "uneasy_familiar")) Assert.True(Same(Node(k.Thoughts[t]), Node(c.Thoughts[t])));
+                Assert.All(c.Thoughts.Skip(k.Thoughts.Count), t => Assert.True(t.DefId is "familiar" or "uneasy_familiar" && t.AboutId == you));
+                foreach (Opinion o in k.Opinions.Where(o => o.TargetId != you)) Assert.Equal(o.Value, Relations.Opinion(back, k.Id, o.TargetId));
+            }
+            else Assert.True(differs.Count == 0, $"{c.CastKey} differs from the knot in {string.Join(", ", differs)}");
+        }
+
+        // The gift's state is the knot's but for when you came back.
+        System.Text.Json.Nodes.JsonObject ga = Node(knot.Gift), gb = Node(back.Gift);
+        foreach (KeyValuePair<string, System.Text.Json.Nodes.JsonNode?> p in ga)
+            if (p.Key is not ("ReturnedTick" or "ReturnedEvent" or "Familiar" or "FamiliarEvents")) Assert.True(Same(p.Value, gb[p.Key]), $"the gift's {p.Key} changed");
+        Assert.Equal(back.Tick, back.Gift.ReturnedTick);
+
+        // Arrivals still to come: the same people within the same windows, never in the past; those done are the knot's.
+        Assert.Equal(knot.Arrivals.Count, back.Arrivals.Count);
+        for (int i = 0; i < knot.Arrivals.Count; i++)
+        {
+            Arrival k = knot.Arrivals[i], c = back.Arrivals[i];
+            Assert.Equal((k.Done, k.FirstDay, k.LastDay, k.Shuffled), (c.Done, c.FirstDay, c.LastDay, c.Shuffled));
+            if (k.Done) Assert.Equal((k.CharacterId, k.Tick), (c.CharacterId, c.Tick));
+            else Assert.True(c.Tick > back.Tick);
+        }
+        Assert.Equal(knot.Arrivals.Where(x => !x.Done).Select(x => x.CharacterId).OrderBy(x => x),
+            back.Arrivals.Where(x => !x.Done).Select(x => x.CharacterId).OrderBy(x => x));
+
+        // The Truths stream is the world's; the Dice are reseeded from the timeline and the death.
+        Assert.True(Same(Node(knot.Rng.Truths), Node(back.Rng.Truths)));
+        long deathTick = back.Fate.LostFutures[r.Future].DeathTick;
+        Assert.Equal(Mix64.Combine(knot.Rng.Dice.DiceSeed, Mix64.Combine((ulong)back.Fate.Timeline, (ulong)deathTick)), back.Rng.Dice.DiceSeed);
+    }
+
     [Fact]
     public void MemoriesNeverStack()
     {
