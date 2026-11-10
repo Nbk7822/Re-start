@@ -30,7 +30,8 @@
       "grudgeDecayEveryDays": { "description": "Grudges they hold fade a point only every this many days", "type": "integer", "minimum": 1 },
       "adultAtYears": { "description": "[min, max] age in years when the world begins (a Truth per person); a people without age fields ages as a human (ADR-0030)", "$ref": "#/$defs/pair" },
       "lifespanYears": { "description": "[min, max] years a body lasts (a Truth per person); old age comes at dawn after it", "$ref": "#/$defs/pair" },
-      "ageless": { "description": "The body never ages (no lifespanYears); only the soul's span ends their life", "type": "boolean" }
+      "ageless": { "description": "The body never ages (no lifespanYears); only the soul's span ends their life", "type": "boolean" },
+      "rhythm": { "description": "The kind of day they keep (rhythms.json); omit for diurnal if they tire, sleepless if not (ADR-0029)", "$ref": "#/$defs/id" }
     },
     "if": { "required": ["ageless"], "properties": { "ageless": { "const": true } } },
     "then": { "not": { "required": ["lifespanYears"] } }

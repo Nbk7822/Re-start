@@ -9,10 +9,11 @@ namespace Return.Game;
 
 /// <summary>
 /// The one menu bar along the bottom edge (ADR-0008): Build (what the camp should build; its list is
-/// in BottomBar.Build.cs), Zones and Schedule (shown but disabled until the sim has them), Orders (the
-/// ration policy) and Work (who does what first), People and Chronicle, each opening a small list on
-/// demand; then the clock, and pause plus the speed buttons with the active one highlighted. Nothing
-/// else stays on screen. Choices become commands through SimHost.Order.
+/// in BottomBar.Build.cs), Orders (the ration policy), Zones (stockpiles, meeting places and the home
+/// area, ADR-0028), Work (who does what first) and Schedule (the camp's day and the watch, ADR-0029),
+/// People and Chronicle, each opening a small list on demand; then the clock, and pause plus the speed
+/// buttons with the active one highlighted. Nothing else stays on screen. Choices become commands
+/// through SimHost.Order.
 /// </summary>
 public partial class BottomBar : PanelContainer
 {
@@ -28,6 +29,10 @@ public partial class BottomBar : PanelContainer
     private ListPopup _work = null!;
     private ListPopup _people = null!;
     private ListPopup _chronicle = null!;
+    private ListPopup _zones = null!;
+    private ZonesList _zonesList = null!;
+    private ListPopup _schedule = null!;
+    private ScheduleList _scheduleList = null!;
     private ListPopup? _open;
     private readonly List<int> _peopleIds = new();
     private readonly List<int> _workIds = new();
@@ -83,12 +88,16 @@ public partial class BottomBar : PanelContainer
         _lifeTab.Pressed += () => ShowChronicleTab(false);
         _lostTab.Pressed += () => ShowChronicleTab(true);
         _chronicle.AddHeader(tabs);
+        _zones = new ListPopup(layer, Ui.T("ui.zones.title"), 360f);
+        _zonesList = new ZonesList(host, _zones.Rows, () => SetOpen(null));
+        _schedule = new ListPopup(layer, Ui.T("ui.schedule.title"), 440f);
+        _scheduleList = new ScheduleList(host, _schedule.Rows, () => SetOpen(null));
 
         row.AddChild(Toggle(_build, Ui.T("ui.bar.build"), Ui.T("ui.bar.build_hint")));
         row.AddChild(Toggle(_orders, Ui.T("ui.bar.orders"), Ui.T("ui.bar.orders_hint")));
-        row.AddChild(NotYet("ui.bar.zones"));
+        row.AddChild(Toggle(_zones, Ui.T("ui.bar.zones"), Ui.T("ui.bar.zones_hint")));
         row.AddChild(Toggle(_work, Ui.T("ui.bar.work"), Ui.T("ui.bar.work_hint")));
-        row.AddChild(NotYet("ui.bar.schedule"));
+        row.AddChild(Toggle(_schedule, Ui.T("ui.bar.schedule"), Ui.T("ui.bar.schedule_hint")));
         row.AddChild(new VSeparator());
         row.AddChild(Toggle(_people, Ui.T("ui.bar.people"), Ui.T("ui.bar.people_hint")));
         row.AddChild(Toggle(_chronicle, Ui.T("ui.bar.chronicle"), Ui.T("ui.bar.chronicle_hint")));
@@ -121,10 +130,14 @@ public partial class BottomBar : PanelContainer
         UpdateClock();
     }
 
-    /// <summary>Opens a list by name (build, orders, work, people, chronicle, or lost: the Chronicle on its Lost futures tab); false if there is no such list.</summary>
+    /// <summary>Opens a list by name (build, orders, zones, work, schedule, people, chronicle, or lost: the Chronicle on its Lost futures tab); false if there is no such list.</summary>
     public bool Open(string name)
     {
-        ListPopup? popup = name switch { "build" => _build, "orders" => _orders, "work" => _work, "people" => _people, "chronicle" or "lost" => _chronicle, _ => null };
+        ListPopup? popup = name switch
+        {
+            "build" => _build, "orders" => _orders, "zones" => _zones, "work" => _work, "schedule" => _schedule, "people" => _people,
+            "chronicle" or "lost" => _chronicle, _ => null,
+        };
         if (popup == null) return false;
         if (popup == _chronicle) ShowChronicleTab(name == "lost");
         SetOpen(popup);
@@ -162,16 +175,11 @@ public partial class BottomBar : PanelContainer
             else if (_open == _chronicle) RefreshChronicle();
             else if (_open == _orders) RefreshOrders();
             else if (_open == _build) RefreshBuild();
+            else if (_open == _zones) _zonesList.Refresh();
+            else if (_open == _schedule) _scheduleList.Refresh();
             else RefreshWork();
         }
         Place(_open);
-    }
-
-    private static Button NotYet(string key)
-    {
-        Button b = Ui.MakeButton(Ui.T(key), Ui.T("ui.bar.not_yet"));
-        b.Disabled = true;
-        return b;
     }
 
     private Button Toggle(ListPopup popup, string text, string hint)
@@ -186,7 +194,7 @@ public partial class BottomBar : PanelContainer
     private void SetOpen(ListPopup? popup)
     {
         _open = popup;
-        foreach (ListPopup p in new[] { _build, _orders, _work, _people, _chronicle })
+        foreach (ListPopup p in new[] { _build, _orders, _zones, _work, _schedule, _people, _chronicle })
         {
             bool open = p == popup;
             p.Panel.Visible = open;
@@ -318,6 +326,30 @@ public partial class BottomBar : PanelContainer
         if (FateText.Order(_host.World, _host.Drafts) is { } order && order.Current != choice)
             _host.Order(new SetStandingOrder(_host.World.Tick, orderId, choice));
         RefreshOrders();
+    }
+
+    /// <summary>Is the Zones list open? (The map then shows every zone in full.)</summary>
+    public bool ZonesOpen => _open == _zones;
+
+    /// <summary>Opens Schedule and paints a kind of day's hours with a brush (0 sleep, 1 work, 2 free time) through the list's own code (RETURN_PRESS checks).</summary>
+    public bool PressDay(string rhythm, int block, int from, int to)
+    {
+        SetOpen(_schedule);
+        return _scheduleList.PressDay(rhythm, block, from, to);
+    }
+
+    /// <summary>Opens Schedule and sets the watch's hours as a drag along its row would (RETURN_PRESS checks).</summary>
+    public bool PressWatch(int from, int to)
+    {
+        SetOpen(_schedule);
+        return _scheduleList.PressWatch(from, to);
+    }
+
+    /// <summary>Opens Zones and presses a kind's entry, or Unmark for null, through its signal (RETURN_PRESS checks).</summary>
+    public bool PressZoneTool(string? kind)
+    {
+        SetOpen(_zones);
+        return kind == null ? _zonesList.PressUnmark() : _zonesList.PressKind(kind);
     }
 
     /// <summary>Presses the nth ration policy button through its signal (RETURN_PRESS checks).</summary>

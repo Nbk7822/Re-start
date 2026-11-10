@@ -377,9 +377,10 @@ public class RunnerTests
     [Fact]
     public void ThePlansBuildWhatTheySay()
     {
-        World none = StoryLog.Simulate(TestContent.Db, 4, 1, "none").World;
-        World beds = StoryLog.Simulate(TestContent.Db, 4, 1, "beds").World;
-        World camp = StoryLog.Simulate(TestContent.Db, 4, 1, "camp").World;
+        // Seed 1: seed 4's camp loses four people and never outgrows its beds once Zones and Schedule merged, so no hut is planned.
+        World none = StoryLog.Simulate(TestContent.Db, 1, 1, "none").World;
+        World beds = StoryLog.Simulate(TestContent.Db, 1, 1, "beds").World;
+        World camp = StoryLog.Simulate(TestContent.Db, 1, 1, "camp").World;
         Assert.DoesNotContain(none.Log.All, e => e.Key.StartsWith("event.world.plan", StringComparison.Ordinal));
         Assert.Equal(4, none.Map.Beds.Count);
         Assert.Equal(7, beds.Map.Beds.Count);

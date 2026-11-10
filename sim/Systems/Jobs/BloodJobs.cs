@@ -11,21 +11,28 @@ namespace Return.Sim.Systems.Jobs;
 /// </summary>
 public static class BloodJobs
 {
+    /// <summary>
+    /// Whom a thirsty vampire asks: someone awake before a sleeper (waking costs them their sleep; ADR-0029), then the
+    /// one they like best, then the nearest. Never anyone on watch duty.
+    /// </summary>
     public static Character? PickDonor(World w, Character vampire)
     {
         Character? best = null;
         int bestOpinion = int.MinValue, bestDist = int.MaxValue;
+        bool bestAwake = false;
         foreach (Character h in w.Characters)
         {
             if (h.Status != CharStatus.Member || h.Id == vampire.Id || h.Downed) continue;
-            if (!Places.Species(w, h).CanDonateBlood || RefusedRecently(vampire, h.Id)) continue;
-            if (Places.Targeted(w, JobKind.RequestBlood, h.Id, vampire.Id)) continue;
+            if (!Places.Species(w, h).CanDonateBlood || RefusedRecently(w, vampire, h)) continue;
+            if (Places.Targeted(w, JobKind.RequestBlood, h.Id, vampire.Id) || WatchSystem.OnDuty(w, h)) continue;
             int op = Relations.Opinion(w, vampire.Id, h.Id), d = vampire.Pos.ChebyshevTo(h.Pos);
-            if (op > bestOpinion || (op == bestOpinion && d < bestDist))
+            bool awake = !h.Asleep;
+            if (best == null || (awake && !bestAwake) || (awake == bestAwake && (op > bestOpinion || (op == bestOpinion && d < bestDist))))
             {
                 best = h;
                 bestOpinion = op;
                 bestDist = d;
+                bestAwake = awake;
             }
         }
         return best;
@@ -38,7 +45,7 @@ public static class BloodJobs
         foreach (Character v in w.Characters)
         {
             if (v.Status != CharStatus.Member || v.Id == donor.Id || !Places.Species(w, v).DrinksBlood) continue;
-            if (v.Food >= 170 || BeingFed(w, v) || RefusedRecently(v, donor.Id) || InSun(w, v)) continue;
+            if (v.Food >= 170 || BeingFed(w, v) || RefusedRecently(w, v, donor) || InSun(w, v) || WatchSystem.OnDuty(w, v)) continue;
             int d = donor.Pos.ChebyshevTo(v.Pos);
             if (d < bestDist) { best = v; bestDist = d; }
         }
@@ -74,7 +81,14 @@ public static class BloodJobs
             if (!JobRunner.Near(w, vampire, j, donor)) return JobRunner.Failed(j);
             SimEvent ask = JobRunner.Emit(w, SystemTag.Social, "event.social.blood_request", new[] { vampire.Id, donor.Id }, new[] { j.CauseEvent },
                 EventArg.Char("a", vampire.Id), EventArg.Char("b", donor.Id));
-            string? refusal = RefusalKey(w, donor, vampire);
+            // A sleeper asked is woken first, and one woken short of rest says no (ADR-0029).
+            bool woken = donor.Asleep;
+            if (woken)
+            {
+                WorkSystem.Drop(w, donor);
+                MoodSystem.AddThought(w, donor, "woken", 0, ask.Id);
+            }
+            string? refusal = woken && donor.Rest < WokenRefusesBelowRest ? "event.social.blood_refused_woken" : RefusalKey(w, donor, vampire);
             if (refusal != null)
             {
                 Refuse(w, vampire, donor, ask.Id, refusal);
@@ -152,6 +166,8 @@ public static class BloodJobs
                 EventArg.Char("a", vampire.Id), EventArg.Char("b", donor.Id));
         int scale = Traits.ScalePct(w, vampire, t => t.InsultOpinionScalePct);
         if (taboo != null) scale = scale * Culture.CultureTuning.CustomRefusalOpinionPct / 100;
+        // Woken from sleep and short of rest is no slight: the vampire waits before asking again, but thinks no less of them (ADR-0029).
+        if (key == "event.social.blood_refused_woken") scale = 0;
         MoodSystem.AddThought(w, vampire, "was_refused", donor.Id, no.Id, scale);
         MoodSystem.AddThought(w, donor, "refused_someone", vampire.Id, no.Id);
         if (taboo != null || key == "event.social.blood_refused") Culture.Omens.RecordDeed(w, DeedKind.BloodRefused, no.Id, donor.Id);
@@ -161,6 +177,9 @@ public static class BloodJobs
     }
 
     public const int RebuffCooldownHours = 2;
+
+    /// <summary>Woken to give blood, a donor with less rest than this refuses (ADR-0029).</summary>
+    public const int WokenRefusesBelowRest = 700;
 
     /// <summary>After a refusal a vampire lets a couple of hours pass before asking anyone else.</summary>
     public static bool RecentlyRebuffed(World w, Character vampire)
@@ -175,10 +194,17 @@ public static class BloodJobs
     /// <summary>A vampire caught outside in (or just before) daylight must reach cover first; feeding waits.</summary>
     private static bool InSun(World w, Character v) => Places.BurnsInDaylight(w, v) && Places.SunDanger(w) && !w.Map.Covered(v.Pos);
 
-    private static bool RefusedRecently(Character asker, int otherId)
+    /// <summary>
+    /// Turned down by them in the last day. A sleeper's tired no strikes them off only while they sleep on short of rest:
+    /// rested, or up and about, they may be asked again (ADR-0029, BIBLE 9.4), but they are not woken again and again.
+    /// </summary>
+    private static bool RefusedRecently(World w, Character asker, Character other)
     {
         foreach (Thought t in asker.Thoughts)
-            if (t.DefId == "was_refused" && t.AboutId == otherId) return true;
+        {
+            if (t.DefId != "was_refused" || t.AboutId != other.Id) continue;
+            if (w.Log.Get(t.CauseEvent)?.Key != "event.social.blood_refused_woken" || (other.Asleep && other.Rest < WokenRefusesBelowRest)) return true;
+        }
         return false;
     }
 

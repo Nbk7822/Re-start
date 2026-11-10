@@ -92,19 +92,19 @@ public class RunnerFateTests
 
     /// <summary>
     /// A story crosses a return only if its chain runs through one (the return's line, which every memory and familiar face
-    /// cites); a gift's story in a life that never died carries a gift event but crosses nothing. Seed 36: you are undead
+    /// cites); a gift's story in a life that never died carries a gift event but crosses nothing. Seed 2: you are a dryad
     /// with Fortune's favourite, never die in the year, and the harm your luck turns is on a story chain.
     /// </summary>
     [Fact]
     public void OnlyAStoryThroughAReturnCrossesOne()
     {
-        Simulation quiet = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 36, 1);
+        Simulation quiet = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 2, 1); // seed 36 dies twice once Zones and Schedule merged
         Assert.Equal(0, quiet.World.Fate.Returns);
         FateTally t = SoakFates.Tally(quiet.World, StoryLog.Analyze(quiet.World).Stories);
         Assert.True(t.FateOrGiftStories > 0, "seed 36's luck should reach a story");
         Assert.Equal(0, t.CrossingStories);
 
-        Simulation fated = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 3, 1);
+        Simulation fated = StoryLog.Simulate(Return.Tests.TestContent.Rolled, 23, 1); // seed 3's returns no longer reach a story
         Assert.True(fated.World.Fate.Returns > 0);
         IReadOnlyList<Return.Sim.Stories.Story> stories = StoryLog.Analyze(fated.World).Stories;
         FateTally f = SoakFates.Tally(fated.World, stories);

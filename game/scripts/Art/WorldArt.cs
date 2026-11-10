@@ -124,7 +124,7 @@ public sealed partial class WorldArt
                 var p = new SimPoint(x, y);
                 TerrainKind k = m.At(p);
                 if (k is not (TerrainKind.Grass or TerrainKind.Soil)) continue;
-                if (_wear[m.Index(p)] > 0.3f || m.TreeAt(p) != null || m.BushAt(p) != null || p.ChebyshevTo(m.Hearth) <= 1 || m.Stockpile.Contains(p) || BedOn(m, p)) continue;
+                if (_wear[m.Index(p)] > 0.3f || m.TreeAt(p) != null || m.BushAt(p) != null || p.ChebyshevTo(m.Hearth) <= 1 || m.StartStockpile.Contains(p) || BedOn(m, p)) continue;
                 int n = k == TerrainKind.Grass ? 1 + ArtHash.Pick(3, x, y, 31) : ArtHash.Unit(x, y, 32) < 0.3f ? 1 : 0;
                 for (int i = 0; i < n; i++)
                     tufts.Add((new Vector2((x + 0.15f + 0.7f * ArtHash.Unit(x, y, 40 + i)) * T, (y + 0.2f + 0.75f * ArtHash.Unit(x, y, 50 + i)) * T),
@@ -233,22 +233,24 @@ public sealed partial class WorldArt
         else
             foreach ((int y, int x0, int x1) in _waterRows) b.Rect(x0 * T, y * T, (x1 - x0) * T, T, Palette.River);
 
-        // Rock outcrops and the stockpile's marked ground. Beds are not baked: they are built, claimed and taken
-        // down, so they stand with everything else (DrawBed).
+        // Rock outcrops. Beds are not baked: they are built, claimed and taken down, so they stand with everything else
+        // (DrawBed). Zones (the stockpile's dashed edge among them) are drawn every frame by MapView.
         for (int y = 0; y < _m.Height; y++)
             for (int x = 0; x < _m.Width; x++)
                 if (KindAt(x, y) == TerrainKind.Rock) Boulder(b, x, y);
-        DashedRect(b, TilesRect(_m.Stockpile).Grow(-2f), new Color(0.78f, 0.7f, 0.5f, 0.45f), 1.2f, 5f);
     }
+
+    /// <summary>The grid's darkness by default, and while a Build tool is in hand or a zone is being marked (ADR-0027, ADR-0028).</summary>
+    public const float GridFaint = 0.13f, GridMarking = 0.3f;
 
     /// <summary>
     /// A faint square grid (ADR-0008), drawn over the ground every frame so it stays crisp at any zoom; darker
-    /// while a Build tool is in hand (BIBLE section 2's "only while building", used as emphasis).
+    /// while a Build tool is in hand or a zone is being marked (BIBLE section 2's "only while building", used as emphasis).
     /// </summary>
-    public void DrawGrid(Brush b, bool building = false)
+    public void DrawGrid(Brush b, float alpha = GridFaint)
     {
         float mapW = _m.Width * T, mapH = _m.Height * T;
-        var grid = new Color(0f, 0f, 0f, building ? 0.3f : 0.13f);
+        var grid = new Color(0f, 0f, 0f, alpha);
         for (int x = 0; x <= _m.Width; x++) b.Line(x * T, 0f, x * T, mapH, grid, 1f);
         for (int y = 0; y <= _m.Height; y++) b.Line(0f, y * T, mapW, y * T, grid, 1f);
     }

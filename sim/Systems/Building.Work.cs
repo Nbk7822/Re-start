@@ -377,7 +377,8 @@ public static partial class Building
 
     /// <summary>
     /// Would a wall here shut people in? One flood fill from the hearth with the tile blocked, against one without:
-    /// every member who could reach the hearth, and the stockpile, must still be reachable.
+    /// every member who could reach the hearth, and every stockpile (ADR-0028: there may be several, anywhere), must
+    /// still be reachable.
     /// </summary>
     public static bool WouldShutIn(World w, Point wall)
     {
@@ -389,17 +390,19 @@ public static partial class Building
         bool[] before = Reach(m, seeds, Point.None), after = Reach(m, seeds, wall);
         foreach (Character c in w.Members())
             if (m.InBounds(c.Pos) && before[m.Index(c.Pos)] && !after[m.Index(c.Pos)]) return true;
-        bool stockBefore = false, stockAfter = false;
-        Rect s = m.Stockpile;
-        for (int y = s.Y; y < s.Y + s.H; y++)
-            for (int x = s.X; x < s.X + s.W; x++)
+        foreach (Zone z in m.Zones)
+        {
+            if (!Zones.IsStores(w, z)) continue;
+            bool stockBefore = false, stockAfter = false;
+            foreach (Point p in Zones.Each(z.Tiles))
             {
-                var p = new Point(x, y);
                 if (!m.InBounds(p)) continue;
                 stockBefore |= before[m.Index(p)];
                 stockAfter |= after[m.Index(p)];
             }
-        return stockBefore && !stockAfter;
+            if (stockBefore && !stockAfter) return true;
+        }
+        return false;
     }
 
     /// <summary>

@@ -21,7 +21,7 @@ public static class GroundWear
         SimPoint outside = new(door.X, door.Y + 1);
         SimRect ruins = m.CoveredRuins;
         SimPoint ruinsMouth = new(ruins.X + ruins.W / 2, ruins.Y + ruins.H);
-        SimRect pile = m.Stockpile;
+        SimRect pile = m.StartStockpile;
         SimPoint pileEdge = new(pile.X + pile.W, pile.Y + pile.H / 2);
 
         Spot(m, wear, m.Hearth, 2.9f, 0.95f);

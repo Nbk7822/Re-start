@@ -19,6 +19,29 @@ public static class Festivals
         Begin(w);
     }
 
+    /// <summary>
+    /// Does a festival run at this tick, by the calendar alone (ADR-0029)? Its date, the dusk it begins at, its hours, and
+    /// whether any of its keepers is in camp: the test Begin makes, read from content and the seeded dates, never from
+    /// the running festival, so the watch knows at the dusk tick itself, before the hourly block starts the festival.
+    /// </summary>
+    public static bool RunsAt(World w, long tick)
+    {
+        if (w.Culture.FestivalDates.Count == 0) return false;
+        WorldDef def = w.Content.World;
+        long dusk = tick / def.TicksPerDay * def.TicksPerDay + (long)def.DuskHour * def.TicksPerHour;
+        if (dusk > tick) dusk -= def.TicksPerDay;
+        if (dusk < 0) return false;
+        int season = Calendar.Season(dusk, def), day = Calendar.DayOfSeason(dusk, def);
+        foreach (FestivalDate date in w.Culture.FestivalDates)
+        {
+            if (date.Season != season || date.Day != day) continue;
+            if (tick - dusk >= (long)w.Content.CustomById(date.CustomId).Arg("hours") * def.TicksPerHour) continue;
+            foreach (Character m in w.Members())
+                if (Ways.IsKeeper(m, date.HolderId, date.HolderIsFaith)) return true;
+        }
+        return false;
+    }
+
     /// <summary>Are both at a festival under way right now?</summary>
     public static bool BothAttend(World w, int a, int b)
     {

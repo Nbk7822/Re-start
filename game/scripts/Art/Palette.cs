@@ -93,6 +93,13 @@ public static class Palette
     public static readonly Color Name = new(0.93f, 0.90f, 0.83f);
     public static readonly Color NameShadow = new(0.04f, 0.035f, 0.03f, 0.92f);
 
+    // The day strips (ADR-0029): muted, and told apart by more than hue (the tooltip names each hour).
+    public static readonly Color DaySleep = Hex(0x4d5a6c);
+    public static readonly Color DayWork = Hex(0x9a773a);
+    public static readonly Color DayFree = Hex(0x6a7243);
+    public static readonly Color DayWatch = Hex(0xd6a758);
+    public static readonly Color DayNeeds = Hex(0x7d4e3e);
+
     public static Color Hex(uint rgb) => new(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
 
     public static Color Of(Rgb c, float alpha = 1f) => new(c.R, c.G, c.B, alpha);

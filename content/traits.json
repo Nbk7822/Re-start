@@ -61,6 +61,7 @@
     "nameKey": "trait.anxious.name",
     "descKey": "trait.anxious.desc",
     "fleeHealthBelow": 700,
-    "riskyWorkHealthBelow": 600
+    "riskyWorkHealthBelow": 600,
+    "riskyWorkRestBelow": 300
   }
 ]

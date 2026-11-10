@@ -3,7 +3,7 @@
   "title": "World calendar, map size and director pacing",
   "type": "object",
   "additionalProperties": false,
-  "required": ["ticksPerHour", "hoursPerDay", "daysPerSeason", "seasonsPerYear", "dawnHour", "duskHour", "ticksPerSecond", "speedMultipliers", "seasonKeys", "mapWidth", "mapHeight", "socialEveryTicks", "startBerries", "startTimber", "promiseDueHours", "director"],
+  "required": ["ticksPerHour", "hoursPerDay", "daysPerSeason", "seasonsPerYear", "dawnHour", "duskHour", "ticksPerSecond", "speedMultipliers", "seasonKeys", "mapWidth", "mapHeight", "socialEveryTicks", "startBerries", "startTimber", "promiseDueHours", "director", "schedule"],
   "properties": {
     "ticksPerHour": { "type": "integer", "minimum": 1 },
     "hoursPerDay": { "type": "integer", "minimum": 1 },
@@ -28,6 +28,32 @@
         "pressurePerHour": { "type": "integer", "minimum": 0 },
         "majorCost": { "type": "integer", "minimum": 0 },
         "minHoursBetweenMajors": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "schedule": {
+      "description": "The camp's watch and the tuning of hours and overwork (ADR-0029)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["watch", "watchTurnHours", "wakeTries", "overworkHours", "wornOutDutyHours", "noFreeTimeAwakeHours", "tiredAccidentPct", "asleepOnWatchRestBelow", "freeTimeNapBelow"],
+      "properties": {
+        "watch": {
+          "description": "The hours the camp keeps a watch by default; from equal to to means no watch",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to"],
+          "properties": {
+            "from": { "type": "integer", "minimum": 0, "maximum": 23 },
+            "to": { "type": "integer", "minimum": 0, "maximum": 23 }
+          }
+        },
+        "watchTurnHours": { "type": "integer", "minimum": 1, "maximum": 24 },
+        "wakeTries": { "description": "How many sleepers a watcher wakes before giving up on a handover", "type": "integer", "minimum": 0 },
+        "overworkHours": { "description": "Hours worked or watched in the last 24 that weigh on mood", "type": "integer", "minimum": 1, "maximum": 24 },
+        "wornOutDutyHours": { "description": "Hours of duty in the last 24 that, with rest under 150, wear someone out", "type": "integer", "minimum": 1, "maximum": 24 },
+        "noFreeTimeAwakeHours": { "description": "Hours awake in the last 24, with no free time at all, that weigh on mood", "type": "integer", "minimum": 1, "maximum": 24 },
+        "tiredAccidentPct": { "description": "Accident odds at risky work while worn out, in percent of the usual", "type": "integer", "minimum": 100, "maximum": 1000 },
+        "asleepOnWatchRestBelow": { "description": "A watcher falls asleep at the post below this rest (the Oathbound below half of it)", "type": "integer", "minimum": 0, "maximum": 1000 },
+        "freeTimeNapBelow": { "description": "In free time, someone naps below this rest", "type": "integer", "minimum": 0, "maximum": 1000 }
       }
     }
   },

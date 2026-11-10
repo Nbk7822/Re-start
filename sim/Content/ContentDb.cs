@@ -86,6 +86,8 @@ public sealed partial class ContentDb
         db.LoadCulture(dirs);
         db.LoadFate(dirs);
         db.LoadBuildings(dirs);
+        db.LoadZones(dirs);
+        db.LoadSchedule(dirs);
         db._needs = Index(db.Needs, d => d.Id);
         db.Validate();
         return db;
@@ -189,6 +191,8 @@ public sealed partial class ContentDb
         ValidateCulture();
         ValidateFate();
         ValidateBuildings();
+        ValidateZones();
+        ValidateSchedule();
     }
 
     /// <summary>

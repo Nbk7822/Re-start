@@ -99,12 +99,14 @@ public partial class BottomBar
 
     private void PickBuilding(string id)
     {
+        _host?.StopZoneTool(); // one tool in hand at a time
         _host?.Build.Place(id);
         SetOpen(null);
     }
 
     private void PickTool(BuildMode mode)
     {
+        _host?.StopZoneTool(); // one tool in hand at a time
         if (mode == BuildMode.TakeDown) _host?.Build.TakeDown();
         else _host?.Build.CallOff();
         SetOpen(null);

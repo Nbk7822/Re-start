@@ -230,7 +230,7 @@ public sealed class GoreLog
                         case DeathKind.Sun: Mark(w, e.Actors[0], DecalKind.Scorch, 0.7f, e.Id, e.Tick, wear, stale); break;
                     }
                     break;
-                case "event.incident.work_accident":
+                case "event.incident.work_accident" or "event.incident.work_accident_tired" or "event.incident.work_accident_dark" or "event.incident.work_accident_tired_dark":
                     if (e.Actors.Count > 0) Mark(w, e.Actors[0], DecalKind.Splatter, 0.8f, e.Id, e.Tick, wear, stale);
                     break;
                 case "event.work.gave_blood":
@@ -250,7 +250,7 @@ public sealed class GoreLog
         {
             SimEvent? cause = w.Log.Get(id);
             if (cause == null) continue;
-            if (cause.Key.StartsWith("event.combat.", StringComparison.Ordinal) || cause.Key == "event.incident.work_accident") return DeathKind.Wounds;
+            if (cause.Key.StartsWith("event.combat.", StringComparison.Ordinal) || cause.Key.StartsWith("event.incident.work_accident", StringComparison.Ordinal)) return DeathKind.Wounds;
             if (cause.Key == "event.needs.sun_burn") return DeathKind.Sun;
         }
         return DeathKind.Wasted;

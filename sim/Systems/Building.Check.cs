@@ -107,7 +107,7 @@ public static partial class Building
         TerrainKind ground = m.At(p);
         if (ground is TerrainKind.Wall or TerrainKind.Door) return def.Kind == Roof ? ReasonWallBelow : ReasonBuilt;
         if (!def.PlaceOn.Contains(TerrainName(ground))) return ReasonTerrain;
-        if (p == m.Hearth || p == m.WatchPost || m.Stockpile.Contains(p) || m.CoveredRuins.Contains(p)) return ReasonCamp;
+        if (p == m.Hearth || p == m.WatchPost || m.StartStockpile.Contains(p) || m.CoveredRuins.Contains(p)) return ReasonCamp;
         if (m.TreeAt(p) != null) return ReasonTree;
         if (m.BushAt(p) != null) return ReasonBush;
         if (BodyAt(w, p)) return ReasonBody;

@@ -6,10 +6,13 @@ namespace Return.Sim.Systems;
 
 /// <summary>
 /// Chooses what an idle person does next, in the demo's order of concerns: cover from the sun,
-/// critical hunger, rest (and the injured lie down), promises, the injured, a Generous offer of
-/// blood, eating, prioritised work, company, wandering. Returns a job with its target set; travel is
-/// started by <see cref="WorkSystem"/>. Never orders anyone; it only reads state (and draws Dice for
-/// wandering).
+/// critical hunger, rest (and the injured lie down; everyone who tires in their sleeping hours), promises,
+/// the injured, a Generous offer of blood, eating, prioritised work in working hours (a nap in free time
+/// if tired), company, wandering. After dark the home area keeps those it binds from food, work, company
+/// and wandering outside it, unless starving or going their own way tonight (zones step 3, Zones.KeepsIn).
+/// Returns a job with its target set; travel is started by <see cref="WorkSystem"/>. Never orders anyone;
+/// it only reads state (and draws Dice for wandering, and lets someone who keeps away from a meeting place,
+/// stays in hungry or is kept in say or feel so: Zones.KeepAway, StayedInHungry, KeptIn).
 /// </summary>
 public static class JobPicker
 {
@@ -46,21 +49,30 @@ public static class JobPicker
         Job? guest = Culture.Hospitality.GuestJob(w, c, sunBlocked);
         if (guest != null) return guest;
 
+        // In their sleeping hours only the hunger that would wake them sends them out to forage or ask for blood (ADR-0029);
+        // short of that they eat what is in the stores, if anything, and go back to bed.
+        DayBlock block = ScheduleSystem.BlockNow(w, c);
+        bool roused = !(sp.Tires && block == DayBlock.Sleep) || c.Food < NeedsSystem.StarvingBelow || c.Food < Traits.Max(w, c, t => t.StealFoodBelow);
         if (c.Food < NeedsSystem.HungryBelow)
         {
             if (sp.DrinksBlood && !BloodJobs.RecentlyRebuffed(w, c))
             {
-                Character? donor = BloodJobs.PickDonor(w, c);
+                Character? donor = roused ? BloodJobs.PickDonor(w, c) : null;
                 if (donor != null && !(sunBlocked && !w.Map.Covered(donor.Pos)))
                     return new Job { Kind = JobKind.RequestBlood, TargetId = donor.Id, Target = donor.Pos, CauseEvent = c.LastFoodEvent };
             }
             else if (!sp.EatsNothing) // a rebuffed vampire falls through to here too, and forages for the camp
             {
+                // After dark the home area keeps the hungry in from food outside it, unless they are starving (zones step 3).
+                bool keptIn = false;
                 Job? eat = EatJob(w, c, allowTheft: true);
+                if (eat != null && Zones.KeepsIn(w, c, eat.Target, forFood: true)) { eat = null; keptIn = true; }
                 if (eat != null) return eat;
                 // Never out into the sun to pick berries: a vampire turned down walked out, was pulled back to cover, and burned (ADR-0027).
-                Job? forage = sunBlocked ? null : ForageJob(w, c);
+                Job? forage = roused && !sunBlocked ? ForageJob(w, c, c.LastFoodEvent) : null; // foraging for their own hunger carries it (zones design 5.5)
+                if (forage != null && Zones.KeepsIn(w, c, forage.Target, forFood: true)) { forage = null; keptIn = true; }
                 if (forage != null) return forage;
+                if (keptIn) Zones.StayedInHungry(w, c);
             }
         }
 
@@ -71,14 +83,19 @@ public static class JobPicker
 
         // The injured lie down to sleep; those who never tire never sleep (the undead), and mend on their feet.
         if (c.Health < InjuredBelow && sp.Tires) return SleepJob(w, c);
+        // In their sleeping hours everyone who tires goes to bed (ADR-0029); exhaustion sends them in any hours.
         int restAt = 200 + Traits.Sum(w, c, t => t.RestThresholdAdd);
-        if (sp.Tires && (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700))) return SleepJob(w, c);
+        if (sp.Tires && (c.Rest < restAt || block == DayBlock.Sleep)) return SleepJob(w, c);
 
         Job? natural = nature ? NatureNeeds.Job(w, c, critical: false, sunBlocked) : null;
         if (natural != null) return natural;
 
         Job? promise = PromiseJob(w, c);
-        if (promise != null) return promise;
+        if (promise != null)
+        {
+            ScheduleSystem.WorkedLate(w, c, promise); // past their working hours, they say so once a day (ADR-0029)
+            return promise;
+        }
 
         Job? gift = Gifts.Job(w, c, sunBlocked); // your satchel, shared with the starving if that is your order (ADR-0030)
         if (gift != null) return gift;
@@ -103,21 +120,27 @@ public static class JobPicker
         if (sp.EatsItem && c.Food < NeedsSystem.FedAt)
         {
             Job? eat = EatJob(w, c, allowTheft: false);
-            if (eat != null) return eat;
+            if (eat != null && !Zones.KeepsIn(w, c, eat.Target, forFood: true)) return eat;
         }
 
         Job? feast = Culture.Festivals.FeastJob(w, c, sunBlocked); // a festival comes before ordinary work (ADR-0023)
         if (feast != null) return feast;
 
-        Job? work = WorkJob(w, c, sunBlocked);
-        if (work != null) return work;
+        // Ordinary work only in working hours; in free time a nap if tired, then company and the fire (ADR-0029).
+        bool free = block != DayBlock.Work;
+        if (!free)
+        {
+            Job? work = WorkJob(w, c, sunBlocked);
+            if (work != null) return work;
+        }
+        else if (sp.Tires && c.Rest < w.Content.World.Schedule.FreeTimeNapBelow) return SleepJob(w, c);
 
         if (c.Social < 400)
         {
             Job? talk = SocializeJob(w, c, sunBlocked);
-            if (talk != null) return talk;
+            if (talk != null && !Zones.KeepsIn(w, c, talk.Target)) return talk; // after dark, company inside the home area only (zones step 3)
         }
-        return WanderJob(w, c, sunBlocked);
+        return WanderJob(w, c, sunBlocked, free);
     }
 
     /// <summary>
@@ -139,6 +162,12 @@ public static class JobPicker
         string food = Places.Species(w, c).FoodSource;
         Point tile = Places.FoodTile(w, food);
         if (tile == Point.None) return null;
+        // Kept in after dark, they eat from stores inside the home area if any lie there (zones step 3).
+        if (Zones.KeepsIn(w, c, tile, forFood: true))
+        {
+            Point inside = Places.FoodTile(w, food, p => Zones.InHome(w, p));
+            if (inside != Point.None) tile = inside;
+        }
         if (Rations.HasReservation(w, c.Id) || Rations.Unreserved(w, food) > 0)
             return new Job { Kind = JobKind.Eat, Target = tile, CauseEvent = c.LastFoodEvent };
         if (allowTheft && c.Food < Traits.Max(w, c, t => t.StealFoodBelow))
@@ -148,10 +177,13 @@ public static class JobPicker
         return null;
     }
 
-    private static Job? ForageJob(World w, Character c)
+    /// <summary>The nearest bush with berries to pick; <paramref name="cause"/> is why (their hunger when they forage for it, else 0).</summary>
+    private static Job? ForageJob(World w, Character c, long cause = 0)
     {
         Bush? bush = Places.BushWithBerries(w, c.Pos);
-        return bush == null ? null : new Job { Kind = JobKind.Forage, TargetId = bush.Id, Target = bush.Pos };
+        // Kept in after dark, they pick from a bush inside the home area if one has berries (zones step 3).
+        if (bush != null && Zones.KeepsIn(w, c, bush.Pos, forFood: true)) bush = Places.BushWithBerries(w, c.Pos, p => Zones.InHome(w, p)) ?? bush;
+        return bush == null ? null : new Job { Kind = JobKind.Forage, TargetId = bush.Id, Target = bush.Pos, CauseEvent = cause };
     }
 
     private static Job SleepJob(World w, Character c) => new() { Kind = JobKind.Sleep, Target = Places.SleepSpot(w, c), CauseEvent = c.LastRestEvent };
@@ -165,7 +197,7 @@ public static class JobPicker
         {
             Job? roof = Stock.Count(w, "timber") >= w.Content.WorkById("repair_roof").TimberCost ? RoofJob(w, c, roofPromise) : null;
             roof ??= Building.RoofPlanJob(w, c, roofPromise); // or raises a planned roof section (ADR-0027)
-            if (roof != null) return roof;
+            if (roof != null && !Zones.KeepsIn(w, c, roof.Target)) return roof; // roofing is work: after dark it waits for the morning if the timber lies outside the home area
         }
         string food = Places.Species(w, c).FoodSource;
         if (!Places.Species(w, c).EatsItem) food = "berries";
@@ -245,7 +277,7 @@ public static class JobPicker
     private static Job? WorkJob(World w, Character c, bool sunBlocked)
     {
         int respect = Traits.ScalePct(w, c, t => t.PriorityRespectPct);
-        bool fragile = c.Health < Traits.Max(w, c, t => t.RiskyWorkHealthBelow);
+        bool fragile = c.Health < Traits.Max(w, c, t => t.RiskyWorkHealthBelow) || c.Rest < Traits.Max(w, c, t => t.RiskyWorkRestBelow);
         List<string> refused = Places.Species(w, c).RefusesWork;
         Job? best = null;
         int bestScore = int.MaxValue;
@@ -263,6 +295,11 @@ public static class JobPicker
             if (score >= bestScore) continue;
             Job? job = bedPlan ?? Candidate(w, c, workId, def, sunBlocked);
             if (job == null) continue;
+            if (Zones.KeepsIn(w, c, job.Target))
+            {
+                Zones.KeptIn(w, c); // after dark, work outside the home area waits for the morning; an Independent resents it (zones step 3)
+                continue;
+            }
             best = job;
             bestScore = score;
         }
@@ -307,22 +344,24 @@ public static class JobPicker
             case "haul":
             {
                 if (sunBlocked) return null;
+                // Stores left where no stockpile keeps them now are carried first, then loose goods a stockpile would take (ADR-0028).
                 foreach (ItemStack s in w.Items)
-                    if (!w.Map.Stockpile.Contains(s.Pos) && w.Map.Passable(s.Pos) && !Places.Targeted(w, JobKind.Haul, s.Id, c.Id))
-                        return new Job { Kind = JobKind.Haul, TargetId = s.Id, Target = s.Pos };
-                return Building.DeliverJob(w, c); // no loose stack to haul: carry materials to a plan (ADR-0027)
+                    if (s.Stored && Haulable(w, c, s)) return new Job { Kind = JobKind.Haul, TargetId = s.Id, Target = s.Pos };
+                foreach (ItemStack s in w.Items)
+                    if (!s.Stored && Haulable(w, c, s)) return new Job { Kind = JobKind.Haul, TargetId = s.Id, Target = s.Pos };
+                return Building.DeliverJob(w, c); // nothing to haul to a stockpile: carry materials to a plan (ADR-0027)
             }
             case "keep_watch":
-            {
-                if (Places.Daylight(w) || sunBlocked || (Places.SomeoneOnWatch(w, c.Id) && !Purpose.Seeks(w, c, workId))) return null;
-                if (c.Health < Traits.Max(w, c, t => t.FleeHealthBelow)) return null;
-                Point post = w.Map.Passable(w.Map.WatchPost) ? w.Map.WatchPost : Places.Adjacent(w, w.Map.WatchPost, c.Pos);
-                return post == Point.None ? null : new Job { Kind = JobKind.KeepWatch, Target = post };
-            }
+                // The WatchSystem hands out the watch in turns (ADR-0029); this priority now says who is asked first.
+                return null;
             default:
                 return null;
         }
     }
+
+    /// <summary>A stack worth carrying to a stockpile: not on a tile whose stockpile keeps it, some stockpile does, reachable, and nobody else on it.</summary>
+    private static bool Haulable(World w, Character c, ItemStack s) =>
+        !Zones.Accepts(w, s.Pos, s.DefId) && Zones.Keeps(w, s.DefId) && w.Map.Passable(s.Pos) && !Places.Targeted(w, JobKind.Haul, s.Id, c.Id);
 
     private static Job? SocializeJob(World w, Character c, bool sunBlocked)
     {
@@ -340,12 +379,40 @@ public static class JobPicker
         return spot == Point.None ? null : new Job { Kind = JobKind.Socialize, TargetId = best.Id, Target = spot };
     }
 
-    private static Job? WanderJob(World w, Character c, bool sunBlocked)
+    /// <summary>
+    /// The one wander rule (zones design 5.4, ADR-0028): the idle go to the meeting place they would
+    /// rather sit in (where the people they like are), and sit apart near where they sleep when every
+    /// meeting place holds someone they bear a grudge against; otherwise, or while the sun keeps them
+    /// under cover, they wander near where they stand, drifting back to the hearth from afar. Schedule's
+    /// free time slots in ahead of the meeting place (a species' own place) and after it (the hearth).
+    /// </summary>
+    private static Job? WanderJob(World w, Character c, bool sunBlocked, bool free)
     {
-        Point centre = sunBlocked ? c.Pos : (c.Pos.ChebyshevTo(w.Map.Hearth) > 8 ? w.Map.Hearth : c.Pos);
-        int radius = sunBlocked ? 1 : 4;
+        if (!sunBlocked)
+        {
+            // After dark, those the home area keeps in go only to meeting places inside it (zones step 3).
+            Zones.Gathering gathering = Zones.MeetingPlaceFor(w, c);
+            Point spot = Point.None;
+            if (gathering.Place != null) spot = Zones.TileIn(w, gathering.Place, Zones.CurfewBinds(w, c));
+            else if (gathering.Shunned != null)
+            {
+                Zones.KeepAway(w, c, gathering);
+                spot = Places.Near(w, Places.SleepSpot(w, c), 2);
+                if (Zones.KeepsIn(w, c, spot)) spot = Zones.HomeSpot(w, c);
+            }
+            if (spot != Point.None)
+                return new Job { Kind = JobKind.Wander, Target = spot, TargetId = w.Rng.Dice[DiceSystem.Work].Range(DiceId.WanderWait, 60, 181) };
+        }
+        // With no meeting place to go to, free time draws people to the fire (radius 2), other hours keep them about the camp.
+        Point centre = sunBlocked ? c.Pos : free || c.Pos.ChebyshevTo(w.Map.Hearth) > 8 ? w.Map.Hearth : c.Pos;
+        int radius = sunBlocked ? 1 : free ? 2 : 4;
         Point p = Places.Near(w, centre, radius);
         if (p == Point.None || (sunBlocked && !w.Map.Covered(p))) p = c.Pos;
+        if (Zones.KeepsIn(w, c, p))
+        {
+            Point home = Zones.HomeSpot(w, c); // kept in: near the nearest home tile
+            if (home != Point.None) p = home;
+        }
         int wait = w.Rng.Dice[DiceSystem.Work].Range(DiceId.WanderWait, 60, 181);
         return new Job { Kind = JobKind.Wander, Target = p, TargetId = wait };
     }

@@ -263,7 +263,7 @@ public static partial class StateApi
         int berries = 0, timber = 0;
         foreach (ItemStack s in w.Items)
         {
-            if (!w.Map.Stockpile.Contains(s.Pos)) continue;
+            if (!s.Stored) continue; // the camp's stores, wherever they lie (ADR-0028)
             if (s.DefId == "berries") berries += s.Count;
             else if (s.DefId == "timber") timber += s.Count;
         }
@@ -296,13 +296,15 @@ public static partial class StateApi
         Bush? bush = m.BushAt(p);
         if (bush != null) contents.Add(loc.Format(bush.Berries == 1 ? "place.bush_one" : "place.bush", new[] { new KeyValuePair<string, string>("n", bush.Berries.ToString(Inv)) }));
         if (m.Hearth == p) contents.Add(FestivalHearthLine(w) ?? loc.Get("place.hearth"));
-        if (m.Stockpile.Contains(p)) contents.Add(loc.Get("place.stockpile"));
-        if (m.WatchPost == p) contents.Add(loc.Get("place.watch_post"));
+        if (ZoneLine(w, p) is { } zone) contents.Add(zone); // "Stockpile (berries, timber)" (ADR-0028)
+        contents.AddRange(HomeAndDarkLines(w, p)); // "Home area"; after dark "By the fire's light" or "In the dark" (zones step 3)
+        if (m.WatchPost == p) contents.Add(WatchPostLine(w, p) ?? loc.Get("place.watch_post")); // who keeps the watch, in its hours (ADR-0029)
         if (m.CoveredRuins.Contains(p)) contents.Add(loc.Get("place.covered_ruins"));
         BuildLines(w, p, contents); // beds and who owns and built them, roofs and who raised or mended them, walls, plans, marks (ADR-0027)
         foreach (ItemStack s in w.Items)
             if (s.Pos == p)
-                contents.Add(loc.Format("place.item", new[]
+                // Stores no stockpile here keeps (the stockpile moved) are waiting to be carried (ADR-0028).
+                contents.Add(loc.Format(s.Stored && !Systems.Zones.Accepts(w, p, s.DefId) ? "place.waiting_to_be_carried" : "place.item", new[]
                 {
                     new KeyValuePair<string, string>("item", loc.Get(w.Content.ItemById(s.DefId).NameKey)),
                     new KeyValuePair<string, string>("n", s.Count.ToString(Inv)),

@@ -214,7 +214,7 @@ public class CultureHookTests
         Belong(mira, "night");
         Belong(ilex, "night");
         Hold(w, "night", "veiled_greeting", "blood_taboo");
-        w.Tick = 22L * w.Content.World.TicksPerHour; // night: no sun
+        w.Tick = 20L * w.Content.World.TicksPerHour; // night: no sun, and the day folk's free time, not yet their sleeping hours (ADR-0029)
         NextTo(w, mira, ilex);
         return (w, mira, ilex);
     }
@@ -404,7 +404,7 @@ public class CultureHookTests
     public void GuestBreadKeepsTheCampsPromise()
     {
         (World w, Character you, Character mira, Character hollis, Debt promise) = GuestCamp(TestContent.Db);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         w.Reservations.Add(new Reservation { CharacterId = mira.Id, Count = 1 });
         mira.Food = 400; // hungry enough to hold a share, not starving
 
@@ -470,7 +470,7 @@ public class CultureHookTests
     public void AHostDecidesOncePerPromise()
     {
         (World w, _, Character mira, _, Debt promise) = GuestCamp(Forced(("guest_bread", "offerPermille", 0)));
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         w.Reservations.Add(new Reservation { CharacterId = mira.Id, Count = 1 });
         Assert.NotEqual(JobKind.KeepPromise, JobPicker.Choose(w, mira)?.Kind);
         long draws = w.Rng.Dice[DiceSystem.Culture].Draws;
@@ -486,8 +486,8 @@ public class CultureHookTests
         (World w, Character you, Character mira, Character hollis, Debt promise) = GuestCamp(TestContent.Db);
         hollis.HungerStage = 1;
         you.Food = 100; mira.Food = 900;
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
-        mira.Job = new Job { Kind = JobKind.KeepPromise, TargetId = promise.Id, Target = w.Map.Stockpile.Center };
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
+        mira.Job = new Job { Kind = JobKind.KeepPromise, TargetId = promise.Id, Target = w.Map.StartStockpile.Center };
         Rations.Assign(w); // you are hungrier: Hollis is left out, hungry
         Assert.Equal(DebtStatus.Open, promise.Status);
         mira.Job = null;
@@ -510,7 +510,7 @@ public class CultureHookTests
         Hold(w, "hearth", "clasp_greeting", "leader_last");
         Hold(w, "reed", "no_touch_greeting");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         return (sim, you, mira, oren);
     }
 

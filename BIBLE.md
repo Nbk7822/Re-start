@@ -53,6 +53,8 @@ Fixed tick. `content/world.json` sets the calendar (300 ticks per hour, 24 hours
 | Fate (who you are, fate knots, the return; section 7) | needs, combat, incidents (deaths, triggers), social, growth (aging) | the whole world (a return restores a knot), mood and social (memories: thoughts, opinions, grudges), arrivals (re-drawn), the Chronicle (lost futures) |
 | Gifts (your one gift; section 7) | work (forage), incidents and combat (harm meant for you), needs (hunger, starving), fate (returns, echoes) | needs (meals), combat (who is hurt), social (debts, ill luck, resentment, familiarity), growth of the gift |
 | Build (plans, structures, beds; section 4.11) | work, map, items, needs, social | needs (rest, cover from sun and rain), mood (comfort, pride, thanks; envy with slice 1c), social (claims, passing over, roof promises kept and broken), travel (walls), incidents (work accidents), and through felling the dryads and the sacred trees |
+| Zones (stockpiles, meeting places, the home area, the dark; section 8) | work (who carries what), map (cover, the firelight), items, social (opinions, grudges), Schedule (kinds of day, the watch), traits and mood (who goes their own way) | needs and rations (where food lies and is eaten; hunger stayed in), incidents (the damp, what a thief can take, accidents in the dark), combat (where the watch must look; who keeps a post outside the home area), work (where the idle go; what people start after dark; the walk home at dusk), mood (sitting apart, kept in), social (rule-keepers who see a breach) |
+| Schedule (the camp's day, own hours, the watch in turns, overwork; section 9) | needs (rest, food, health), work (priorities, the job in hand), social (grudges, debts, opinion of you), natures (an undead's purpose, a djinn's bargain), culture (festivals) | work (when people work and who keeps watch), needs (sleep, naps, wear, asleep at the post), mood (overwork, woken, refusals, covers, evenings by the fire), social (refusals, covers that repay or open debts, grudges), incidents (thefts at an empty post, accidents when worn out), combat (who stands at the post) |
 
 Every system touches at least two others; that is the cut rule from CLAUDE.md. Danger runs through combat and work: a wound bleeds until someone tends it (section 7). Growth is the one exception for now: by the founder's M0 scope for fixed decision 12 (section 5.3) it reads three systems (traits, social chemistry, incidents) but writes back only beats, and M1's trait changes close the loop.
 
@@ -107,7 +109,7 @@ Four more come in their own season (ADR-0022), each on a Dice day within a windo
 
 ### 4.9 Player input in M0
 
-Only intentions, never orders: a ration policy for short food (hungriest first, promises first, or yourself first) and per-person work priorities. Both are tick-stamped commands, so they are part of the determinism test.
+Only intentions, never orders: a ration policy for short food (hungriest first, promises first, or yourself first), per-person work priorities, your gift's standing order (section 7), building plans (section 4.11), zones (section 8) and the camp's day, the watch hours and one person's own day (section 9). All are tick-stamped commands, so they are part of the determinism test.
 
 ### 4.9a Food and winter
 
@@ -228,4 +230,81 @@ Slice 1 of the player design (ADR-0030). Fixed decisions 3, 4, 8 and 9 made play
 - **The pick.** A death goes back to a knot at least two hours earlier: usually one of the last three days, the latest weighing most; one time in seven or so, an older one, all weighing the same. Each use halves a knot's weight, so a knot that leads straight back to death frays.
 - **The return.** The world is the knot's again; the Dice are reseeded and the arrivals still to come re-drawn; the lost timeline is frozen into the Chronicle of Lost Futures. You keep only your Truths, what you know of your gift, every lost future, the customs you learned, whom you met, Familiar faces' echoes, and your memories: for each person, the strongest thing between you in the lost future (a grudge, a friend's death, a feeling it moved by at least ten), at half strength and fading. A remembered grudge is held again at half its intensity, so you can be cold to Hollis for a theft he never committed, and he leaves.
 - **How it shows.** The opening card names what you woke as. A return plays in three frames: the map darkens over how you died, folds back in a colourless pale, and returns paused under "You came back. You remember everything." The Chronicle's Lost futures tab lists each future that never came, headed by its span and your death; your inspector shows your people and age, your clock, your gift, the lives you have lost and what you remember.
+
+## 8. Zones
+
+Slice 1 of the zones design, steps 1 to 3 (ADR-0028). A zone is a painted area on the grid and an intention, never an order: people read it and decide.
+
+### 8.1 Stockpiles
+
+- The camp starts with the demo's stockpile as a zone that keeps every item. The player can move it, add more anywhere open and passable, and say what each keeps (berries, timber, or both); the camp must always have somewhere to keep each item.
+- Goods put down where a stockpile keeps them are the camp's **stores**, and stay stores wherever they lie: move a stockpile and its goods wait where they were, still eaten, shared out and stolen there, until haulers carry them over. Nobody starves through bookkeeping.
+- A carrier puts goods down on the nearest stockpile tile that already holds them. Eaters, roofers and anyone fetching a berry take from the stores where they stand.
+- **The damp** spoils only stores lying in the open: a sound roof or the covered ruins keep food dry.
+- **A thief** carries off only the pile it reached. One that gets past the watch unseen says so ("…out of sight of Vale on watch"), and a stockpile the player put there is on its chain.
+
+### 8.2 The meeting place
+
+- The camp starts with a meeting place on the open ground round the hearth. The idle go there: to the meeting place where the people they like best are sitting.
+- Someone who holds a grudge against a person sitting there keeps away, sits apart near where they sleep, and says so once a day ("Sera kept away from the fire while Oren sat there."). Newcomers are received there.
+
+### 8.3 The home area
+
+The Schedule says when; the home area says where (section 9). The camp starts without one; the player may mark one area (a second marking joins the first), over anything, asking everyone to keep inside it after dark.
+
+- **Who it binds:** everyone whose kind of day sleeps in the dark. The night folk (vampires, the undead: their shipped day has no sleep in the dark) are never bound; putting a human on nights does not make them see in the dark.
+- **Tonight's answer:** at dusk everyone it binds but the player decides once, by the one rule (8.5), whether they go their own way tonight.
+- **The walk home at dusk:** whoever is bound, out at work or idling beyond it, leaves the job and comes in, unless excused or going their own way. Marking a home area never pulls anyone off the job in hand.
+- **After dark** they start no food, work, company or wandering outside it: they eat from stores and pick from bushes inside it if any, and sit at a meeting place it reaches or near its nearest tile. Excused: the starving (for food), anyone going to someone hurt (care, rescue), and tonight's defiers. Never kept in: sleep (a home area drawn short of the beds keeps nobody from bed), cover, promised meals, blood, feasts, the needs of a nature, fights, arrivals.
+- **The watch:** with the post outside it, nobody it binds is asked to keep watch (nobody is woken for it). When that leaves nobody: "Oren would not keep watch outside the home area after dark.", which is then why the post stands empty and what a theft that night cites. The night folk and tonight's defiers still take the post.
+- **What it leaves behind:** each breach is said once a night with its reason ("Wren, starving, went out after dark to find food.", "Mira went out after dark to help Wren.", "Never one to be told, Sera went out after dark anyway."). Rule-keepers who see a defiant breach think less of the breaker; an Independent kept in resents you a little; someone hungry who stays in as asked says so, and that is why they go on hungry.
+
+### 8.4 The dark
+
+Zone or no zone: from dusk to dawn, more than 8 tiles in a straight line from the hearth, work goes wrong twice as often for anyone bound by the dark (not the night folk), and four times for someone also worn out. The accident says so ("Sera was hurt in an accident while working in the dark."), and after dark the tooltip says whether a tile lies by the fire's light or in the dark.
+
+### 8.5 One rule for who keeps the camp's rules
+
+How people feel about whoever set a rule decides how far it carries (the founder's answer, ADR-0025). One helper gives the odds that someone goes their own way, from their nature (the Independent), their feeling for whoever set the rule (dislike adds, liking takes away), a black mood and their people's lean on the Oathbound–Free axis; the largest names the reason the Chronicle gives. It never applies to the player. The Oathbound, and those whose ways hold oaths heaviest, think less of a breaker they see. The home area and the Schedule use it: one roll a night for the home area, one per change of hours and per waking for the watch.
+
+### 8.6 Where it shows
+
+Zones on the bottom bar opens a short list (the kinds to mark, Unmark, the camp's zones with what each keeps) and a marking tool (drag a box; right-click or Esc stops) whose hint says how many tiles, where, whether a stockpile is dry and whether the watch can see it, and what a home area would leave outside (the watch post, the beds, the stockpile). On the map, stockpiles and meeting places show a dashed edge, the home area after dusk only; while zones are shown, a faint fill, their names and see-through roofs; a choice made while paused is hatched until time moves. The tile tooltip names the zone and what it keeps, goods waiting to be carried, the home area, and after dark the firelight or the dark. The Chronicle folds a run of the same line that differs only in one person, as the story log does.
+
+### 8.7 Not yet
+
+Keep-out and leave-be ground, the burial ground and thieves who waylay people in the dark (slice 2); growing plots (after the items milestone) and grazing (after animals). The home area makes few stories in this camp (ADR-0028, step 3): by the design's cut rule its curfew would wait for slice 2 unless the founder keeps it.
+
+## 9. Schedule
+
+Slice 1 of the schedule design (ADR-0029). The player says when the camp sleeps, works and keeps watch; people do the rest, and every bend in it is spoken by a named person.
+
+### 9.1 Days
+
+- **The camp's day** is 24 hours of sleep, work and free time, painted on the Schedule list. Each kind of day has its own (content, `rhythms.json`): the day folk sleep 22:00–06:00, work until 19:00 and have the evening free; the night folk (vampires) sleep 06:00–14:00, keep under cover until dusk and work through the night; those who never tire (the undead) work from dawn until 22:00 and have the night free. Who sleeps at all is the body's call, never the day's.
+- **One person's own hours** are painted in their inspector ("Mira on nights"). Anyone a change touches may go their own way by the one rule (section 8.5): over the camp's day they keep the old hours as their own, over their own day they keep the day they had, and the Chronicle says so. Never the player.
+- **In their sleeping hours** everyone who tires goes to bed and stays there: they rise only for real hunger, the sun, a harming need of their nature, or the end of those hours. **In free time** there is no ordinary work: a nap if tired, then company and the fire; urgent help (care, rescue, promises, guest-bread, blood) still happens. A change of hours never pulls anyone off a job in hand.
+
+### 9.2 The watch
+
+- The player sets only the hours (19:00–06:00 by default, or none). One person holds the post at a time, in turns of four hours. When a turn ends the watcher asks the next: someone awake walks over; a sleeper must be walked to and woken, and the post stands empty while the watcher walks.
+- Who is asked: the awake before the sleeping, those whose nature calls them to the watch (an undead whose purpose is the watch keeps it until that purpose is met), the watch priority set in Work, whoever has waited longest since their last watch, and only then whom the watcher likes least.
+- A sleeper may refuse: still hurt, too tired, hungry, a grudge against whoever woke them, or simply their own way. Whoever keeps a turn refused for a good reason keeps it in the refuser's place, which repays what they owed or puts the refuser in their debt; a turn refused for no good reason is held against the refuser. With nobody left to ask, the Oathbound stay one more turn and the Protective keep a hurt or weary refuser's turn; anyone else leaves the post empty.
+- Watchers leave for food and fall asleep at the post when spent (the lantern goes dark). One drawn off by a fight goes back to the post afterwards, unless now starving; one who leaves the camp or dies at the post leaves it empty for that reason. While a festival runs nobody keeps watch. An empty post always has a reason, and a thief who finds it says why: "A thief made off with 3 berries; nobody was on watch." The one quiet gap is the night folk going in before the sun, in the watch's last hour.
+
+### 9.3 Overwork
+
+Each person's last 24 hours as lived (slept, worked, on watch, free, needs) sit beside their planned day in the inspector, with a notch wherever an hour bent. Long hours weigh on mood, a day with no time to oneself weighs too, and an evening by the fire with others lifts it. Spent after long duty, someone is worn out: twice as likely to be hurt at risky work, and the accident says why. A watch or a late promise is the cause of that only within the last day; wear after an ordinary long day's work names no cause. Overwork never drains health or kills by itself; the undead pay none of it.
+
+### 9.4 Blood at night
+
+A thirsty vampire asks someone awake before a sleeper and never anyone on watch; a sleeper woken short of rest says no, and is asked again once rested. Feeding drifts to the camp's evening, when both kinds are awake.
+
+### 9.5 Where it shows
+
+Schedule on the bottom bar opens a list: the camp's day, the night folk's day and the sleepless day as strips to paint, the watch as a row to drag (or No watch), who keeps it now, who has kept it so far tonight and who kept it last night, and whose day differs (a click opens their day). Every strip is one day; there is never a table of people against hours. The inspector's Day section shows a person's planned hours (their own bright, the camp's dim, the sun's hatched) above the last 24 hours as lived, with the plain source of their day and the latest schedule line about them. Choices made while paused wait, edged, until time moves.
+
+### 9.6 Not yet
+
+Observances (rest days, festivals as hours, vigils) and "Coming days" (with culture-faith slice 2), a fixed body clock (a Truth), a watch captain from the court, a choice of turn length, a watcher's shout that wakes sleepers to fight, one watcher per post when Build adds posts, and hours on zones (with the home area).
 

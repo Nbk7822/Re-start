@@ -172,7 +172,7 @@ public class FateTests
     public void OldAgeEndsTheRun()
     {
         ContentDb db = ShortLived();
-        var sim = Simulation.Create(db, 5);
+        var sim = Simulation.Create(db, 1); // seed 5 now dies once before old age (Zones and Schedule merged)
         Character you = You(sim.World);
         Assert.InRange(you.OldAgeTick, 1, 80L * Day);
         Assert.True(sim.AdvanceTo(81L * Day, 200L * Day) || sim.World.Fate.Ended);

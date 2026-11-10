@@ -111,6 +111,7 @@ public class WoundTests
     {
         Simulation sim = Camp(3, null, "mira", "bram");
         World w = sim.World;
+        w.Tick = 10 * Hour; // working hours: at midnight Bram is asleep, and a sleeper does not wake to tend (ADR-0029)
         Character mira = Cast(w, "mira"), bram = Cast(w, "bram");
         Wound(w, mira, 150);
         SimEvent? cared = null;
@@ -136,6 +137,7 @@ public class WoundTests
         // The undead never lie down; bleeding, one used to walk away from whoever came to tend them.
         Simulation sim = Camp(4, null, "ketil", "bram");
         World w = sim.World;
+        w.Tick = 10 * Hour; // working hours: at midnight Bram is asleep, and a sleeper does not wake to tend (ADR-0029)
         Character ketil = Cast(w, "ketil"), bram = Cast(w, "bram");
         bram.Pos = new Point(ketil.Pos.X - 6, ketil.Pos.Y);
         Wound(w, ketil, 120);

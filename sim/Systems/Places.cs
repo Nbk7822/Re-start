@@ -8,8 +8,6 @@ public static class Places
 {
     public const int BushMax = 6;
     public const int BushRegrowPerDay = 2;
-    /// <summary>Humans turn in this many hours after dusk and rise at dawn.</summary>
-    public const int BedtimeAfterDusk = 3;
     /// <summary>In winter a bush puts out one berry every this many days: a trickle, not a harvest.</summary>
     public const int WinterRegrowEveryDays = 2;
 
@@ -32,16 +30,6 @@ public static class Places
         return Calendar.Season(w.Tick, def) != def.SeasonsPerYear - 1;
     }
 
-    /// <summary>Usual sleeping hours: night for humans, daylight for vampires, never for those who do not tire.</summary>
-    public static bool SleepHours(World w, Character c)
-    {
-        if (!Tires(w, c)) return false;
-        if (BurnsInDaylight(w, c)) return Daylight(w);
-        WorldDef def = w.Content.World;
-        int h = Calendar.Hour(w.Tick, def);
-        return h >= def.DuskHour + BedtimeAfterDusk || h < def.DawnHour;
-    }
-
     /// <summary>The passable neighbour of target closest to from (Chebyshev), or Point.None.</summary>
     public static Point Adjacent(World w, Point target, Point from)
     {
@@ -59,13 +47,14 @@ public static class Places
         return best;
     }
 
-    public static Bush? BushWithBerries(World w, Point from)
+    /// <summary>The nearest bush with berries nobody else is picking (only where <paramref name="where"/> allows, if given: inside the home area after dark).</summary>
+    public static Bush? BushWithBerries(World w, Point from, Func<Point, bool>? where = null)
     {
         Bush? best = null;
         int bestDist = int.MaxValue;
         foreach (Bush b in w.Map.Bushes)
         {
-            if (b.Berries <= 0 || Targeted(w, JobKind.Forage, b.Id)) continue;
+            if (b.Berries <= 0 || Targeted(w, JobKind.Forage, b.Id) || (where != null && !where(b.Pos))) continue;
             int d = b.Pos.ChebyshevTo(from);
             if (d < bestDist) { best = b; bestDist = d; }
         }
@@ -241,20 +230,16 @@ public static class Places
         return false;
     }
 
-    public static bool SomeoneOnWatch(World w, int exceptId = 0)
-    {
-        foreach (Character o in w.Characters)
-            if (o.Id != exceptId && o.Status == CharStatus.Member && o.Job is { Kind: JobKind.KeepWatch }) return true;
-        return false;
-    }
-
-    /// <summary>Oldest-food stack position in the stockpile, or Point.None.</summary>
-    public static Point FoodTile(World w, string defId)
+    /// <summary>
+    /// Where the oldest stored stack of this item lies (in a stockpile, or waiting to be carried to one), or Point.None;
+    /// only where <paramref name="where"/> allows, if given (inside the home area after dark).
+    /// </summary>
+    public static Point FoodTile(World w, string defId, Func<Point, bool>? where = null)
     {
         ItemStack? best = null;
         foreach (ItemStack s in w.Items)
         {
-            if (s.DefId != defId || s.Count <= 0 || !w.Map.Stockpile.Contains(s.Pos)) continue;
+            if (s.DefId != defId || s.Count <= 0 || !s.Stored || (where != null && !where(s.Pos))) continue;
             if (best == null || (s.SpoilTick != 0 && (best.SpoilTick == 0 || s.SpoilTick < best.SpoilTick))) best = s;
         }
         return best?.Pos ?? Point.None;

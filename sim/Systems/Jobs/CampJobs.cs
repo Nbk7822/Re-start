@@ -4,7 +4,7 @@ using Return.Sim.Events;
 
 namespace Return.Sim.Systems.Jobs;
 
-/// <summary>Camp work: foraging, felling timber, hauling, repairing the shelter roof, keeping watch.</summary>
+/// <summary>Camp work: foraging, felling timber, hauling, repairing the shelter roof. The watch is WatchJobs'.</summary>
 public static class CampJobs
 {
     public static bool Forage(World w, Character c, Job j)
@@ -24,11 +24,12 @@ public static class CampJobs
                 if (n == 0) return true;
                 bush!.Berries -= n;
                 c.Carrying = new Carry { DefId = "berries", Count = n };
-                SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.foraged", new[] { c.Id }, Array.Empty<long>(),
+                // The picking cites why they went (their hunger, when they foraged for it), so an accident at the bush chains back to it (zones design 5.5).
+                SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.foraged", new[] { c.Id }, new[] { j.CauseEvent },
                     EventArg.Char("a", c.Id), EventArg.Num("n", n), EventArg.Item("item", "berries"));
                 Gifts.Foraged(w, c, e); // your satchel fills as you forage (ADR-0030)
                 JobRunner.RollAccident(w, c, def, e.Id);
-                JobRunner.Next(w, c, j, Stock.DropTile(w, "berries"));
+                JobRunner.Next(w, c, j, Stock.DropTile(w, "berries", c.Pos));
                 return JobRunner.Failed(j);
             }
             default:
@@ -66,7 +67,7 @@ public static class CampJobs
                 Culture.SacredTrees.Felled(w, c, tree, e);
                 Forest.Felled(w, c, tree, e);
                 JobRunner.RollAccident(w, c, def, e.Id);
-                JobRunner.Next(w, c, j, Stock.DropTile(w, "timber"));
+                JobRunner.Next(w, c, j, Stock.DropTile(w, "timber", c.Pos));
                 return JobRunner.Failed(j);
             }
             default:
@@ -83,9 +84,9 @@ public static class CampJobs
             if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
             ItemStack? stack = w.Items.Find(s => s.Id == j.TargetId);
             if (stack == null || stack.Pos != c.Pos) return true;
-            c.Carrying = new Carry { DefId = stack.DefId, Count = stack.Count };
+            c.Carrying = new Carry { DefId = stack.DefId, Count = stack.Count, Stored = stack.Stored };
             w.Items.Remove(stack);
-            JobRunner.Next(w, c, j, Stock.DropTile(w, c.Carrying.DefId));
+            JobRunner.Next(w, c, j, Stock.DropTile(w, c.Carrying.DefId, c.Pos));
             return JobRunner.Failed(j);
         }
         if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
@@ -103,7 +104,7 @@ public static class CampJobs
             {
                 if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
                 if (section.Sound) return true;
-                int taken = Stock.Take(w, "timber", def.TimberCost);
+                int taken = Stock.Take(w, "timber", def.TimberCost, c.Pos);
                 if (taken < def.TimberCost)
                 {
                     if (taken > 0) Stock.Add(w, "timber", taken, c.Pos);
@@ -135,19 +136,5 @@ public static class CampJobs
                 return true;
             }
         }
-    }
-
-    public static bool KeepWatch(World w, Character c, Job j)
-    {
-        if (j.Stage == 0)
-        {
-            if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
-            j.Stage = 1;
-            c.Facing = Facing.S;
-            return false;
-        }
-        j.Progress++;
-        bool sun = Places.BurnsInDaylight(w, c) ? Places.SunDanger(w) : Places.Daylight(w);
-        return sun || c.Rest < 120 || c.Food < NeedsSystem.StarvingBelow;
     }
 }

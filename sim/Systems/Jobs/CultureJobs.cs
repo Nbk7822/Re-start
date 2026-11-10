@@ -45,7 +45,7 @@ public static class CultureJobs
             {
                 bool own = Rations.HasReservation(w, c.Id);
                 if (!own && Rations.Unreserved(w, "berries") == 0) return true;
-                if (Stock.Take(w, "berries", 1) == 0) return true;
+                if (Stock.Take(w, "berries", 1, c.Pos) == 0) return true;
                 if (own) Rations.Consume(w, c.Id);
             }
             c.Carrying = new Carry { DefId = "berries", Count = 1 };

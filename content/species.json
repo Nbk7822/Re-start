@@ -28,7 +28,8 @@
     "canDonateBlood": false,
     "bloodPerFeed": 700,
     "donorHealthCost": 130,
-    "donorRestCost": 170
+    "donorRestCost": 170,
+    "rhythm": "nocturnal"
   },
   {
     "id": "undead",

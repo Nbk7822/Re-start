@@ -223,9 +223,10 @@ public class PeoplesTests
         Assert.True(forest.Value >= 300 - def.DecayPerHour + def.Param("restorePerTree") * def.Param("ownTreeWeight"), $"forest {forest.Value}");
         Assert.Contains(dryope.Thoughts, t => t.DefId == "among_trees");
 
-        // Faint, far from the trees, they go and stand by their tree until the need is met.
+        // Faint, far from the trees, they go and stand by their tree until the need is met (in waking hours; ADR-0029).
         dryope.Pos = w.Map.Hearth with { Y = w.Map.Hearth.Y + 1 };
         dryope.Job = null;
+        w.Tick = Hours(w, 10);
         forest.Value = def.LowBelow - 10;
         Job? job = JobPicker.Choose(w, dryope);
         Assert.Equal(JobKind.TendTree, job?.Kind);
@@ -424,7 +425,7 @@ public class PeoplesTests
         Relations.ChangeOpinion(w, hollis, qamar.Id, 50, 0);
         Stock.Take(w, "timber", 99);
         Assert.Equal("event.social.bargain_refused_unsafe", Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
-        Stock.Add(w, "timber", 2, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 2, w.Map.StartStockpile.Center);
         Assert.Null(Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
         Relations.ChangeOpinion(w, hollis, qamar.Id, -50, 0);
         Assert.Equal("event.social.bargain_refused", Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
@@ -456,7 +457,7 @@ public class PeoplesTests
         Character you = Cast(w, "you");
         need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow + 1;
         w.Tick = (long)w.Content.World.TicksPerSeason * 3 - Hours(w, 4); // the eve of winter
-        Stock.Add(w, "berries", 4, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 4, w.Map.StartStockpile.Center);
         s.Advance(Hours(w, 8));
         Contract k = Bargains.Binding(w, qamar.Id) ?? w.Contracts.Single();
         Character patron = w.Get(k.PatronId);
@@ -490,10 +491,13 @@ public class PeoplesTests
         (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "you");
         World w = s.World;
         Character you = Cast(w, "you");
+        // You are never woken for the watch here: on seed 1 you come to bear Cindral a grudge, would not get up for them,
+        // and the refusal sours Cindral into leaving (a story of the watch, ADR-0029, not the bargain this test follows).
+        you.Priorities.Find(p => p.WorkId == "keep_watch")!.Priority = 0;
         need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow - 1;
         w.Tick = Hours(w, 10);
         Contract k = Struck(w, qamar);
-        Stock.Add(w, "timber", 30, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 30, w.Map.StartStockpile.Center);
         long paidBefore = w.Log.All.Count(e => e.Key == "event.social.bargain_paid");
         s.Advance(k.EndsTick - w.Tick + Hours(w, 1));
         Assert.Equal(ContractStatus.Kept, k.Status);
@@ -565,15 +569,17 @@ public class PeoplesTests
     [Fact]
     public void AWrongedDjinnLeftUnboundLetsTheFireLooseOnceAndThenLeaves()
     {
-        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "you", "mira");
+        // Without you in camp, so the djinn can only leave unbound: gathered at the fire, a djinn wronged by
+        // you trades insults with you until it leaves over that grudge first, another story (ADR-0028).
+        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "nia", "mira");
         World w = s.World;
-        Character you = Cast(w, "you"), mira = Cast(w, "mira");
-        SimEvent wrong = w.Log.Emit(w, SystemTag.Social, "event.test.wrong", new[] { you.Id }, Array.Empty<long>());
-        Relations.FormGrudge(w, qamar, you, 50, wrong.Id);
+        Character nia = Cast(w, "nia"), mira = Cast(w, "mira");
+        SimEvent wrong = w.Log.Emit(w, SystemTag.Social, "event.test.wrong", new[] { nia.Id }, Array.Empty<long>());
+        Relations.FormGrudge(w, qamar, nia, 50, wrong.Id);
         Relations.ChangeOpinion(w, mira, qamar.Id, -60, 0);
-        Relations.ChangeOpinion(w, you, qamar.Id, -60, 0);
+        Relations.ChangeOpinion(w, nia, qamar.Id, -60, 0);
         foreach (RoofSection r in w.Map.Roof) r.Sound = true; // nobody else takes timber from the stockpile meanwhile
-        Stock.Add(w, "timber", 5, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 5, w.Map.StartStockpile.Center);
         int timber = Stock.Count(w, "timber");
         need.Value = 100;
         w.Tick = Hours(w, 10);
@@ -598,7 +604,7 @@ public class PeoplesTests
         World w = WorkTests.Only(1, "you", "mira", "wren", "fionn");
         Character you = Cast(w, "you"), mira = Cast(w, "mira"), wren = Cast(w, "wren"), fionn = Cast(w, "fionn");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         you.Food = 900; fionn.Food = 900; mira.Food = 100; wren.Food = 250; wren.HungerStage = 1;
         var promise = new Debt
         {
@@ -718,7 +724,7 @@ public class PeoplesTests
         World w = WorkTests.Only(1, "you");
         Character you = Cast(w, "you"), fionn = Cast(w, "fionn");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 5, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 5, w.Map.StartStockpile.Center);
         SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: fionn.Id)!;
         Assert.Equal("event.incident.fae_arrives", arrived.Key);
         SimEvent joined = IncidentSystem.Join(w, fionn, arrived.Id);
@@ -731,7 +737,7 @@ public class PeoplesTests
 
         // Both hungry, one berry set aside for Sennet: Sennet carries it to you instead of eating it.
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         fionn.Job = null;
         fionn.Pos = w.Map.Hearth with { Y = w.Map.Hearth.Y + 2 };
         you.Food = 120; fionn.Food = 200; fionn.HungerStage = 1; you.HungerStage = 2;

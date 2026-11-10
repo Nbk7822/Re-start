@@ -20,8 +20,8 @@ namespace Return.Game;
 ///   RETURN_TICKS=n       step n ticks before the first frame (a return sends the clock back, so the
 ///                        world may then stand earlier than tick n; ADR-0030)
 ///   RETURN_SELECT=key    open the inspector for that cast key (e.g. "you")
-///   RETURN_OPEN=name     open a bar list at start: build, orders, work, people or chronicle; "lost" opens
-///                        the Chronicle on its Lost futures tab (ADR-0030)
+///   RETURN_OPEN=name     open a bar list at start: build, orders, zones, work, schedule, people or chronicle;
+///                        "lost" opens the Chronicle on its Lost futures tab (ADR-0030)
 ///   RETURN_PAUSE=1       start paused
 ///   RETURN_PRESS=list    after 1 s, press buttons as a player would, comma-separated (a press
 ///                        begins with a word; the numbers after it are its own):
@@ -34,7 +34,15 @@ namespace Return.Game;
 ///                        outline); "takedown:x,y[,w,h]" and "calloff:x,y[,w,h]" do the same with
 ///                        those tools; the tool stays in hand, as it does for a player, until
 ///                        "stop"; "wait:N" lets N ticks pass at once (drafts go out first, as time
-///                        moves), so a plan can be seen part built or finished
+///                        moves), so a plan can be seen part built or finished;
+///                        "zone:KIND:X:Y:W:H" picks a kind in Zones and drags a W×H box from tile
+///                        (X, Y) with the marking tool; "unzone:X:Y:W:H" does the same with Unmark;
+///                        "open:NAME" opens a bar list as its button would (build, orders, zones, ...);
+///                        "stop" puts down whichever tool is in hand (Build or zones), as Esc does;
+///                        "camp:B:F:T" paints the camp's day with block B (0 sleep, 1 work, 2 free time)
+///                        from hour F to T (exclusive, wrapping) in Schedule, "night:B:F:T" the night
+///                        folk's day, "person:B:F:T" the open inspector's day, "watch:F:T" sets the
+///                        watch from F to T (ADR-0029)
 ///   RETURN_SCREENSHOT=p  save the window to PNG file p about 3 s after start, then quit
 ///   RETURN_SCREENSHOT_DELAY=s  seconds before that screenshot (default 3; a return's frames
 ///                        play over about 3 s from the moment it happens, ADR-0030)
@@ -94,6 +102,37 @@ public partial class SimHost : Node
     /// gesture pinned, so the picture does not depend on where the mouse happens to be on the machine (ADR-0027 review).
     /// </summary>
     public bool Checking { get; private set; }
+
+    /// <summary>The zone marking tool (ADR-0028): which kind is being marked, and the box being dragged.</summary>
+    public ZoneTool Tool { get; } = new();
+
+    /// <summary>Zones are shown in full while their list is open or a marking tool is in hand.</summary>
+    public bool ZonesShown => Tool.Active || _bar.ZonesOpen;
+
+    /// <summary>Picks up the marking tool for a kind of zone (left clicks then mark, and stop selecting people); a Build tool in hand is put down.</summary>
+    public void StartZoneTool(string kind)
+    {
+        Build.Stop();
+        Tool.Start(kind);
+    }
+
+    /// <summary>Picks up the unmarking tool; a Build tool in hand is put down.</summary>
+    public void StartUnmark()
+    {
+        Build.Stop();
+        Tool.StartUnmark();
+    }
+
+    public void StopZoneTool() => Tool.Stop();
+
+    /// <summary>Ends a drag: its one change goes out through <see cref="Order"/>, as a draft while paused.</summary>
+    public void ReleaseZoneTool()
+    {
+        foreach (Command c in Tool.Release(World, Return.Sim.Systems.Zones.Preview(World, Drafts.All), NewZoneId, World.Tick)) Order(c);
+    }
+
+    /// <summary>A zone made now: 0 (a new zone) while time runs, a draft's own negative id while paused.</summary>
+    private int NewZoneId() => Clock.Paused ? Drafts.NewZoneId() : 0;
 
     /// <summary>
     /// The only way the view changes the world. While time runs, a choice is a tick-stamped command
@@ -273,6 +312,7 @@ public partial class SimHost : Node
                 break;
             case Key.Escape:
                 if (Build.Active) Build.Stop();
+                else if (Tool.Active) StopZoneTool();
                 else if (!_bar.ClosePopups()) Select(0);
                 break;
             default:
@@ -344,6 +384,7 @@ public partial class SimHost : Node
     {
         foreach (string item in CheckPresses.Split(list))
         {
+            if (PressZoneForCheck(item)) continue;
             string[] parts = item.Split(':');
             bool ok = parts[0] switch
             {
@@ -354,6 +395,10 @@ public partial class SimHost : Node
                 "wait" when parts.Length == 2 && Numbers(parts, out int[] t) => Wait(t[0]),
                 "policy" when parts.Length == 2 && Numbers(parts, out int[] n) => _bar.PressPolicy(n[0]),
                 "priority" when parts.Length == 3 && Numbers(parts, out int[] n) => _inspector.PressPriority(n[0], n[1]),
+                "camp" when parts.Length == 4 && Numbers(parts, out int[] n) => _bar.PressDay(Return.Sim.Systems.ScheduleSystem.Diurnal, n[0], n[1], n[2]),
+                "night" when parts.Length == 4 && Numbers(parts, out int[] n) => _bar.PressDay("nocturnal", n[0], n[1], n[2]),
+                "person" when parts.Length == 4 && Numbers(parts, out int[] n) => _inspector.PressDay(n[0], n[1], n[2]),
+                "watch" when parts.Length == 3 && Numbers(parts, out int[] n) => _bar.PressWatch(n[0], n[1]),
                 _ => false,
             };
             if (!ok) GD.PushWarning("Return: RETURN_PRESS could not press '" + item + "'.");
@@ -371,14 +416,17 @@ public partial class SimHost : Node
 
     private bool StartTool(BuildMode mode)
     {
+        StopZoneTool();
         if (mode == BuildMode.TakeDown) Build.TakeDown();
         else Build.CallOff();
         return true;
     }
 
+    /// <summary>Puts down whichever tool is in hand, Build or zones, as Esc does.</summary>
     private bool StopTool()
     {
         Build.Stop();
+        StopZoneTool();
         return true;
     }
 
@@ -403,6 +451,40 @@ public partial class SimHost : Node
         if (ticks < 0) return false;
         if (Drafts.Count > 0) Drafts.Flush(Sim);
         ViewStepper.Run(Sim, ticks, _witness);
+        return true;
+    }
+
+    /// <summary>
+    /// "zone:KIND:X:Y:W:H" or "unzone:X:Y:W:H": picks the tool in the Zones list through its button, then
+    /// drags the box through the same tool code the mouse uses; "open:NAME" opens a bar list. True when the item
+    /// was one of these.
+    /// </summary>
+    private bool PressZoneForCheck(string item)
+    {
+        string[] parts = item.Split(':');
+        if (parts.Length == 2 && parts[0] == "open")
+        {
+            if (!_bar.Open(parts[1])) GD.PushWarning("Return: RETURN_PRESS names no bar list '" + parts[1] + "'.");
+            return true;
+        }
+        bool zone = parts.Length == 6 && parts[0] == "zone", unzone = parts.Length == 5 && parts[0] == "unzone";
+        if (!zone && !unzone) return false;
+        int first = zone ? 2 : 1;
+        int[] n = new int[4];
+        for (int i = 0; i < 4; i++)
+            if (!int.TryParse(parts[first + i], NumberStyles.Integer, CultureInfo.InvariantCulture, out n[i]) || (i >= 2 && n[i] < 1))
+            {
+                GD.PushWarning("Return: RETURN_PRESS could not press '" + item + "'.");
+                return true;
+            }
+        if (!_bar.PressZoneTool(zone ? parts[1] : null))
+        {
+            GD.PushWarning("Return: RETURN_PRESS found no zone tool for '" + item + "'.");
+            return true;
+        }
+        Tool.Press(new SimPoint(n[0], n[1]));
+        Tool.Move(new SimPoint(n[0] + n[2] - 1, n[1] + n[3] - 1));
+        ReleaseZoneTool();
         return true;
     }
 

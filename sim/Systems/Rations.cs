@@ -96,7 +96,18 @@ public static class Rations
     /// </summary>
     public static void AfterDeposit(World w, string defId, Core.Point at)
     {
-        if (!w.Map.Stockpile.Contains(at)) return;
+        if (!Zones.Accepts(w, at, defId)) return;
+        ShareOut(w, defId);
+    }
+
+    /// <summary>A load put down is shared out when it is stores (ADR-0028): put away in a stockpile, or a hauler's stores set down again.</summary>
+    public static void AfterDeposit(World w, ItemStack deposited)
+    {
+        if (deposited.Stored) ShareOut(w, deposited.DefId);
+    }
+
+    private static void ShareOut(World w, string defId)
+    {
         foreach (Character c in w.Members())
             if (w.Content.SpeciesById(c.SpeciesId).FoodSource == defId) { Assign(w); return; }
     }

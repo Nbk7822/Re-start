@@ -15,7 +15,7 @@ public class RationingTests
     {
         World w = WorkTests.Only(1, keys);
         Stock.Take(w, "berries", 99);
-        if (berries > 0) Stock.Add(w, "berries", berries, w.Map.Stockpile.Center);
+        if (berries > 0) Stock.Add(w, "berries", berries, w.Map.StartStockpile.Center);
         return w;
     }
 
@@ -47,7 +47,7 @@ public class RationingTests
         World w = Short(0, "you", "mira", "oren");
         Character mira = Cast(w, "mira"), oren = Cast(w, "oren");
         mira.Food = 100; oren.Food = 200; Cast(w, "you").Food = 300;
-        Point at = w.Map.Stockpile.Center;
+        Point at = w.Map.StartStockpile.Center;
         Stock.Add(w, "berries", 1, at);
         Rations.AfterDeposit(w, "berries", at);
         Reservation r = Assert.Single(w.Reservations);

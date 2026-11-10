@@ -13,7 +13,7 @@ namespace Return.Sim;
 public sealed class World
 {
     /// <summary>Bump when the snapshot shape changes incompatibly.</summary>
-    public int SchemaVersion { get; set; } = 4; // 3: run memory, gift state, wounds and the Fate stream (ADR-0030); 4: plans, structures and the built camp (ADR-0027)
+    public int SchemaVersion { get; set; } = 5; // 3: run memory, gift state, wounds and the Fate stream (ADR-0030); 4: plans, structures and the built camp (ADR-0027); 5: zones, the camp's day and the watch (ADR-0028, ADR-0029)
     public long Tick { get; set; }
     public ulong Seed { get; set; }
     public int NextId { get; set; } = 1;
@@ -56,6 +56,19 @@ public sealed class World
 
     /// <summary>Standing orders you have given, ordinal by order id (ADR-0030).</summary>
     public List<StandingOrder> StandingOrders { get; set; } = new();
+    // The Schedule (ADR-0029): one camp day per kind of day, the watch hours and the decision that set them, and the watch as kept now.
+    public List<CampDay> CampDays { get; set; } = new();
+    /// <summary>The watch hours: from inclusive, to exclusive, wrapping past midnight; equal means the camp keeps no watch.</summary>
+    public int WatchFrom { get; set; }
+    public int WatchTo { get; set; }
+    public long WatchEvent { get; set; }
+    public WatchState Watch { get; set; } = new();
+
+    /// <summary>The night "would not keep watch outside the home area" was last said (once a night for the camp; zones step 3, ADR-0028); int.MinValue for never, since the small hours of day 0 are night −1.</summary>
+    public int HomeWatchNight { get; set; } = int.MinValue;
+
+    /// <summary>That line's event, which tonight's lines about refusals and an empty post cite with them.</summary>
+    public long HomeWatchEvent { get; set; }
 
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;

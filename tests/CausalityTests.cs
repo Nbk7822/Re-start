@@ -65,7 +65,7 @@ public class CausalityTests
         s.Step();
         Character you = Cast(w, "you"), mira = Cast(w, "mira"), oren = Cast(w, "oren");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
 
         // You are the hungriest anyway: "you eat first" changed nothing for Mira.
         you.Food = 100; mira.Food = 200; oren.Food = 900;
@@ -89,7 +89,7 @@ public class CausalityTests
         SimEvent old = Mark(w, "event.test.accident", ilex.Id);
         ilex.LastHealthEvent = old.Id;
         w.Tick = 3L * w.Content.World.TicksPerDay + 12L * w.Content.World.TicksPerHour;
-        ilex.Pos = w.Map.Stockpile.Center;
+        ilex.Pos = w.Map.StartStockpile.Center;
         NeedsSystem.Hourly(w);
         SimEvent burn = w.Log.All.Single(e => e.Key == "event.needs.sun_burn");
         Assert.Empty(burn.Causes);
@@ -108,6 +108,40 @@ public class CausalityTests
         mira.LastFoodEvent = hunger.Id;
         mira.HungerStage = 0;
         Assert.Equal(new[] { why.Id }, SocialSystem.Leave(w, mira, why.Id).Causes);
+    }
+
+    /// <summary>Zones design 5.5's cause fix: a forage chosen for hunger carries it, and the picking cites it; a forage for the camp cites nothing.</summary>
+    [Fact]
+    public void AForageForHungerCarriesTheHungerToThePicking()
+    {
+        World w = WorkTests.Only(1, "you");
+        Stock.Take(w, "berries", 99);
+        Character you = Cast(w, "you");
+        SimEvent hunger = Mark(w, "event.test.hunger", you.Id);
+        you.Food = 250;
+        you.LastFoodEvent = hunger.Id;
+        w.Tick = 10L * w.Content.World.TicksPerHour;
+        Job? job = JobPicker.Choose(w, you);
+        Assert.Equal(JobKind.Forage, job?.Kind);
+        Assert.Equal(hunger.Id, job!.CauseEvent);
+        WorkSystem.Assign(w, you);
+        for (int t = 0; t < 4_000 && !w.Log.All.Any(e => e.Key == "event.work.foraged"); t++)
+        {
+            TravelSystem.Step(w);
+            WorkSystem.Step(w);
+            w.Tick++;
+        }
+        Assert.Equal(new[] { hunger.Id }, w.Log.All.First(e => e.Key == "event.work.foraged").Causes);
+
+        // Fed, they forage for the camp's stores: no hunger of theirs is why.
+        World v = WorkTests.Only(1, "you");
+        Stock.Take(v, "berries", 99);
+        v.Tick = 10L * v.Content.World.TicksPerHour;
+        Character fed = Cast(v, "you");
+        fed.LastFoodEvent = Mark(v, "event.test.hunger", fed.Id).Id;
+        Job? work = JobPicker.Choose(v, fed);
+        Assert.Equal(JobKind.Forage, work?.Kind);
+        Assert.Equal(0, work!.CauseEvent);
     }
 
     [Fact]
@@ -147,11 +181,12 @@ public class CausalityTests
     public void TheLastTimberIsCitedWhenTheRoofPromiseBreaks()
     {
         World w = WorkTests.Only(1, "you", "sera");
+        w.Tick = 10L * w.Content.World.TicksPerHour; // working hours: at midnight the camp is in bed (ADR-0029)
         Character you = Cast(w, "you"), sera = Cast(w, "sera"), ilex = Cast(w, "ilex");
         BuildTests.Works(you);
         BuildTests.Works(sera, ("repair_roof", 1), ("build", 1));
         Stock.Take(w, "timber", 99);
-        Stock.Add(w, "timber", w.Content.WorkById("repair_roof").TimberCost, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", w.Content.WorkById("repair_roof").TimberCost, w.Map.StartStockpile.Center);
         SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: ilex.Id)!;
         IncidentSystem.Join(w, ilex, arrived.Id);
         Debt promise = w.Debts.Single(d => d.Kind == DebtKind.PromiseRest);

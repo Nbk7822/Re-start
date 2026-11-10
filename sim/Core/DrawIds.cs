@@ -40,6 +40,7 @@ public enum TruthId : ushort
     PersonBelonging = 43,
     SacredTree = 44,
     FestivalDate = 45,
+    // 70–79: the Schedule (ADR-0029). None drawn yet; a fixed body clock would take 70.
     // 80–89: who you are (the player design, ADR-0030). 85–89 stay reserved for later gift details (which god favours you).
     /// <summary>The people you are reborn as, drawn by weight from rebirth.json (keyed by your cast key).</summary>
     PlayerPeople = 80,
@@ -90,6 +91,17 @@ public enum DiceId : ushort
     FauxPas = 140,
     GuestOffer = 141,
     OmenRead = 142,
+
+    // 180–199: zones (ADR-0028). Compliance rolls draw from DiceSystem.Work, each with its rule's own tag.
+    /// <summary>Whether someone goes their own way tonight under the home area (zones step 3), through Compliance.Defies: once a night at dusk per person it binds, only when the odds are above 0.</summary>
+    ZoneDefy = 180,
+
+    // 200–219: the Schedule (ADR-0029). Compliance rolls on DiceSystem.Work, each with its own tag.
+    /// <summary>Whether someone goes their own way over a change to their day (Compliance.Defies), once per applied command; never the player.</summary>
+    DayChangeDefy = 200,
+    /// <summary>Whether someone woken for the watch goes their own way (Compliance.Defies), only when no reason of body or grudge applies.</summary>
+    WatchDefy = 201,
+
     // 220–239: fate and gifts (the player design, ADR-0030). All draw from DiceSystem.Fate; 223–229 stay
     // reserved for anomalies (slice 2) and 230–239 for later gifts.
     /// <summary>Whether a return reaches into the deep past (an old knot) rather than the last three days.</summary>

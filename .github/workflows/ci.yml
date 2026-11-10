@@ -30,8 +30,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-      - name: Soak 100 worlds for 1 year, the stand-in player's plans mixed (ADR-0027)
-        run: bash tools/soak --worlds 100 --years 1 --plan mixed --out out/soak
+      - name: Soak 100 worlds for 1 year, the stand-in player's plans, zones and days mixed (ADR-0027, ADR-0028, ADR-0029)
+        run: bash tools/soak --worlds 100 --years 1 --plan mixed --zones mixed --days mixed --out out/soak
       - uses: actions/upload-artifact@v4
         if: always()
         with:

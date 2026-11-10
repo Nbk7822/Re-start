@@ -43,7 +43,7 @@ public class BuildTests
     private static void SetTimber(World w, int n)
     {
         Stock.Take(w, "timber", 999);
-        if (n > 0) Stock.Add(w, "timber", n, new Point(w.Map.Stockpile.X + 1, w.Map.Stockpile.Y));
+        if (n > 0) Stock.Add(w, "timber", n, new Point(w.Map.StartStockpile.X + 1, w.Map.StartStockpile.Y));
     }
 
     [Fact]
@@ -256,7 +256,7 @@ public class BuildTests
         Assert.All(w.Map.Structures, s => Assert.True(w.Map.Passable(s.Pos)));
         SimEvent took = w.Log.All.Single(e => e.Key == "event.work.took_down");
         Assert.EndsWith("took down 3 walls.", EventText.Describe(w, took));
-        Assert.DoesNotContain(w.Items, i => i.DefId == "timber" && !w.Map.Stockpile.Contains(i.Pos)); // half of one timber is none
+        Assert.DoesNotContain(w.Items, i => i.DefId == "timber" && !w.Map.StartStockpile.Contains(i.Pos)); // half of one timber is none
         // Whoever built the walls thinks less of the player who marked them, once for the whole run; past the line, a grudge.
         int[] builders = w.Map.Structures.Select(s => s.BuiltBy[0]).Distinct().ToArray();
         foreach (int b in builders)
@@ -320,6 +320,7 @@ public class BuildTests
     public void ABuilderClaimsTheBedTheyBuilt()
     {
         World w = WorkTests.Only(1, "oren");
+        w.Tick = 10L * w.Content.World.TicksPerHour; // working hours: at midnight Oren would sleep first, in a bed of the shelter's (ADR-0029)
         Character oren = Cast(w, "oren");
         Works(oren, ("build", 1));
         SetTimber(w, 2);
@@ -342,6 +343,7 @@ public class BuildTests
     public void ABedlessBuilderBuildsABedBeforeMendingTheRoofButOneWithABedMendsFirst()
     {
         World w = WorkTests.Only(1, "sera");
+        w.Tick = 10L * w.Content.World.TicksPerHour; // working hours: at midnight the camp is in bed (ADR-0029)
         Character sera = Cast(w, "sera");
         Works(sera, ("repair_roof", 1), ("build", 1));
         sera.Traits = new List<string> { "protective", "proud" }; // no lean to any work, and no Independent halving the right's weight
@@ -424,6 +426,7 @@ public class BuildTests
     public void AnOathboundDebtorRaisesAPlannedRoofAndKeepsTheirPromise()
     {
         World w = WorkTests.Only(1, "oren", "ilex");
+        w.Tick = 10L * w.Content.World.TicksPerHour; // working hours: at midnight the camp is in bed (ADR-0029)
         Character oren = Cast(w, "oren"), ilex = Cast(w, "ilex");
         Works(oren); // no work at all: only the promise moves him
         Works(ilex);
@@ -478,6 +481,7 @@ public class BuildTests
     public void AGenerousPersonWillNotTakeTheLastTimberSomeoneIsCountingOn()
     {
         World w = WorkTests.Only(1, "bram", "you");
+        w.Tick = 10L * w.Content.World.TicksPerHour; // working hours: at midnight the camp is in bed (ADR-0029)
         Character bram = Cast(w, "bram");
         Works(bram, ("build", 1));
         SetTimber(w, 2);

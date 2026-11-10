@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Return.Sim;
 using Return.Sim.Api;
@@ -43,18 +44,40 @@ public static class ViewText
         return lines;
     }
 
-    /// <summary>The most recent events, newest first, as "When — text".</summary>
+    /// <summary>How many events back, per entry shown, the Chronicle looks for runs to fold.</summary>
+    private const int FoldWindow = 4;
+
+    /// <summary>
+    /// The most recent events, newest first, as "When — text". A run of the same line that differs only in one person is
+    /// one entry: its first line, then "… and the same with Nia, Wren, until Day 37, 03:00." (the story log's fold, shared
+    /// through EventFold; zones design 5.6), so a night of breaches or refusals does not bury the rest.
+    /// </summary>
     public static IReadOnlyList<string> Chronicle(World w, int max = ChronicleLength)
     {
         List<SimEvent> all = w.Log.All;
-        var lines = new List<string>(max);
-        for (int i = all.Count - 1; i >= 0 && lines.Count < max; i--)
+        int from = Math.Max(0, all.Count - max * FoldWindow);
+        List<SimEvent> recent = all.GetRange(from, all.Count - from);
+        var entries = new List<string>();
+        for (int k = 0; k < recent.Count;)
         {
-            SimEvent e = all[i];
-            lines.Add(Ui.F("ui.chronicle.entry", ("when", EventText.When(w, e.Tick)), ("text", EventText.Describe(w, e))));
+            (int unit, int repeats, string arg) = EventFold.Repetition(recent, k);
+            var lines = new List<string>(unit + 1);
+            for (int u = 0; u < unit; u++) lines.Add(Entry(w, recent[k + u]));
+            if (repeats > 1)
+            {
+                var others = new List<string>(repeats - 1);
+                for (int r = 1; r < repeats; r++) others.Add(EventText.ResolveMid(w, EventFold.ArgValue(recent[k + r * unit], arg)));
+                lines.Add(Ui.F("ui.chronicle.repeat", ("names", JoinList(others)), ("when", EventText.When(w, recent[k + repeats * unit - 1].Tick))));
+            }
+            entries.Add(string.Join("\n", lines));
+            k += unit * repeats;
         }
-        return lines;
+        entries.Reverse();
+        if (entries.Count > max) entries.RemoveRange(max, entries.Count - max);
+        return entries;
     }
+
+    private static string Entry(World w, SimEvent e) => Ui.F("ui.chronicle.entry", ("when", EventText.When(w, e.Tick)), ("text", EventText.Describe(w, e)));
 
     /// <summary>
     /// The emote id of a person's most recent thought (latest start tick; ties go to the later
@@ -221,6 +244,14 @@ public static class ViewText
         if (g.Want == null) return Ui.T("ui.inspector.none");
         if (g.Arc == null || g.Arc.Stage == ArcStage.Want) return g.Want.Text;
         return Ui.F("ui.inspector.want_stage", ("want", g.Want.Text), ("stage", g.Arc.StageLabel));
+    }
+
+    /// <summary>The lantern on the watch pole burns while someone keeps watch at the post, awake: it goes dark when the watcher falls asleep there (ADR-0029).</summary>
+    public static bool LanternLit(World w)
+    {
+        foreach (Character c in w.Characters)
+            if (c.Status == CharStatus.Member && !c.Asleep && c.Job is { Kind: JobKind.KeepWatch, Stage: >= 1 }) return true;
+        return false;
     }
 
     /// <summary>Items joined with the localised list separator.</summary>

@@ -44,6 +44,7 @@ public class WorkTests
         Stock.Take(w, "berries", 99);
         Character you = Cast(w, "you");
         you.Food = 250;
+        w.Tick = 10L * w.Content.World.TicksPerHour; // in waking hours; at night only real hunger sends anyone out (ADR-0029)
         Job? job = JobPicker.Choose(w, you);
         Assert.Equal(JobKind.Forage, job?.Kind);
     }
@@ -64,7 +65,7 @@ public class WorkTests
     public void BuilderRepairsRoofWithTimber()
     {
         World w = Only(2, "oren");
-        Stock.Add(w, "timber", 4, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 4, w.Map.StartStockpile.Center);
         int timber = Stock.Count(w, "timber");
         Run(w, 6_000, () => w.Map.Roof.Any(r => r.Sound));
         Assert.Contains(w.Map.Roof, r => r.Sound);
@@ -78,7 +79,7 @@ public class WorkTests
     {
         World w = Only(1, "ilex");
         Character ilex = Cast(w, "ilex");
-        ilex.Pos = w.Map.Stockpile.Center;
+        ilex.Pos = w.Map.StartStockpile.Center;
         w.Tick = 6 * w.Content.World.TicksPerHour;
         Assert.Equal(JobKind.SeekCover, JobPicker.Choose(w, ilex)?.Kind);
         Run(w, 600, () => w.Map.Covered(ilex.Pos));
@@ -126,6 +127,7 @@ public class WorkTests
     {
         World w = Only(1, "mira", "oren");
         Character mira = Cast(w, "mira"), oren = Cast(w, "oren");
+        w.Tick = 8L * w.Content.World.TicksPerHour; // waking hours: nobody leaves their bed at midnight to tend a wound (ADR-0029)
         oren.Health = 300;
         Run(w, 2_000, () => oren.Health > 450);
         Assert.True(oren.Health > 450);
@@ -139,8 +141,8 @@ public class WorkTests
         World w = Only(1, "nia", "mira");
         Character nia = Cast(w, "nia"), mira = Cast(w, "mira");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
-        nia.Pos = w.Map.Stockpile.Center;
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
+        nia.Pos = w.Map.StartStockpile.Center;
         mira.Pos = w.Map.WatchPost;
         SimEvent spoiled = w.Log.Emit(w, SystemTag.Incident, "event.test.spoiled", Array.Empty<int>(), Array.Empty<long>());
         nia.LastFoodEvent = spoiled.Id;
@@ -160,12 +162,21 @@ public class WorkTests
         Assert.Contains(SystemTag.Social, story.Systems);
     }
 
+    /// <summary>At a watch hour one awake, willing person is sent to the post within one WatchSystem step; the job picker never sends anyone (ADR-0029).</summary>
     [Fact]
     public void WatchAtNight()
     {
         World w = Only(1, "vale");
+        Character vale = Cast(w, "vale");
         w.Tick = 22 * w.Content.World.TicksPerHour;
-        Assert.Equal(JobKind.KeepWatch, JobPicker.Choose(w, Cast(w, "vale"))?.Kind);
+        Assert.NotEqual(JobKind.KeepWatch, JobPicker.Choose(w, vale)?.Kind);
+        vale.Job = null;
+        WatchSystem.Step(w);
+        Assert.Equal(JobKind.KeepWatch, vale.Job?.Kind);
+        Assert.Equal(vale.Id, w.Watch.IncomingId);
+        Run(w, 600, () => w.Watch.WatcherId == vale.Id);
+        Assert.Equal(vale.Id, w.Watch.WatcherId);
+        Assert.Contains(w.Log.All, e => e.Key == "event.work.took_watch" && e.Actors[0] == vale.Id);
     }
 
     [Fact]

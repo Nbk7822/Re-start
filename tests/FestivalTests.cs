@@ -31,7 +31,7 @@ public class FestivalTests
     public void FestivalsBeginOnTheirDayAndForgiveOneGrudgeEach()
     {
         (World w, Character you, Character mira, Character oren, Character nia, long dusk) = HarvestCamp();
-        Stock.Add(w, "berries", 5, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 5, w.Map.StartStockpile.Center);
         foreach (Character c in new[] { you, mira, oren, nia }) c.Food = 600;
         mira.Food = 200;
 
@@ -127,7 +127,7 @@ public class FestivalTests
     public void WithNothingToSpareTheFireIsLean()
     {
         (World w, _, Character mira, _, _, long dusk) = HarvestCamp();
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center); // fewer than the two keepers
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center); // fewer than the two keepers
         w.Tick = dusk;
         Festivals.Hourly(w);
         Assert.Single(w.Log.All, e => e.Key == "event.culture.harvest_fire.begins_lean");

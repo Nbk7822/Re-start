@@ -111,6 +111,7 @@ public class GiftTests
     {
         Simulation sim = Camp(Gifts.SatchelId, 4, "nia");
         World w = sim.World;
+        w.Tick = 10L * w.Content.World.TicksPerHour; // waking hours: at midnight you are asleep, and share nothing till morning (ADR-0029)
         Character you = You(w), nia = Cast(w, "nia");
         w.Fate.GiftAwakened = true;
         w.Gift.Held = 3;

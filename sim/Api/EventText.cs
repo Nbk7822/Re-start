@@ -91,6 +91,8 @@ public static class EventText
                 return body;
             case 'e':
                 return Quote(w, body) ?? value;
+            case 'h':
+                return Hour(w, int.TryParse(body, NumberStyles.Integer, Inv, out int h) ? h : 0);
             default:
                 return value;
         }
@@ -115,6 +117,10 @@ public static class EventText
                 if (a.Value.StartsWith("e:", StringComparison.Ordinal) && Quote(w, a.Value.Substring(2)) is { } first) return first;
         return Describe(w, quoted);
     }
+
+    /// <summary>An hour of the day in words: time.hour with the hour as two digits ("06:00").</summary>
+    public static string Hour(World w, int hour) =>
+        w.Content.Loc.Format("time.hour", new[] { new KeyValuePair<string, string>("h", hour.ToString("00", Inv)) });
 
     public static string Name(World w, int id)
     {

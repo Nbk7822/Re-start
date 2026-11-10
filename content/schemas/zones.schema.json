@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kinds of zone the player can paint on the grid (ADR-0028). The behaviour names code; mods may add kinds with an existing behaviour.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKey", "hintKey", "behaviour", "layer"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKey": { "$ref": "#/$defs/locKey" },
+      "hintKey": { "description": "One line saying what the zone asks of people", "$ref": "#/$defs/locKey" },
+      "behaviour": { "description": "What the zone does: stores goods, gathers the idle, or keeps people home after dark", "enum": ["stores", "gather", "home"] },
+      "layer": { "description": "Use zones never overlap each other; areas overlap anything", "enum": ["use", "area"] },
+      "single": { "description": "At most one zone of this kind; a second marking joins the first", "type": "boolean" },
+      "color": { "description": "A view hint for the zone's fill and edge", "type": "string", "pattern": "^#[0-9a-f]{6}$" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

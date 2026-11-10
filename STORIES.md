@@ -273,6 +273,96 @@ On the eighth morning, the camp having outgrown its beds, you marked out the thi
 - Chain: your plan (World) → you felled her tree for it (Work) → Thessil cried out (Needs) → grudge → left (Social). 5 steps.
 - Why it matters: seed 16's chain with the hut in place of the beds, six days after the design's fixed day 2 would have put it up (ADR-0027 item 12), when there was someone in camp for the felling to hurt.
 
+## 2026-11-09 — Zones slice 1: stockpiles and the meeting place (ADR-0028; soak 100 worlds × 1 year)
+
+With no zones marked, 1,423 stories (14.23 per world; 1,426 at the merge base). With the stand-in's `--zones dry` plan (the stockpile moved into the covered ruins on the first morning), 1,313: nothing spoils in the damp, but the ruins sit in the middle of the camp, where the watch and the Protective see most thieves coming, so thefts fall too and the move rarely heads a story (4 stories in 3 worlds). People kept away from the fire in 98 worlds.
+
+### The dry stores (seed 91, soak `--zones dry`; policy "promised meals come first")
+On the first morning you marked a stockpile in the covered ruins and took away the one by the hearth; nothing spoiled in the damp all year. Late on Day 35 a thief crept in and made off with 3 berries from the stockpile, out of sight of Ilex on watch. By the next evening Nia and Wren were hungry, by midnight starving, and at the 02:18 share-out on Day 37 both went without so others could eat. At 02:31 Wren took the meal set aside for Bram, and at 02:51 Nia did the same. Bram held a grudge against them both, and that evening he left the camp.
+- Chains: stockpile marked (World) → theft out of the watch's sight (Incident) → hungry, starving, went without (Needs) → took the meal → grudge (Social), once for each thief of a meal; Wren's runs on to Bram leaving.
+- Why it matters: the zones design's story 1, arising unprompted. The player's tidy-up of the stores is the first link of a feud five weeks later, and nobody in it is a villain. It is rare (see ADR-0028 on why the ruins are safer than they look).
+
+### Out of your sight (seed 30, soak `--zones dry`; policy "the hungriest eat first")
+You moved the stores into the ruins on the first morning. On Day 20, while you kept the night watch, a thief made off with 3 berries from the stockpile, out of your sight. By six you were getting hungry, and at 06:38 Sennet, one of the Good Folk, brought you a meal: the welcome they had sworn to repay.
+- Chain: stockpile marked (World) → theft out of the watch's sight (Incident) → hungry (Needs) → brought a meal (Work) → word kept (Social).
+
+### The fire they would not share (seed 27, soak, no zones marked; policy "the hungriest eat first")
+On the first night Oren felled a tree for timber: the old tree sacred to the Old Roots. Mira, who follows the Old Roots, held a grudge against him from that hour, and from then on the two never sat at the fire together. Day after day one of them came to the fire, found the other there and went to sit alone by the shelter: "Mira kept away from the fire while Oren sat there", and, once she had insulted him on Day 6 and he had taken a grudge of his own, "Oren kept away from the fire while Mira sat there", 27 times between them in sixteen days. On Day 17 you insulted Mira, and within the hour, holding two grudges and sour from sitting apart, she left the camp. You took her place: you had held a grudge against Oren since Day 9, and for ten more days you kept away from the fire while he sat there, until on Day 27 he held a grudge against you too and left at dusk, the evening before the Old Roots lit their harvest fire.
+- Chain the analyzer found: felled → desecrated (Culture) → grudge → Mira left (Social); and felled → desecrated → grudge → insults → grudges, to Mira's grudge against you.
+- Off the chain, on the map: 49 "kept away" lines in the year. They are the feud made visible, not causes: the next insult cites the grudge itself. Mira's sitting apart (−3 each time) is part of the black mood her two grudges took her away in.
+- Why it matters: the culture slice's soak told this world as a feud the harvest fire set down. With the camp gathering at the fire, the same first night now shows as a fire two people take turns at, and the feud runs out of people before the festival comes.
+
+### Mira apart at dusk (seed 27, playtest view)
+Day 8, 18:18: the camp sits round the fire (Hollis, Wren, Bram, Sera, Thessil and you), and Mira stands alone by the shelter's west wall with the gloom mark over her head, nineteen minutes after she kept away from the fire while Oren sat there. The screenshot is ADR-0028's.
+
+
+## 2026-11-09 — Schedule slice 1: the camp's day and the watch in turns (ADR-0029; soak 100 worlds × 1 year)
+
+With the camp's default day and watch, 1,412 stories (1,423 at the merge base; 6,976 against 6,860 on 500 seeds), 171 of them through the watch or overwork, in 88 worlds. Humans now sleep 22:00–06:00 (a median 7.6 h, from 4.7) and the night is kept in four-hour turns, handed from person to person. Seeds are from `tools/soak --worlds 100 --years 1 --days <plan>`; the nightwatcher plan puts Mira on nights.
+
+### The walk to wake Sera (seed 92, soak `--days nightwatcher`; policy "you eat first")
+On the night of Day 38 Vale kept the first turn and Varrow the second. At 03:30 Varrow left the post to wake Sera for the last turn, and two minutes later, while he walked, a thief made off with 3 berries; nobody was on watch. By morning Nia was hungry, and at 12:27 she took the meal set aside for Mira. Mira held a grudge against Nia, was starving by mid-afternoon, and on Day 40 left the camp.
+- Chain: took the watch, took the watch, went to wake (Work) → the theft, citing the walk (Incident) → hungry (Needs) → took the meal → grudge (Social); a second story runs on through Mira's hunger to her leaving.
+- Why it matters: the schedule design's first story, arising unprompted. The empty post during a handover is a real window on the map, and the theft says why the post was empty.
+
+### Bram would not get up (seed 77, soak; policy "you eat first")
+Bram had held a grudge against Varrow since Day 25, and every morning kept away from the fire while Varrow sat there. Three nights running, at 23:29, Varrow walked to wake him for his turn on watch, and three times Bram would not get up for Varrow. The third time, Varrow held a grudge against Bram. The next morning Varrow felled the tree Thessil was bound to, and on Day 38 he left the camp.
+- Chain the analyzer found: took the watch, went to wake (Work) → would not get up → grudge → left (Social). Off the chain, in what happened: the mornings at the fire and the other two nights.
+- Why it matters: a grudge now shows at night as well as at the fire. The fair rota sent Varrow to the person he liked least among those equally due, and a refusal from the same person three nights over is what turned him.
+
+### Sera's watch (seed 32, soak; policy "you eat first")
+At 03:00 on Day 40 a thief crept in; Ilex spotted it, but it made off with 3 berries. By 09:00 Sera was starving. That night, when Vale's turn ended, Vale woke her: Sera, hungry, would not take the watch. Vale went to wake you instead, and at 23:56 you kept the watch in Sera's place. Sera owes you for a watch kept in their place.
+- Chain: night thief (Incident) → spotted (Combat) → theft → starving (Needs) → refused, hungry (Social) → kept in her place (Work) → owes (Social). Five systems.
+- Why it matters: a debt that comes from the watch, and the theft the night before is why. ADR-0018 noted that most debts are never repaid; a watch kept in someone's place can close an old one or open a new one, and here it opens a debt from Sera to you.
+
+### The Longest Night, and after (seed 67, soak `--days nightwatcher`; policy "promised meals come first")
+At dusk on Day 38 the River-Born began to keep the Longest Night by the hearth, and nobody kept watch. After the fire, at 23:19, Vale took the watch. At 03:24 Vale woke Mira, who told Vale to find someone else; Sera was too tired; Vale left the watch with nobody to take it. At 04:53 Varrow came to the empty post and kept the watch in Sera's place, and Sera owes Varrow for it.
+- Chain: the festival (Culture) → took the watch → went to wake → told to find someone else, too tired (Social) → left the watch → kept in Sera's place (Work) → owes (Social).
+- Why it matters: the festival leaves the post empty on purpose and is the first link, and an Independent's own way and a tired refusal make the rest of the night.
+
+### Sennet's sworn watch (seed 3, soak; policy "the hungriest eat first")
+On Day 34 two berries spoiled in the damp; by 19:00 Sennet, one of the Good Folk, was starving. At 23:28 Varrow woke Sennet for the watch, and Sennet, hungry, would not take it. Varrow kept the watch in Sennet's place, and Sennet swore to repay him.
+- Chain: food spoils (Incident) → hungry, starving (Needs) → refused, hungry (Social) → kept in Sennet's place (Work) → swore to repay (Social).
+- Why it matters: a fae cannot owe without swearing. A watch debt is a debt like any other, so the Good Folk's oath comes with it.
+
+### Your night on watch (seed 1, playtest view)
+Day 2, 09:00. Last night Oren kept the watch until 23:00, then woke you; you kept it until 04:00 and woke Mira. Your inspector's lived strip shows the five hours on watch, each notched where your planned day said sleep, and a nap from 18:00 to 21:00 the evening before, notched again. The Schedule list beside it reads "Last night: Oren 19:00–23:00 · You 23:00–04:00 · Mira 04:00–06:00". On Day 22 at midnight the lantern burns over Vale at the post; the night folk keep most watches once they have come.
+
+## 2026-11-10 — Zones slice 1, step 3: the home area and the dark (ADR-0028 update; soak 100 worlds × 1 year)
+
+With no home area marked, 1,406 stories (1,412 at the merge base): the dark beyond the firelight doubles the odds of an accident at night, and 91 of the year's 305 accidents happen in it, but none reaches a story. With the stand-in's home plans, 1,388 (`--zones home`, the camp clearing), 1,396 (`short`, the clearing one row short of the watch post) and 1,374 (`both`, with the stores in the ruins). Only 3 of those 300 worlds have a story through a home-area line, all in `short`; the design's floor is 15%, so its cut rule is triggered (ADR-0028). Seeds are from `tools/soak --worlds 100 --years 1 --zones <plan>`.
+
+### Nobody bound would keep the watch (seed 12, soak `--zones short`; policy "the hungriest eat first")
+On the first morning you marked out a home area round the camp, one row short of the watch post, asking everyone to keep inside it after dark. In the small hours of Day 37, deep in the winter squeeze, Vale's turn on watch ended, and there was nobody left to ask who could keep a post outside the home area: "You would not keep watch outside the home area after dark." Vale left the watch; nobody came to take it. At 04:20 a thief made off with a berry; nobody was on watch. At 06:32 Nia went without so others could eat, by noon she was hungry, by evening starving, and on Day 39 she left the camp.
+- Chain: home area marked (World) → would not keep watch outside → left the watch (Work) → the theft, citing the empty post (Incident) → went without, hungry, starving (Needs) → left (Social).
+- Why it matters: the design's story 3, arising unprompted. Everyone did what you asked, the vampire would not stay on alone, and the line that names why the post was empty is yours.
+
+### The meal Sennet took (seed 77, soak `--zones short` and `--zones mixed`; policy "you eat first")
+Your home area left the watch post just outside it. On Day 33 at 23:12 nobody bound by it could be asked to keep watch ("Wren would not keep watch outside the home area after dark."), and at 03:12 Varrow left the watch; nobody came to take it. At 05:17 a thief made off with 3 berries. By that evening Sennet, one of the Good Folk, was hungry, by one in the morning starving, and at the 02:18 share-out on Day 35, with you eating first, Sennet went without. Thirteen minutes later Sennet took the meal set aside for you, and you now hold a grudge against Sennet.
+- Chain: home area marked (World) → would not keep watch outside → left the watch (Work) → theft (Incident) → hungry, starving, went without (Needs) → took the meal → grudge (Social). 9 steps.
+
+### Mira stayed in (seed 82, soak `--zones home --days nightwatcher`; policy "promised meals come first")
+You put Mira on nights and marked out a home area round the camp. Winter came on Day 31 and the frost took the berries from the bushes. At midnight on Day 37, at work in her night hours, Mira was getting hungry, and the food she would have gone for lay beyond the home area (that is the only time the line is said): "Mira, hungry, stayed in camp after dark as you asked." At the 02:29 share-out she went without, and at 03:22 she took the meal set aside for Hollis. Hollis now holds a grudge against Mira.
+- Chain: winter (World) → hungry (Needs) → stayed in as asked (Work) → went without (Needs) → took the meal → grudge (Social).
+- Why it matters: obeying at a cost, as the design wanted: the line that she stayed in is the cause of the hunger that follows. It happens almost only to people on nights (5 of 100 nightwatcher worlds), because under the camp's day nobody else is out and hungry after dark.
+
+### The post beyond the edge (seed 1, playtest view)
+Day 3, 20:01. You marked out the home area a moment ago. The camp sits round the fire inside it (Oren, Ilex, you), the home area's faint dashed edge runs across the grass below the fire, and beyond it Mira keeps the watch at the post under the lit lantern: she was already there, so the turn is hers to finish, and from the next handover nobody the home area binds will be asked to go out to it. The tile tooltip by the fire reads "Home area · By the fire's light".
+
+## 2026-11-10 — Zones and Schedule slice 1, reviewed (ADR-0028 and ADR-0029 reviews; soak 100 worlds × 1 year)
+
+After the review's fixes, 1,424 stories with no zones and the camp's default day (1,406 before the review; 1,426 at the merge base), 174 of them through the watch or overwork in 91 worlds; the nightly CI's `--zones mixed --days mixed` 1,731. The review gave every way off the watch post its line, stopped a thirsty vampire waking the same sleeper all night, cut stale links from an old watch to today's tiredness, and let the home area speak on the world's first night. Seeds are from `tools/soak --worlds 100 --years 1 --zones <plan>`.
+
+### The guest on watch (seed 100, soak `--zones both`; policy "promised meals come first")
+Wren wandered in hungry on Day 36 and stayed after you promised her a meal within two days. That night she was on watch, and by 02:00 she was starving: at 02:06 she left the watch to look for food. At the 02:24 share-out she went without; your promise broke, and she had come as a guest, which the Hearthfolk do not forgive. Sera and Nia, left out too, took the meal set aside for Hollis, the other newcomer you had promised. At three Wren left the camp. Nobody had taken the post she left: Mira saw a thief come at 03:29, but at 03:40 it made off with 2 berries, "nobody was on watch". At 04:52, with nothing to spare in the stores, Sera went out into the dark and found Hollis something to eat, as the Reed Folk do for a guest, two hours after she had eaten his meal. Your word to Hollis was kept, and on Day 39 he repaid her, as the Ember do.
+- Chain: arrival (Incident) → promise (Social) → hungry, starving (Needs) → left the watch (Work) → the theft at the empty post, citing why it was empty (Incident) → guest-bread (Culture) → promise kept → owes a meal → repaid (Social). 11 steps, five systems.
+- Why it matters: the rota puts whoever is awake at the post, and here that was a starving guest; the gap she left is the theft's cause, and the thief's berries are what the Reed Folk's custom had to make up for. The same hour shows a person's people overriding what she did an hour before.
+
+### The first night (seed 12, soak `--zones short`)
+The stand-in marks its home area as the world begins, one row short of the watch post. Before the review that first night said nothing, and at 01:00 "Nobody kept the watch." stood with no cause; now Day 1 opens with "You would not keep watch outside the home area after dark." Seed 12's winter story above ("Nobody bound would keep the watch") still happens as told.
+
+The earlier entries in the zones and schedule sections describe the builds before this review. Seeds 12 and 77 (`--zones short`), 92 (`--days nightwatcher`), 77 and 3 (default) and 82 (`--zones home --days nightwatcher`) still happen as told; seeds 91 and 30 (`--zones dry`), 27 (no zones), 32 (default) and 67 (`--days nightwatcher`) have moved, re-rolled by the fixes to the watch after a fight and to waking donors.
+
 ## 2026-11-09 — The founder plays the return (ADR-0031 play check, first try; milestone-0 at 3f5068d)
 The founder played the merged slice of Who you are and Return by Death with `tools/play 23`: seed 23, where you wake as a vampire and, left alone, the build's own run dies of its wounds at 02:00 on Day 10 and comes back to Day 8, 15:00. It was a short session, well under ADR-0031's two hours, and before the opening act. Asked ADR-0031's four questions, the founder answered:
 1. Did you die and come back, and did you want to go on? "no"

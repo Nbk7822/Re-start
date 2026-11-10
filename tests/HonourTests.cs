@@ -102,7 +102,7 @@ public class HonourTests
         (World w, Character ilex, Character bram, Debt debt, _) = Owed();
         w.Tick = debt.FormedTick + 50L * w.Content.World.TicksPerHour;
         bram.HungerStage = 1; bram.Food = 250;
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         Assert.Null(Honour.RepayJob(w, ilex, sunBlocked: true));
         Assert.NotNull(Honour.RepayJob(w, ilex, sunBlocked: false));
     }
@@ -115,7 +115,7 @@ public class HonourTests
         w.Tick = debt.FormedTick + 50L * w.Content.World.TicksPerHour;
         bram.HungerStage = 1; bram.Food = 250;
         Assert.Null(Honour.RepayJob(w, ilex, sunBlocked: false));
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         Job? job = Honour.RepayJob(w, ilex, sunBlocked: false);
         Assert.Equal(Places.FoodTile(w, "berries"), job?.Target);
     }

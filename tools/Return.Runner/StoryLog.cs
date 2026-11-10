@@ -30,14 +30,15 @@ public static class StoryLog
 
     /// <summary>
     /// Creates the world for a seed (your people and gift rolled, or chosen for testing), lets the stand-in player set
-    /// its ration policy and make its building plan (ADR-0027), and runs it to the end of whole years. `run` and `soak`
-    /// both use this.
+    /// its ration policy, lay out its zones and its days (ADR-0028, ADR-0029) and make its building plan (ADR-0027), and
+    /// runs it to the end of whole years. `run` and `soak` both use this.
     /// </summary>
-    internal static Simulation Simulate(ContentDb content, ulong seed, int years, RunSetup? setup = null, string plan = "none")
+    internal static Simulation Simulate(ContentDb content, ulong seed, int years, RunSetup? setup = null, string plan = "none",
+        string zones = "none", string days = "default")
     {
         setup ??= RunSetup.Plain;
         Simulation sim = Simulation.Create(content, seed, setup.Choice);
-        Autoplay.Begin(sim);
+        Autoplay.Begin(sim, zones, days);
         Run(sim, TicksFor(content.World, years), setup, Autoplay.PlanFor(plan, seed));
         return sim;
     }
@@ -51,9 +52,10 @@ public static class StoryLog
     /// times as many is in a death loop and fails. Under --fates, you are killed once, in your first timeline, at the
     /// seed's fate tick. Each step the stand-in player gives its standing order and, at 08:00, marks out what its
     /// building plan has due (ADR-0027), against the world as it is then, so a world's log stays a function of its
-    /// seed and setup.
+    /// seed and setup. <paramref name="afterStep"/>, if given, reads the world after every step (the soak's meters);
+    /// it must only read.
     /// </summary>
-    internal static void Run(Simulation sim, long target, RunSetup setup, string plan = "none")
+    internal static void Run(Simulation sim, long target, RunSetup setup, string plan = "none", Action<Simulation>? afterStep = null)
     {
         long forceAt = setup.Fates ? RunSetup.FateTick(sim.World.Seed, sim.World.Content.World) : -1;
         bool forced = false;
@@ -66,6 +68,7 @@ public static class StoryLog
             Autoplay.Tick(sim);
             Autoplay.Hour(sim, plan);
             sim.Step();
+            afterStep?.Invoke(sim);
         }
     }
 
@@ -89,10 +92,26 @@ public static class StoryLog
         foreach (SimEvent e in all)
             if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture
                     or SystemTag.Fate or SystemTag.Gift || e.Key.StartsWith("event.fate.", StringComparison.Ordinal)
-                    || e.Key.StartsWith("event.gift.", StringComparison.Ordinal) || inStory.Contains(e.Id))
+                    || e.Key.StartsWith("event.gift.", StringComparison.Ordinal) || inStory.Contains(e.Id)
+                    || IsZoneEvent(e) || e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal) || IsScheduleNotable(e.Key) || IsHomeLine(e.Key))
                 notable.Add(e);
         return new LogAnalysis(stories, notable);
     }
+
+    /// <summary>
+    /// Schedule lines a stranger needs to follow the nights (ADR-0029): your decisions about the days and the watch, anyone
+    /// going their own way over them, refusals, covers, stays, an empty post and why, and wear. Routine turns and wakings
+    /// show only inside a story.
+    /// </summary>
+    internal static bool IsScheduleNotable(string key) =>
+        StateApi.IsScheduleLine(key) && key is not ("event.work.took_watch" or "event.work.went_to_wake");
+
+    /// <summary>Zone events explain behaviour to a stranger reader, as incidents do (ADR-0028): a stockpile marked or moved, a home area marked out.</summary>
+    internal static bool IsZoneEvent(SimEvent e) =>
+        e.Key.StartsWith("event.world.zone_", StringComparison.Ordinal) || e.Key.StartsWith("event.world.home_", StringComparison.Ordinal);
+
+    /// <summary>The home area's lines (zones step 3): who went out after dark and why, who stayed in.</summary>
+    internal static bool IsHomeLine(string key) => Soak.IsHomeStoryEvent(key);
 
     internal static void Render(World w, LogAnalysis analysis, TextWriter writer)
     {
@@ -109,62 +128,10 @@ public static class StoryLog
             ("events", Num(w.Log.All.Count)), ("notable", Num(analysis.Notable.Count)), ("stories", Num(analysis.Stories.Count))));
     }
 
-    /// <summary>
-    /// The run of identical steps starting at <paramref name="start"/>: a unit of one or two events that
-    /// repeats with only one character changing (Ilex asks Nia, Nia refuses; Ilex asks Mira, Mira
-    /// refuses...). Returns the unit length, how many times it occurs (1 = no run worth folding) and
-    /// the placeholder that changes. A run is folded only from three occurrences on.
-    /// </summary>
-    internal static (int Unit, int Repeats, string Arg) Repetition(IReadOnlyList<SimEvent> chain, int start)
-    {
-        for (int unit = 1; unit <= 2; unit++)
-        {
-            if (start + 3 * unit > chain.Count) break;
-            string? arg = ChangingArg(chain, start, start + unit, unit);
-            if (arg == null || !AboutOnePerson(chain, start, unit, arg) || !AboutOnePerson(chain, start + unit, unit, arg)) continue;
-            int repeats = 2;
-            while (start + (repeats + 1) * unit <= chain.Count && ChangingArg(chain, start, start + repeats * unit, unit) == arg
-                   && AboutOnePerson(chain, start + repeats * unit, unit, arg)) repeats++;
-            if (repeats >= 3) return (unit, repeats, arg);
-        }
-        return (1, 1, "");
-    }
+    /// <summary>The run of identical steps starting at <paramref name="start"/>, as the Chronicle folds it too (EventFold).</summary>
+    internal static (int Unit, int Repeats, string Arg) Repetition(IReadOnlyList<SimEvent> chain, int start) => EventFold.Repetition(chain, start);
 
-    /// <summary>The one character placeholder whose value differs between two units (the same one in every event of the unit), or null.</summary>
-    private static string? ChangingArg(IReadOnlyList<SimEvent> chain, int a, int b, int unit)
-    {
-        string? changing = null;
-        for (int u = 0; u < unit; u++)
-        {
-            SimEvent x = chain[a + u], y = chain[b + u];
-            if (x.Key != y.Key || x.Args.Count != y.Args.Count) return null;
-            for (int i = 0; i < x.Args.Count; i++)
-            {
-                if (x.Args[i].Name != y.Args[i].Name) return null;
-                if (x.Args[i].Value == y.Args[i].Value) continue;
-                if (!x.Args[i].Value.StartsWith("c:", StringComparison.Ordinal)) return null;
-                if (changing != null && changing != x.Args[i].Name) return null;
-                changing = x.Args[i].Name;
-            }
-        }
-        return changing;
-    }
-
-    /// <summary>Every event in the unit names the same person in the changing placeholder ("Ilex asked Nia", "Nia refused").</summary>
-    private static bool AboutOnePerson(IReadOnlyList<SimEvent> chain, int start, int unit, string arg)
-    {
-        string first = ArgValue(chain[start], arg);
-        for (int u = 1; u < unit; u++)
-            if (ArgValue(chain[start + u], arg) != first) return false;
-        return true;
-    }
-
-    private static string ArgValue(SimEvent e, string name)
-    {
-        foreach (EventArg a in e.Args)
-            if (a.Name == name) return a.Value;
-        return "";
-    }
+    private static string ArgValue(SimEvent e, string name) => EventFold.ArgValue(e, name);
 
     internal static string SystemKey(SystemTag system) => "log.system." + Names.Snake(system.ToString());
 
@@ -211,6 +178,9 @@ public static class StoryLog
             Line(o, Indent + Format(loc, "log.cast.line",
                 ("name", s.Name), ("species", s.Species), ("belongs", belongs), ("traits", List(loc, s.Traits)), ("status", s.Status)));
         }
+        // Whose day differs from their kind's camp day, in plain words (ADR-0029).
+        foreach (PersonDaySummary d in StateApi.Schedule(w).Different)
+            Line(o, Indent + Format(loc, "log.cast.day", ("name", d.Name), ("summary", d.Summary)));
         Line(o);
     }
 
@@ -257,6 +227,14 @@ public static class StoryLog
             Line(o, Indent + Format(loc, "log.camp.members", ("names", List(loc, names))));
         }
         Line(o, Indent + Format(loc, "log.camp.stockpile", ("berries", Num(camp.Berries)), ("timber", Num(camp.Timber))));
+        var zones = new List<string>();
+        foreach (Zone z in w.Map.Zones)
+        {
+            int n = Return.Sim.Systems.Zones.Count(z.Tiles);
+            zones.Add(Format(loc, n == 1 ? "log.camp.zone_one" : "log.camp.zone", ("zone", loc.Get(Return.Sim.Systems.Zones.ArticleKey(z.Kind, indefinite: true))),
+                ("place", loc.Get(Return.Sim.Systems.Zones.PlacePhraseKey(w, z.Tiles))), ("n", Num(n))));
+        }
+        if (zones.Count > 0) Line(o, Indent + Format(loc, "log.camp.zones", ("zones", string.Join(loc.Get("log.camp.zone_sep"), zones))));
         Line(o, Indent + Format(loc, "log.camp.roof", ("sound", Num(camp.RoofSound)), ("total", Num(camp.RoofTotal))));
         Line(o, Indent + Format(loc, "log.camp.beds", ("beds", Num(camp.Beds)), ("claimed", Num(camp.BedsClaimed))));
         if (camp.OpenPlans > 0) Line(o, Indent + Format(loc, "log.camp.plans", ("plans", Num(camp.OpenPlans))));

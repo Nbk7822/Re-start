@@ -1,0 +1,42 @@
+using Return.Sim.Content;
+using Return.Sim.Core;
+
+namespace Return.Sim.Systems;
+
+/// <summary>
+/// The home area (zones step 3, ADR-0028; zones design 3.3, 5.5): the one area where the camp asks everyone to stay
+/// after dark. It is built on the Schedule's day (ADR-0029): the Schedule says when, the home area says where. These
+/// are its reads; the curfew itself (the nightly roll, the walk home, breaches) is in Zones.Curfew.cs.
+/// </summary>
+public static partial class Zones
+{
+    /// <summary>The behaviour of the home area: after dark, people stay inside it.</summary>
+    public const string HomeArea = "home";
+
+    /// <summary>The camp's home area (the first zone by id whose kind keeps people home), or null if it has none.</summary>
+    public static Zone? HomeOf(World w)
+    {
+        foreach (Zone z in w.Map.Zones)
+            if (z.Tiles.Count > 0 && Def(w, z) is { Behaviour: HomeArea }) return z;
+        return null;
+    }
+
+    public static bool IsHome(World w, Zone z) => Def(w, z)?.Behaviour == HomeArea;
+
+    /// <summary>Does the home area take in this tile? False everywhere while the camp has none.</summary>
+    public static bool InHome(World w, Point p) => w.Map.InBounds(p) && HomeCache(w)[w.Map.Index(p)] != 0;
+
+    /// <summary>
+    /// The night a tick belongs to: the day its dusk fell on, so 02:00 on day 21 is night 20 (lead's call in the design).
+    /// The home area's once-a-night fields hold this number.
+    /// </summary>
+    public static int NightOf(World w, long tick)
+    {
+        WorldDef def = w.Content.World;
+        int day = Calendar.Day(tick, def);
+        return Calendar.Hour(tick, def) < def.DawnHour ? day - 1 : day;
+    }
+
+    /// <summary>Tonight, by <see cref="NightOf"/>.</summary>
+    public static int Tonight(World w) => NightOf(w, w.Tick);
+}

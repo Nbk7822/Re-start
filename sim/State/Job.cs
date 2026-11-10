@@ -46,6 +46,8 @@ public enum JobKind
     Deliver,
     /// <summary>Taking down something marked to be taken down (under build).</summary>
     TakeDown,
+    /// <summary>A watcher walking to wake the next sleeper for their turn on watch (ADR-0029).</summary>
+    WakeForWatch,
 }
 
 /// <summary>What a character is doing right now. Stage and Progress are job-specific counters.</summary>

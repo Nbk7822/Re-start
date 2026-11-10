@@ -32,6 +32,8 @@ public enum DebtKind
     PromiseRest,
     /// <summary>A fae's sworn debt to whoever welcomed them into the camp (ADR-0022).</summary>
     Welcome,
+    /// <summary>A watch someone kept in your place when you could not (ADR-0029).</summary>
+    Watch,
 }
 
 public enum DebtStatus

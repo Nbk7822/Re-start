@@ -47,9 +47,10 @@ public static class IncidentSystem
         string key = sp.ArrivalKey.Length > 0 ? sp.ArrivalKey : "event.incident.wanderer_arrives";
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, key, new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
         c.LastFoodEvent = e.Id;
+        ScheduleSystem.Arrived(w, c); // their lived strip starts as their planned day (ADR-0029)
         Growth.EnterWorld(w, c, e.Id);
         Gifts.OnArrival(w, c, e.Id); // someone you were close to in a lost future may know you (ADR-0030)
-        Point near = Places.Adjacent(w, w.Map.Hearth, c.Pos);
+        Point near = Zones.ArrivalSpot(w, c.Pos); // received at the meeting place (ADR-0028)
         c.Job = new Job { Kind = JobKind.Arrive, Target = near, StartedTick = w.Tick, CauseEvent = e.Id };
         TravelSystem.Start(w, c, near);
         return e;
@@ -152,9 +153,10 @@ public static class IncidentSystem
     private static SimEvent? Spoil(World w)
     {
         IncidentDef def = w.Content.IncidentById("food_spoils");
-        int stock = Stock.Count(w, "berries");
-        if (stock < def.Param("minBerries")) return null;
-        int lost = Stock.Take(w, "berries", w.Rng.Dice[DiceSystem.Incident].Range(DiceId.SpoilLoss, def.Param("lossMin"), def.Param("lossMax") + 1));
+        // The damp reaches only stores lying in the open: a sound roof or the covered ruins keep food dry (ADR-0028).
+        List<ItemStack> open = Stock.InTheOpen(w, "berries");
+        if (Stock.Total(open) < def.Param("minBerries")) return null;
+        int lost = Stock.Take(w, open, w.Rng.Dice[DiceSystem.Incident].Range(DiceId.SpoilLoss, def.Param("lossMin"), def.Param("lossMax") + 1));
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.food_spoils", Array.Empty<int>(), Array.Empty<long>(), null,
             EventArg.Num("n", lost), EventArg.Item("item", "berries"));
         foreach (Character m in w.Members())
@@ -177,7 +179,17 @@ public static class IncidentSystem
             CombatSystem.Hurt(w, hurt, damage, turn.Id, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
             return turn;
         }
-        SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
+        // Worn out from long hours (ADR-0029), or working in the dark beyond the firelight (zones design 5.5), they were
+        // likelier to be hurt, and the accident says so; worn out, it also cites the wear.
+        bool tired = c.WornOutEvent != 0, dark = Zones.InTheDark(w, c);
+        string key = (tired, dark) switch
+        {
+            (true, true) => "event.incident.work_accident_tired_dark",
+            (true, false) => "event.incident.work_accident_tired",
+            (false, true) => "event.incident.work_accident_dark",
+            _ => "event.incident.work_accident",
+        };
+        SimEvent e = w.Log.Emit(w, SystemTag.Incident, key, new[] { c.Id }, tired ? new[] { cause, c.WornOutEvent } : new[] { cause }, null, EventArg.Char("a", c.Id));
         Culture.Omens.OnSign(w, "work_accident", e);
         CombatSystem.Hurt(w, c, damage, e.Id, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
         return e;
@@ -194,9 +206,18 @@ public static class IncidentSystem
         thief.Pos = EdgeTile(w, DiceId.ThiefEdge);
         w.Characters.Add(thief);
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.night_thief", new[] { thief.Id }, Array.Empty<long>(), null, EventArg.Char("a", thief.Id));
-        thief.Job = new Job { Kind = JobKind.Raid, Target = Places.FoodTile(w, "berries") is { X: >= 0 } p ? p : w.Map.Stockpile.Center, StartedTick = w.Tick, CauseEvent = e.Id };
+        thief.Job = new Job { Kind = JobKind.Raid, Target = RaidTarget(w), StartedTick = w.Tick, CauseEvent = e.Id };
         TravelSystem.Start(w, thief, thief.Job.Target);
         return e;
+    }
+
+    /// <summary>A thief goes for the oldest stored berries; with none, for the first stockpile that keeps berries (ADR-0028).</summary>
+    private static Point RaidTarget(World w)
+    {
+        Point food = Places.FoodTile(w, "berries");
+        if (food != Point.None) return food;
+        Zone? pile = Zones.FirstKeeping(w, "berries");
+        return pile == null ? Places.Adjacent(w, w.Map.Hearth, w.Map.Hearth) : Zones.Landmark(pile);
     }
 
     private static SimEvent? Windfall(World w)

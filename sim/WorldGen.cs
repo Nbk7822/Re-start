@@ -45,8 +45,17 @@ public static class WorldGen
         Systems.Culture.CultureGen.Seed(w);
         // The old roof's sections take their ids after everything else is made, so no other id moved (ADR-0027).
         foreach (RoofSection r in w.Map.Roof) r.Id = w.NewId();
+        ScheduleSystem.EnsureDefaults(w); // the camp days, the watch hours and everyone's lived strip, from content (ADR-0029); takes no ids
+        Zones.CreateStart(w); // last, so no id handed out before it moves (ADR-0028)
         return w;
     }
+
+    /// <summary>
+    /// The camp clearing: the 22 × 19 rectangle round the shelter that world generation clears of rock and water. It holds
+    /// the shelter, the ruins, the hearth, the first stockpile and the watch post; the stand-in player marks it as the home
+    /// area (zones design 9.1). A landmark derived from the shelter, not state.
+    /// </summary>
+    public static Rect ClearingOf(Rect shelter) => new(shelter.X - 7, shelter.Y - 2, 22, 19);
 
     /// <summary>
     /// What a cast member is by nature. For you, the otherworlder, that follows the people you are reborn as (a Truth,
@@ -85,6 +94,7 @@ public static class WorldGen
             Systems.NatureNeeds.Init(w, c);
             c.Pos = FindOpenNear(w.Map, w.Map.Hearth, i);
             w.Characters.Add(c);
+            ScheduleSystem.ResetLived(w, c);
             Growth.FormWant(w, c);
             i++;
         }
@@ -189,7 +199,7 @@ public static class WorldGen
         // The ruined camp: shelter (8x5, three roof sections), covered ruins, hearth, stockpile, watch post.
         int sx = 16 + t.Range(TruthId.CampPlacement, 0, 0, 0, 6);
         int sy = 9 + t.Range(TruthId.CampPlacement, 0, 1, 0, 4);
-        var clearing = new Rect(sx - 7, sy - 2, 22, 19);
+        Rect clearing = ClearingOf(new Rect(sx, sy, 8, 5));
         for (int y = clearing.Y; y < clearing.Y + clearing.H; y++)
             for (int x = clearing.X; x < clearing.X + clearing.W; x++)
             {
@@ -216,11 +226,11 @@ public static class WorldGen
         for (int x = sx + 9; x < sx + 12; x++) m.Set(new Point(x, sy), TerrainKind.Wall);
 
         m.Hearth = new Point(sx + 4, sy + 7);
-        m.Stockpile = new Rect(sx - 5, sy + 6, 4, 3);
+        m.StartStockpile = new Rect(sx - 5, sy + 6, 4, 3);
         m.WatchPost = new Point(sx + 4, Math.Min(height - 3, sy + 15));
 
         bool Reserved(Point p) =>
-            m.Shelter.Contains(p) || m.CoveredRuins.Contains(p) || m.Stockpile.Contains(p) ||
+            m.Shelter.Contains(p) || m.CoveredRuins.Contains(p) || m.StartStockpile.Contains(p) ||
             p.ChebyshevTo(m.Hearth) <= 2 || p == m.WatchPost ||
             (p.X >= sx - 2 && p.X <= sx + 13 && p.Y >= sy - 1 && p.Y <= sy + 9);
         bool Open(Point p) => m.InBounds(p) && m.At(p) is TerrainKind.Grass or TerrainKind.Soil && !Reserved(p) && m.TreeAt(p) == null && m.BushAt(p) == null;
@@ -258,12 +268,12 @@ public static class WorldGen
     private static void PlaceStartItems(World w)
     {
         WorldDef def = w.Content.World;
-        Rect s = w.Map.Stockpile;
+        Rect s = w.Map.StartStockpile;
         ItemDef berries = w.Content.ItemById("berries");
         if (def.StartBerries > 0)
-            w.Items.Add(new ItemStack { Id = w.NewId(), DefId = berries.Id, Count = def.StartBerries, Pos = new Point(s.X, s.Y), SpoilTick = (long)berries.SpoilDays * def.TicksPerDay });
+            w.Items.Add(new ItemStack { Id = w.NewId(), DefId = berries.Id, Count = def.StartBerries, Pos = new Point(s.X, s.Y), SpoilTick = (long)berries.SpoilDays * def.TicksPerDay, Stored = true });
         if (def.StartTimber > 0)
-            w.Items.Add(new ItemStack { Id = w.NewId(), DefId = "timber", Count = def.StartTimber, Pos = new Point(s.X + 1, s.Y) });
+            w.Items.Add(new ItemStack { Id = w.NewId(), DefId = "timber", Count = def.StartTimber, Pos = new Point(s.X + 1, s.Y), Stored = true });
     }
 
     private static void PositionStarters(World w)

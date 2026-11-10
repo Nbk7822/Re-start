@@ -52,6 +52,31 @@ public class DeterminismTests
         Assert.NotEqual(a.StateHash(), b.StateHash());
     }
 
+    /// <summary>Schedule commands (ADR-0029) are tick-stamped input like any other: same seed and the same days, same world.</summary>
+    private static Simulation WithDays(ulong seed, int bedtime)
+    {
+        var s = Simulation.Create(TestContent.Db, seed);
+        var day = new List<DayBlock>(Return.Sim.Systems.ScheduleSystem.CampDayFor(s.World, "diurnal")!.Hours) { [bedtime] = DayBlock.Sleep };
+        s.Enqueue(new SetCampDay(500, "diurnal", day));
+        s.Enqueue(new SetWatchHours(900, 20, 5));
+        var nights = new DayBlock?[24];
+        for (int h = 22; h != 7; h = (h + 1) % 24) nights[h] = DayBlock.Work;
+        for (int h = 7; h < 15; h++) nights[h] = DayBlock.Sleep;
+        s.Enqueue(new SetPersonDay(1_300, MiraId(s), nights));
+        return s;
+    }
+
+    [Fact]
+    public void SameSeedAndScheduleCommandsSameHash()
+    {
+        Simulation a = WithDays(42, 21), b = WithDays(42, 21), c = WithDays(42, 18);
+        a.Advance(30_000);
+        b.Advance(30_000);
+        c.Advance(30_000);
+        Assert.Equal(a.StateHash(), b.StateHash());
+        Assert.NotEqual(a.StateHash(), c.StateHash());
+    }
+
     [Fact]
     public void HookSeesEvents()
     {

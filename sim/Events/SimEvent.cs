@@ -60,7 +60,7 @@ public sealed class Effect
 /// <summary>
 /// A named argument for an event's text. Values are typed by prefix so text is resolved at display
 /// time through the localisation table: <c>c:</c> character id, <c>i:</c> item id, <c>k:</c> loc key,
-/// <c>n:</c> number.
+/// <c>n:</c> number, <c>h:</c> hour of the day.
 /// </summary>
 public sealed class EventArg
 {
@@ -71,6 +71,9 @@ public sealed class EventArg
     public static EventArg Item(string name, string itemId) => new() { Name = name, Value = "i:" + itemId };
     public static EventArg Key(string name, string locKey) => new() { Name = name, Value = "k:" + locKey };
     public static EventArg Num(string name, long n) => new() { Name = name, Value = "n:" + n.ToString(CultureInfo.InvariantCulture) };
+
+    /// <summary>An hour of the day (0..23), written through the loc key time.hour so the format is the loc file's (ADR-0029).</summary>
+    public static EventArg Hour(string name, int hour) => new() { Name = name, Value = "h:" + hour.ToString(CultureInfo.InvariantCulture) };
 }
 
 /// <summary>One thing that happened: when, from which system, to whom, because of what, changing what.</summary>

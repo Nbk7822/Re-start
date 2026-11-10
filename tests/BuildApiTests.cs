@@ -135,10 +135,11 @@ public class BuildApiTests
     public void BuiltThingsTellWhoBuiltOwnsAndMendedThem()
     {
         World w = WorkTests.Only(1, "oren", "mira");
+        w.Tick = 10L * w.Content.World.TicksPerHour; // working hours: at midnight Mira would go to bed and claim a bedroll of her own (ADR-0029)
         Character oren = Cast(w, "oren"), mira = Cast(w, "mira");
         BuildTests.Works(oren, ("build", 1));
         BuildTests.Works(mira);
-        Stock.Add(w, "timber", 3, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 3, w.Map.StartStockpile.Center);
         Point floor = BuildPlanTests.ShelterFloor(w), at = BuildPlanTests.Yard(w, 1, 2);
         BuildTests.Plan(w, "bed", Tile(floor));
         BuildTests.Plan(w, "wall", Tile(at));

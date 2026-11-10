@@ -23,7 +23,7 @@ public static class NeedsJobs
     /// <summary>The demo's Desperate theft: takes the meal set aside for someone else, who will remember.</summary>
     public static SimEvent? TakeReservedMeal(World w, Character thief, Character victim, string food)
     {
-        if (Stock.Take(w, food, 1) == 0) return null;
+        if (Stock.Take(w, food, 1, thief.Pos) == 0) return null;
         Rations.Consume(w, victim.Id);
         ItemDef item = w.Content.ItemById(food);
         thief.Food = Math.Min(1000, thief.Food + item.Nutrition);
@@ -49,10 +49,13 @@ public static class NeedsJobs
             c.Facing = Facing.S;
             return false;
         }
+        // Nobody gets up rested in the middle of their sleeping hours (ADR-0029): only hunger (the Desperate sooner),
+        // the end of those hours with rest enough, the sun, a need of their nature, or being woken.
         bool injured = c.Health < JobPicker.InjuredBelow;
+        bool hungry = c.Food < NeedsSystem.StarvingBelow || c.Food < Traits.Max(w, c, t => t.StealFoodBelow);
         bool wake = injured
             ? c.Health >= 600 && c.Rest >= 600
-            : c.Food < NeedsSystem.StarvingBelow || c.Rest >= 950 || (!Places.SleepHours(w, c) && c.Rest >= 600);
+            : hungry || (!ScheduleSystem.IsSleepTime(w, c) && c.Rest >= 600);
         if (Places.BurnsInDaylight(w, c) && Places.Daylight(w) && !w.Map.Covered(c.Pos)) wake = true;
         // A need of their nature that harms them comes before rest (ADR-0022): rested enough, they get up to answer it.
         if (!wake && c.Rest >= 600 && c.NatureNeeds.Count > 0)

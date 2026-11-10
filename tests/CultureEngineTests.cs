@@ -68,7 +68,7 @@ public class CultureEngineTests
         SimEvent repaid = Relations.Repay(w, care, why.Id);
         Debt promise2 = Relations.FormDebt(w, you, nia, DebtKind.PromiseMeal, 1, why.Id, w.Tick + 100);
         SimEvent kept = Relations.Repay(w, promise2, why.Id);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         w.Reservations.Add(new Reservation { CharacterId = mira.Id, Count = 1 });
         SimEvent taken = NeedsJobs.TakeReservedMeal(w, nia, mira, "berries")!;
 

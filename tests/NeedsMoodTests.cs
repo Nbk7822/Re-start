@@ -85,7 +85,7 @@ public class NeedsMoodTests
     {
         World w = Camp();
         w.Tick = Ticks(w, 7);
-        Character ilex = Join(w, "ilex", w.Map.Stockpile.Center);
+        Character ilex = Join(w, "ilex", w.Map.StartStockpile.Center);
         NeedsSystem.Hourly(w);
         Assert.Equal(1000 - 60, ilex.Health);
         Assert.Contains(ilex.Thoughts, t => t.DefId == "burned_by_sun");
@@ -110,7 +110,7 @@ public class NeedsMoodTests
     {
         World w = Camp();
         Stock.Take(w, "berries", Stock.Count(w, "berries"));
-        Stock.Add(w, "berries", 2, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 2, w.Map.StartStockpile.Center);
         Cast(w, "you").Food = 300;
         Cast(w, "mira").Food = 200;
         Cast(w, "oren").Food = 400;
@@ -126,7 +126,7 @@ public class NeedsMoodTests
     public void NoRationingWhenFoodSuffices()
     {
         World w = Camp();
-        Stock.Add(w, "berries", 10, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 10, w.Map.StartStockpile.Center);
         foreach (Character m in w.Members()) m.Food = 200;
         Rations.Assign(w);
         Assert.Empty(w.Reservations);

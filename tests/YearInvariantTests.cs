@@ -37,6 +37,19 @@ public class YearInvariantTests
                 foreach (Opinion o in c.Opinions)
                     Assert.True(o.Value is >= -100 and <= 100, $"{who}: opinion of {o.TargetId} is {o.Value}");
             }
+            // The Schedule (ADR-0029, design test 14): days and lived strips keep 24 valid entries; own hours stay in order;
+            // the watch's record names people who are really there.
+            foreach (CampDay d in w.CampDays)
+                Assert.True(d.Hours.Count == 24 && d.Hours.All(Enum.IsDefined), $"camp day {d.Rhythm} at tick {w.Tick}");
+            foreach (Character c in w.Characters)
+            {
+                if (!c.Named || c.Status != CharStatus.Member) continue;
+                Assert.True(c.Lived.Count == 24 && c.Lived.All(Enum.IsDefined), $"lived strip of {c.CastKey} at tick {w.Tick}");
+                for (int i = 1; i < c.OwnHours.Count; i++) Assert.True(c.OwnHours[i - 1].Hour < c.OwnHours[i].Hour, $"own hours of {c.CastKey}");
+            }
+            if (w.Watch.WatcherId != 0)
+                Assert.True(w.Find(w.Watch.WatcherId) is { Status: CharStatus.Member } wc && wc.Job?.Kind is JobKind.KeepWatch or JobKind.Fight or JobKind.Flee,
+                    $"watcher {w.Watch.WatcherId} at tick {w.Tick}");
             foreach (ItemStack st in w.Items)
                 Assert.True(st.Count > 0, $"stack {st.Id} of {st.DefId} has count {st.Count} at tick {w.Tick}");
             foreach (Reservation r in w.Reservations)
@@ -57,7 +70,7 @@ public class YearInvariantTests
     /// timber than it costs.
     /// </summary>
     [Theory]
-    [InlineData(4UL)]
+    [InlineData(1UL)] // seed 4's camp loses four people and never outgrows its beds once Zones and Schedule merged, so it builds no hut
     [InlineData(5UL)]
     public void AYearOfBuildingKeepsItsInvariants(ulong seed)
     {

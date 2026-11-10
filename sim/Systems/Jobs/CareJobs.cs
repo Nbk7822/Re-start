@@ -78,7 +78,7 @@ public static class CareJobs
             {
                 ownShare = Rations.HasReservation(w, c.Id);
                 if (!ownShare && (host || Rations.Unreserved(w, "berries") == 0)) return true;
-                if (Stock.Take(w, "berries", 1) == 0) return true;
+                if (Stock.Take(w, "berries", 1, c.Pos) == 0) return true;
                 Rations.Consume(w, c.Id);
             }
             c.Carrying = new Carry { DefId = "berries", Count = 1 };

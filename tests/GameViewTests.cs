@@ -174,16 +174,19 @@ public class GameViewTests
     {
         Simulation sim = Simulation.Create(Content, 1);
         Assert.Empty(ViewText.Chronicle(sim.World));
+        // In working hours: at midnight the camp goes to bed and claims its beds, lines of their own (ADR-0027, ADR-0029).
+        long t0 = 10L * sim.World.Content.World.TicksPerHour;
+        sim.World.Tick = t0;
         int mira = sim.World.Characters.First(c => c.CastKey == "mira").Id;
-        sim.Enqueue(new SetRationPolicy(0, RationPolicy.PromisesFirst));
-        for (int i = 1; i <= 34; i++) sim.Enqueue(new SetWorkPriority(i, mira, "forage", 1 + i % 4));
-        sim.Enqueue(new SetRationPolicy(40, RationPolicy.SelfFirst));
+        sim.Enqueue(new SetRationPolicy(t0, RationPolicy.PromisesFirst));
+        for (int i = 1; i <= 34; i++) sim.Enqueue(new SetWorkPriority(t0 + i, mira, "forage", 1 + i % 4));
+        sim.Enqueue(new SetRationPolicy(t0 + 40, RationPolicy.SelfFirst));
         sim.Advance(41);
 
         IReadOnlyList<string> lines = ViewText.Chronicle(sim.World);
         Assert.Equal(ViewText.ChronicleLength, lines.Count);
-        Assert.Equal("Day 1, 00:08 — You decided that when food runs short, you eat first.", lines[0]);
-        Assert.Equal("Day 1, 00:06 — Mira's priority for Forage is now 3.", lines[1]);
+        Assert.Equal("Day 1, 10:08 — You decided that when food runs short, you eat first.", lines[0]);
+        Assert.Equal("Day 1, 10:06 — Mira's priority for Forage is now 3.", lines[1]);
         Assert.DoesNotContain(lines, l => l.Contains("promised meals come first", StringComparison.Ordinal));
     }
 
@@ -905,8 +908,9 @@ public class GameViewTests
         Assert.Equal(at.X, (int)MathF.Floor(struck.X));
         Assert.Equal(at.Y, (int)MathF.Floor(struck.Y));
         Assert.Contains(gore.Decals, d => d.Kind == DecalKind.Splatter && d.Ichor == Ichor.Blood);
-        Assert.DoesNotContain(gore.Decals, d => d.Kind is DecalKind.Splatter or DecalKind.Drops or DecalKind.Pool
-            && (int)MathF.Floor(d.X) == at.X && (int)MathF.Floor(d.Y) == at.Y && d.Tick == blow);
+        // Varrow's own wound leaves no blood anywhere; the thief, who may stand on the same tile when they close, still bleeds.
+        long[] varrows = { (long)ArtHash.Of(ketil.Id, blow), (long)ArtHash.Of(ketil.Id, blow, 9) };
+        Assert.DoesNotContain(gore.Decals, d => d.Ichor == Ichor.Blood && varrows.Contains(d.Key));
     }
 
     [Fact]

@@ -13,7 +13,8 @@ namespace Return.Game;
 /// job, needs and mood as small bars with numbers, what their nature binds them to and their
 /// bargains (ADR-0022), traits (each with where it came from), what they want, work priorities
 /// (click to change: an order through SimHost.Order; work their nature refuses is shown but cannot
-/// be picked), opinions, grudges, debts and recent thoughts, all from StateApi. It floats near the right edge, refreshes a few times a
+/// be picked), their day as planned and as lived (ADR-0029; paint to change), opinions, grudges,
+/// debts and recent thoughts, all from StateApi. It floats near the right edge, refreshes a few times a
 /// second, and closes with its × button, Esc, or a click on empty map.
 /// </summary>
 public partial class InspectorPanel : PanelContainer
@@ -51,6 +52,16 @@ public partial class InspectorPanel : PanelContainer
     private VBoxContainer _nature = null!;
     private VBoxContainer _workSection = null!;
     private GridContainer _workGrid = null!;
+    private VBoxContainer _daySection = null!;
+    private DayStripControl _planned = null!;
+    private DayStripControl _lived = null!;
+    private Label _dayNote = null!;
+    private Label _dayLatest = null!;
+    private Label _dayPending = null!;
+    private Button _daySame = null!;
+    private readonly List<(DayBlock Block, Button Button)> _dayBrushes = new();
+    private DayBlock _dayBrush = DayBlock.Sleep;
+    private PersonDayState? _day;
     private readonly List<(Label Name, HBoxContainer Picker, List<(int Value, Button Button)> Buttons)> _workRows = new();
     private IReadOnlyList<WorkPriorityState> _workState = Array.Empty<WorkPriorityState>();
     private readonly List<BarRow> _barRows = new();
@@ -169,6 +180,7 @@ public partial class InspectorPanel : PanelContainer
         _workGrid.AddThemeConstantOverride("v_separation", 2);
         _workSection.AddChild(_workGrid);
         _content.AddChild(_workSection);
+        BuildDay();
 
         _opinions = AddList(Ui.T("ui.inspector.opinions"));
         _grudges = AddList(Ui.T("ui.inspector.grudges"));
@@ -184,6 +196,117 @@ public partial class InspectorPanel : PanelContainer
         value.CustomMinimumSize = new Vector2(ContentWidth - 80f, 0);
         _fate.AddChild(value);
         return value;
+    }
+
+    /// <summary>
+    /// The Day section (ADR-0029): their hours as planned (their own bright, the camp's dim, the sun's hatched) to paint
+    /// with a brush, the last 24 hours as lived (a notch where an hour bent), "Same as the camp", the plain source of
+    /// their day and the latest schedule line about them.
+    /// </summary>
+    private void BuildDay()
+    {
+        _daySection = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _daySection.AddThemeConstantOverride("separation", 2);
+        _daySection.AddChild(new Control { CustomMinimumSize = new Vector2(0, 4), MouseFilter = MouseFilterEnum.Ignore });
+        _daySection.AddChild(Ui.MakeLabel(Ui.T("ui.inspector.day"), Ui.SmallFontSize, Ui.Accent));
+        _daySection.AddChild(Ui.MakeLabel(Ui.T("ui.inspector.day_planned"), Ui.SmallFontSize, Ui.Dim));
+        _planned = new DayStripControl { Picks = true };
+        _planned.Picked += PaintDay;
+        _daySection.AddChild(_planned);
+        _daySection.AddChild(Ui.MakeLabel(Ui.T("ui.inspector.day_lived"), Ui.SmallFontSize, Ui.Dim));
+        _lived = new DayStripControl();
+        _daySection.AddChild(_lived);
+        var paint = new HBoxContainer();
+        paint.AddThemeConstantOverride("separation", 3);
+        var group = new ButtonGroup();
+        foreach (DayBlock b in Enum.GetValues<DayBlock>())
+        {
+            DayBlock block = b;
+            string id = Return.Sim.Systems.ScheduleSystem.BlockId(b);
+            Button brush = Ui.MakeButton(Ui.T("block." + id), Ui.T("block." + id + "_hint"));
+            brush.ToggleMode = true;
+            brush.ButtonGroup = group;
+            brush.AddThemeFontSizeOverride("font_size", Ui.SmallFontSize);
+            brush.Pressed += () => _dayBrush = block;
+            paint.AddChild(brush);
+            _dayBrushes.Add((b, brush));
+        }
+        _daySame = Ui.MakeButton(Ui.T("ui.inspector.day_same"), Ui.T("ui.inspector.day_same_hint"));
+        _daySame.AddThemeFontSizeOverride("font_size", Ui.SmallFontSize);
+        _daySame.Pressed += () =>
+        {
+            if (_host == null || _host.SelectedId == 0) return;
+            _host.Order(new SetPersonDay(_host.World.Tick, _host.SelectedId, new DayBlock?[DayStrip.Hours]));
+            Refresh();
+        };
+        paint.AddChild(_daySame);
+        _daySection.AddChild(paint);
+        _dayNote = WrappingLabel();
+        _daySection.AddChild(_dayNote);
+        _dayLatest = WrappingLabel();
+        _dayLatest.Modulate = Ui.Dim;
+        _daySection.AddChild(_dayLatest);
+        _dayPending = Ui.MakeLabel(Ui.T("ui.inspector.day_pending"), Ui.SmallFontSize, Ui.Accent);
+        _daySection.AddChild(_dayPending);
+        _content.AddChild(_daySection);
+    }
+
+    private void RefreshDay()
+    {
+        World w = _host!.World;
+        Character? c = w.Find(_host.SelectedId);
+        _daySection.Visible = c is { Status: CharStatus.Member };
+        if (!_daySection.Visible) return;
+        PersonDayState d = StateApi.Day(w, c!.Id, _host.Drafts.All);
+        _day = d;
+        var planned = new List<DayStripControl.Cell>(d.Planned.Count);
+        foreach (HourState h in d.Planned) planned.Add(new DayStripControl.Cell(DayColors.Of(h.Block), h.Source == "camp", h.Sun, false, false, h.Note));
+        _planned.SetCells(planned, d.Pending);
+        var lived = new List<DayStripControl.Cell>(d.Lived.Count);
+        foreach (HourState h in d.Lived) lived.Add(new DayStripControl.Cell(DayColors.Of(h.Block), false, false, h.Differs, h.Block == "watched", h.Note));
+        _lived.SetCells(lived, false);
+        foreach ((DayBlock block, Button button) in _dayBrushes)
+        {
+            bool off = block == DayBlock.Sleep && !d.Sleeps;
+            button.Disabled = off;
+            button.TooltipText = off ? Ui.T("ui.schedule.no_sleep_brush") : Ui.T("block." + Return.Sim.Systems.ScheduleSystem.BlockId(block) + "_hint");
+            button.SetPressedNoSignal(block == _dayBrush);
+        }
+        _daySame.Disabled = d.SameAsCamp;
+        _dayNote.Text = d.Note;
+        _dayLatest.Visible = d.Latest.Length > 0;
+        _dayLatest.Text = d.Latest.Length > 0 ? Ui.F("ui.inspector.day_latest", ("line", d.Latest)) : "";
+        _dayPending.Visible = d.Pending;
+    }
+
+    /// <summary>Paints the picked hours of the open person's day with the brush, as their own (those who never sleep take no sleep brush).</summary>
+    private void PaintDay(int press, int release)
+    {
+        (int first, int last) = DayStrip.Dragged(press, release);
+        PaintDayCells(first, last);
+    }
+
+    private void PaintDayCells(int first, int last)
+    {
+        if (_host == null || _host.SelectedId == 0) return;
+        PersonDayState d = StateApi.Day(_host.World, _host.SelectedId, _host.Drafts.All);
+        if (_dayBrush == DayBlock.Sleep && !d.Sleeps) return;
+        var own = new DayBlock?[DayStrip.Hours];
+        foreach (HourState h in d.Planned)
+            if (h.Source == "own") own[h.Hour] = Return.Sim.Systems.ScheduleSystem.ParseBlock(h.Block);
+        _host.Order(new SetPersonDay(_host.World.Tick, _host.SelectedId, DayStrip.PaintOwn(own, first, last, _dayBrush)));
+        Refresh();
+    }
+
+    /// <summary>Presses a brush (0 sleep, 1 work, 2 free time) and paints the open person's hours from <paramref name="from"/> to <paramref name="to"/> (exclusive, wrapping) through the panel's own code (RETURN_PRESS checks).</summary>
+    public bool PressDay(int block, int from, int to)
+    {
+        if (_host == null || _host.SelectedId == 0) return false;
+        Refresh();
+        if (!_daySection.Visible || block < 0 || block >= _dayBrushes.Count || DayStrip.FromTo(from, to) is not { } cells) return false;
+        _dayBrushes[block].Button.EmitSignal(BaseButton.SignalName.Pressed);
+        PaintDayCells(cells.First, cells.Last);
+        return true;
     }
 
     private void AddTitle(string text)
@@ -244,6 +367,7 @@ public partial class InspectorPanel : PanelContainer
         _traits.Text = ViewText.TraitsText(s.Growth);
         _wants.Text = ViewText.WantLine(s.Growth);
         RefreshWork();
+        RefreshDay();
 
         var lines = new List<string>();
         foreach (NatureNeedState n in StateApi.NatureNeeds(_host.World, s.Id)) lines.Add(ViewText.NatureLine(n));

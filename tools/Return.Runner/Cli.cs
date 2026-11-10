@@ -14,10 +14,13 @@ public static class Cli
 {
     public const string Usage =
         "usage: return-runner run --seed <n> --years <y> [--out <file>] [--people <id>] [--gift <id|none>] [--fates] [--plan none|beds|camp|mixed]\n" +
-        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--people <id>] [--gift <id|none>] [--fates] [--plan none|beds|camp|mixed]\n" +
+        "           [--zones none|dry|home|short|both|mixed] [--days default|nowatch|nightwatcher|mixed]\n" +
+        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--people <id>] [--gift <id|none>] [--fates]\n" +
+        "           [--plan none|beds|camp|mixed] [--zones none|dry|home|short|both|mixed] [--days default|nowatch|nightwatcher|mixed]\n" +
         "       --people and --gift choose who you are reborn as, for testing (the log says so); --fates kills you once\n" +
         "       in your first timeline, on a day from 10 to 35 hashed from the seed, so every world shows a return.\n" +
-        "       --plan gives the stand-in player a building plan: none, beds, camp, or mixed (one of the three by seed).\n";
+        "       --plan gives the stand-in player a building plan: none, beds, camp, or mixed (one of the three by seed).\n" +
+        "       --zones lays out its zones and --days sets the camp's days; mixed picks one plan per world by seed.\n";
 
     /// <summary>UTF-8 without a byte-order mark, for every file the runner writes.</summary>
     internal static readonly Encoding Utf8 = new UTF8Encoding(false);
@@ -64,7 +67,7 @@ public static class Cli
     {
         ContentDb content = LoadContent();
         CheckChoice(content, a.Setup.Choice);
-        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years, a.Setup, a.Plan);
+        Simulation sim = StoryLog.Simulate(content, a.Seed, a.Years, a.Setup, a.Plan, a.Zones, a.Days);
         var log = new StringWriter(CultureInfo.InvariantCulture);
         StoryLog.Write(sim, log);
         if (a.OutFile == null)
@@ -99,14 +102,14 @@ public static class Cli
         }
     }
 
-    private sealed record RunArgs(ulong Seed, int Years, string? OutFile, RunSetup Setup, string Plan);
+    private sealed record RunArgs(ulong Seed, int Years, string? OutFile, RunSetup Setup, string Plan, string Zones, string Days);
 
     private static readonly string[] Flags = { "--fates" };
 
     private static RunArgs ParseRun(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out", "--people", "--gift", "--fates", "--plan");
-        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"), Setup(o), Plan(o));
+        Dictionary<string, string> o = Options(args, "--seed", "--years", "--out", "--people", "--gift", "--fates", "--plan", "--zones", "--days");
+        return new RunArgs(Seed(o, "--seed"), AtLeastOne(o, "--years"), o.GetValueOrDefault("--out"), Setup(o), Plan(o), ZonePlan(o), DaysPlan(o));
     }
 
     /// <summary>The stand-in player's building plan (ADR-0027); "none" when not given.</summary>
@@ -118,7 +121,7 @@ public static class Cli
 
     private static SoakOptions ParseSoak(string[] args)
     {
-        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel", "--people", "--gift", "--fates", "--plan");
+        Dictionary<string, string> o = Options(args, "--worlds", "--years", "--out", "--parallel", "--people", "--gift", "--fates", "--plan", "--zones", "--days");
         return new SoakOptions
         {
             Worlds = AtLeastOne(o, "--worlds"),
@@ -127,6 +130,8 @@ public static class Cli
             Parallel = o.ContainsKey("--parallel") ? AtLeastOne(o, "--parallel") : Environment.ProcessorCount,
             Setup = Setup(o),
             Plan = Plan(o),
+            Zones = ZonePlan(o),
+            Days = DaysPlan(o),
         };
     }
 
@@ -145,6 +150,24 @@ public static class Cli
             throw new UsageException($"--people '{p}' is not a people you can be reborn as ({string.Join(", ", content.Rebirth.Peoples.Select(x => x.Species))})");
         if (choice?.Gift is { } g && g != RebirthChoice.NoGift && content.TryGift(g) == null)
             throw new UsageException($"--gift '{g}' is not a gift ({string.Join(", ", content.Gifts.Select(x => x.Id))}, or none)");
+    }
+
+    /// <summary>The stand-in player's schedule plan (ADR-0029); default when not given.</summary>
+    private static string DaysPlan(Dictionary<string, string> options)
+    {
+        string plan = options.GetValueOrDefault("--days") ?? "default";
+        return Autoplay.DaysPlans.Contains(plan)
+            ? plan
+            : throw new UsageException($"--days must be one of {string.Join(", ", Autoplay.DaysPlans)}, not '{plan}'");
+    }
+
+    /// <summary>The stand-in player's zone plan (ADR-0028); none when not given.</summary>
+    private static string ZonePlan(Dictionary<string, string> options)
+    {
+        string plan = options.GetValueOrDefault("--zones") ?? "none";
+        return Autoplay.ZonePlans.Contains(plan)
+            ? plan
+            : throw new UsageException($"--zones must be one of {string.Join(", ", Autoplay.ZonePlans)}, not '{plan}'");
     }
 
     /// <summary>Reads the "--name value" pairs (and bare flags such as --fates) after the command. Every name must be allowed and given once.</summary>

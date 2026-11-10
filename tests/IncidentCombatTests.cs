@@ -75,7 +75,7 @@ public class IncidentCombatTests
     {
         World w = WorkTests.Only(1, "you", "ilex");
         Character you = Cast(w, "you"), ilex = Cast(w, "ilex");
-        Stock.Add(w, "berries", 6, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 6, w.Map.StartStockpile.Center);
         int before = Stock.Count(w, "berries");
 
         SimEvent spoil = IncidentSystem.Fire(w, "food_spoils")!;
@@ -95,7 +95,7 @@ public class IncidentCombatTests
     {
         World w = WorkTests.Only(1, "you");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", Param(w, "food_spoils", "minBerries") - 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", Param(w, "food_spoils", "minBerries") - 1, w.Map.StartStockpile.Center);
         Assert.Null(IncidentSystem.Fire(w, "food_spoils"));
     }
 
@@ -131,7 +131,7 @@ public class IncidentCombatTests
     {
         World w = WorkTests.Only(1, "you");
         Character you = Cast(w, "you"), wren = Cast(w, "wren");
-        Stock.Add(w, "berries", 5, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 5, w.Map.StartStockpile.Center);
         SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: wren.Id)!;
         SimEvent joined = IncidentSystem.Join(w, wren, arrived.Id);
         Assert.Equal("event.social.joined", joined.Key);
@@ -154,7 +154,7 @@ public class IncidentCombatTests
         Assert.Equal(DebtKind.PromiseRest, promise.Kind);
         Assert.Equal(you.Id, promise.DebtorId);
 
-        Stock.Add(w, "timber", w.Content.WorkById("repair_roof").TimberCost, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", w.Content.WorkById("repair_roof").TimberCost, w.Map.StartStockpile.Center);
         oren.Priorities.RemoveAll(p => p.WorkId == "repair_roof");
         oren.Priorities.Add(new WorkPriority { WorkId = "repair_roof", Priority = 1 });
         Run(w, 6_000, () => promise.Status != DebtStatus.Open);
@@ -227,7 +227,7 @@ public class IncidentCombatTests
         you.Pos = w.Map.CoveredRuins.Center;
         you.Asleep = true;
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 5, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 5, w.Map.StartStockpile.Center);
 
         SimEvent raid = IncidentSystem.Fire(w, "night_thief")!;
         Assert.Equal(SystemTag.Incident, raid.System);
@@ -251,8 +251,8 @@ public class IncidentCombatTests
         Character mira = Cast(w, "mira");
         w.Tick = Hours(w, 23);
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 5, w.Map.Stockpile.Center);
-        Watch(w, mira, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 5, w.Map.StartStockpile.Center);
+        Watch(w, mira, w.Map.StartStockpile.Center);
 
         SimEvent raid = IncidentSystem.Fire(w, "night_thief")!;
         Character thief = w.Characters.Single(c => c.Status == CharStatus.Hostile);
@@ -277,7 +277,7 @@ public class IncidentCombatTests
         World w = WorkTests.Only(1, "mira", "wren");
         Character mira = Cast(w, "mira"), wren = Cast(w, "wren");
         w.Tick = Hours(w, 23);
-        Point post = w.Map.Stockpile.Center;
+        Point post = w.Map.StartStockpile.Center;
         Watch(w, mira, post);
         Watch(w, wren, OpenTile(w, post));
         wren.Health = Traits.Max(w, wren, t => t.FleeHealthBelow) - 50;

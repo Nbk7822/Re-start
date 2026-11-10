@@ -86,6 +86,38 @@ public sealed class Character
     public int Bleed { get; set; }
     public long BleedCause { get; set; }
     public string BleedDeath { get; set; } = "";
+    /// <summary>The calendar day they last said they kept away from a meeting place (once a day at most; ADR-0028); −1 for never.</summary>
+    public int LastKeptAwayDay { get; set; } = -1;
+
+    // The home area's night memory (zones step 3, ADR-0028). A night belongs to the day its dusk fell on, so 02:00 on
+    // day 21 is night 20; these hold that number, int.MinValue for never (the small hours of day 0 are night −1, so −1
+    // cannot mean never).
+    /// <summary>The night they last rolled whether to go their own way under the home area.</summary>
+    public int NightRollDay { get; set; } = int.MinValue;
+    /// <summary>Tonight's answer, valid only while NightRollDay is tonight: the reason they go their own way (Compliance's), or "" if they keep the rule.</summary>
+    public string DefiesTonight { get; set; } = "";
+    /// <summary>The night they last went out after dark (a breach is said once a night).</summary>
+    public int LastBreachDay { get; set; } = int.MinValue;
+    /// <summary>The night they last stayed in hungry as asked (said once a night).</summary>
+    public int LastStayedInDay { get; set; } = int.MinValue;
+    /// <summary>The night they last felt kept in (an Independent's kept_in, once a night).</summary>
+    public int LastKeptInDay { get; set; } = int.MinValue;
+
+    // The Schedule (ADR-0029).
+    /// <summary>Hours this person keeps instead of their kind's camp day, in hour order; empty means the camp's day.</summary>
+    public List<HourBlock> OwnHours { get; set; } = new();
+    /// <summary>The event that last set their own hours (0 if never).</summary>
+    public long OwnHoursEvent { get; set; }
+    /// <summary>What they mostly did in the most recent occurrence of each clock hour (24 entries, by hour).</summary>
+    public List<LivedKind> Lived { get; set; } = new();
+    /// <summary>Samples of the hour under way.</summary>
+    public HourTally HourTally { get; set; } = new();
+    /// <summary>When they last came off the watch (for turns kept fairly); 0 if never.</summary>
+    public long LastWatchEndTick { get; set; }
+    /// <summary>The event that began the duty that tires them now (a watch kept, work late, a longer working day); 0 if none.</summary>
+    public long LastDutyEvent { get; set; }
+    /// <summary>Their "worn out from long hours" event while they are worn out; 0 once rested again.</summary>
+    public long WornOutEvent { get; set; }
 
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;

@@ -179,15 +179,31 @@ public static class CombatSystem
         thief.Job = null;
     }
 
+    /// <summary>A thief carries off only stores within this many tiles of where it stands: the pile it reached (ADR-0028).</summary>
+    public const int ThiefReach = 1;
+
     private static void Steal(World w, Character thief)
     {
         int max = w.Content.IncidentById("night_thief").Param("stealMax");
-        int n = Stock.Take(w, "berries", max);
+        List<ItemStack> pile = Stock.Near(w, "berries", thief.Pos, ThiefReach);
+        Zone? zone = pile.Count > 0 ? Zones.UseZoneAt(w, pile[0].Pos) : null;
+        int n = Stock.Take(w, pile, max);
         long cause = thief.Job!.CauseEvent;
         if (n > 0)
         {
-            SimEvent stolen = w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen", new[] { thief.Id }, new[] { cause }, null,
-                EventArg.Num("n", n), EventArg.Item("item", "berries"));
+            // Never spotted with someone at the post: the pile lay out of the watch's sight. Where the player
+            // put that stockpile is then a cause (the camp's first stockpile was nobody's choice). With nobody at the
+            // post in the watch hours, whatever left it empty is a cause (ADR-0029); with no watch kept at all, only the thief.
+            Character? watcher = thief.Job.Stage == 0 ? WatcherAtPost(w) : null;
+            long gap = watcher == null && ScheduleSystem.InWatchHours(w, Calendar.Hour(w.Tick, w.Content.World)) ? w.Watch.GapEvent : 0;
+            SimEvent stolen = watcher != null
+                ? w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen_unseen", new[] { thief.Id }, new[] { cause, zone?.MadeEvent ?? 0 }, null,
+                    EventArg.Num("n", n), EventArg.Item("item", "berries"), EventArg.Char("b", watcher.Id))
+                : gap != 0
+                    ? w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen_unwatched", new[] { thief.Id }, new[] { cause, gap }, null,
+                        EventArg.Num("n", n), EventArg.Item("item", "berries"))
+                    : w.Log.Emit(w, SystemTag.Incident, "event.incident.stolen", new[] { thief.Id }, new[] { cause }, null,
+                        EventArg.Num("n", n), EventArg.Item("item", "berries"));
             foreach (Character m in w.Members())
             {
                 MoodSystem.AddThought(w, m, "robbed", 0, stolen.Id);
@@ -197,6 +213,15 @@ public static class CombatSystem
         }
         thief.Job = new Job { Kind = JobKind.Flee, Target = IncidentSystem.EdgeTile(w, DiceId.ThiefEdge), StartedTick = w.Tick, CauseEvent = cause };
         TravelSystem.Start(w, thief, thief.Job.Target);
+    }
+
+    /// <summary>The first member keeping watch at the post, awake: who a thief got past unseen.</summary>
+    private static Character? WatcherAtPost(World w)
+    {
+        foreach (Character m in w.Characters)
+            if (m.Status == CharStatus.Member && !m.Asleep && !m.Downed && m.Job is { Kind: JobKind.KeepWatch, Stage: >= 1 } j && m.Pos == j.Target)
+                return m;
+        return null;
     }
 
     private static int[] ActorsOf(List<Character> defenders, Character thief)

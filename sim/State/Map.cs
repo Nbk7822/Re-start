@@ -81,6 +81,15 @@ public sealed class Map : IJsonOnDeserialized
     private byte[] _blocked = Array.Empty<byte>();
     private byte[] _bush = Array.Empty<byte>();
 
+    /// <summary>The use-layer zone id on each tile (0 for none), rebuilt by Systems.Zones when <see cref="ZonesDirty"/>.</summary>
+    internal int[] UseZone = Array.Empty<int>();
+
+    /// <summary>1 on each tile of the home area (zones step 3), rebuilt with <see cref="UseZone"/>.</summary>
+    internal byte[] HomeAt = Array.Empty<byte>();
+
+    /// <summary>Set whenever the zones or the caches change, so the zone cache is rebuilt before its next read.</summary>
+    internal bool ZonesDirty = true;
+
     public int Width { get; set; }
     public int Height { get; set; }
     public byte[] Terrain { get; set; } = Array.Empty<byte>();
@@ -90,14 +99,25 @@ public sealed class Map : IJsonOnDeserialized
     public List<Bed> Beds { get; set; } = new();
     public Rect Shelter { get; set; }
     public Rect CoveredRuins { get; set; }
-    public Rect Stockpile { get; set; }
+
+    /// <summary>
+    /// The rectangle WorldGen laid the first stockpile out on. Only a landmark (the generator's reserved
+    /// ground, worn ground, tests); what the camp keeps where is <see cref="Zones"/> (ADR-0028).
+    /// </summary>
+    public Rect StartStockpile { get; set; }
     public Point Hearth { get; set; }
     public Point WatchPost { get; set; }
 
     /// <summary>Walls and doors built in this playthrough (graves later), in id order (ADR-0027).</summary>
     public List<Structure> Structures { get; set; } = new();
 
-    /// <summary>Goes up whenever terrain, roofs, beds or structures change: the view watches it, and blocked plans try again (ADR-0027).</summary>
+    /// <summary>Painted areas (stockpiles, meeting places, the home area), in id order (ADR-0028). Change them only through Systems.Zones.</summary>
+    public List<Zone> Zones { get; set; } = new();
+
+    /// <summary>
+    /// Goes up whenever terrain, roofs, beds, structures or zones change: the view watches it, and blocked plans try
+    /// again (ADR-0027, ADR-0028).
+    /// </summary>
     public int Revision { get; set; }
 
     /// <summary>Records a change to terrain, roofs, beds or structures: bumps <see cref="Revision"/> and rebuilds the passability caches.</summary>
@@ -155,6 +175,7 @@ public sealed class Map : IJsonOnDeserialized
             if (!t.Felled) _blocked[Index(t.Pos)] = 1;
         foreach (Bush b in Bushes) _bush[Index(b.Pos)] = 1;
         if (InBounds(Hearth)) _blocked[Index(Hearth)] = 1;
+        ZonesDirty = true;
     }
 
     public void OnDeserialized() => RebuildCaches();

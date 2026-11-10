@@ -278,12 +278,12 @@ public partial class MapView : Node2D
     public override void _UnhandledInput(InputEvent e)
     {
         if (_host == null) return;
-        if (BuildInput(e))
+        if (BuildInput(e) || ZoneInput(e))
         {
             GetViewport().SetInputAsHandled();
             return;
         }
-        if (_host.Build.Active || e is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
+        if (_host.Build.Active || _host.Tool.Active || e is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
         _host.Select(CharacterUnderMouse());
         GetViewport().SetInputAsHandled();
     }
@@ -400,11 +400,12 @@ public partial class MapView : Node2D
     {
         Map m = w.Map;
         float k = 1f - Mathf.Exp(-delta * 6f);
+        bool zones = _host!.ZonesShown; // roofs go see-through while zones are shown, so a stockpile under one can be seen (ADR-0028)
         foreach (RoofSection r in m.Roof)
-            if (!r.Removed) _roofAlpha[r.Id] = Mathf.Lerp(RoofAlpha(r.Id), Occupied(w, r.Area) ? 0.3f : 0.94f, k);
+            if (!r.Removed) _roofAlpha[r.Id] = Mathf.Lerp(RoofAlpha(r.Id), zones || Occupied(w, r.Area) ? 0.3f : 0.94f, k);
         foreach (Blueprint bp in w.Blueprints)
-            if (bp.Progress > 0 && bp.Area.W * bp.Area.H > 1) _roofAlpha[bp.Id] = Mathf.Lerp(RoofAlpha(bp.Id), Occupied(w, bp.Area) ? 0.3f : 0.94f, k);
-        _ruinAlpha = Mathf.Lerp(_ruinAlpha, Occupied(w, m.CoveredRuins) ? 0.32f : 0.95f, k);
+            if (bp.Progress > 0 && bp.Area.W * bp.Area.H > 1) _roofAlpha[bp.Id] = Mathf.Lerp(RoofAlpha(bp.Id), zones || Occupied(w, bp.Area) ? 0.3f : 0.94f, k);
+        _ruinAlpha = Mathf.Lerp(_ruinAlpha, zones || Occupied(w, m.CoveredRuins) ? 0.32f : 0.95f, k);
     }
 
     private float RoofAlpha(int id) => _roofAlpha.TryGetValue(id, out float a) ? a : 1f;
@@ -416,12 +417,7 @@ public partial class MapView : Node2D
         return false;
     }
 
-    private static bool LanternLit(World w)
-    {
-        foreach (Character c in w.Characters)
-            if (c.Status == CharStatus.Member && c.Job is { Kind: JobKind.KeepWatch, Stage: >= 1 }) return true;
-        return false;
-    }
+    private static bool LanternLit(World w) => ViewText.LanternLit(w);
 
     // ================= ground =================
 
@@ -521,7 +517,7 @@ public partial class MapView : Node2D
         if (_host == null) return;
         _paintWatch.Restart();
         _brush.Begin(layer, PixelsPerUnit(layer));
-        _art.DrawGrid(_brush, _host.Build.Active);
+        _art.DrawGrid(_brush, _host.Build.Active || _host.Tool.Active ? WorldArt.GridMarking : WorldArt.GridFaint); // darker while a Build tool is in hand or zones are being marked
         _art.DrawWater(_brush, _time, _host.World.Weather.Raining);
         _brush.End();
         _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
@@ -546,6 +542,7 @@ public partial class MapView : Node2D
         Gore.DrawDecals(_brush, _tex, _gore.Decals, w.Tick, def.TicksPerHour);
         _art.DrawGrass(_brush, _time, winter, raining ? 1.6f : 0.5f);
         if (raining) RainSplashes();
+        DrawZones(w); // stockpiles and meeting places, under everything that stands (ADR-0028)
 
         // Shadows first, all together (one texture, so one batch), then everything that stands, by depth.
         float shadowAlpha = 0.36f * (1f - 0.8f * _light.Night) * (raining ? 0.6f : 1f);
@@ -936,6 +933,7 @@ public partial class MapView : Node2D
         Glints(w);
         _brush.End(); // text is drawn directly, after everything batched
         Labels(w);
+        ZoneLabels(w);
         _paintMs += _paintWatch.Elapsed.TotalMilliseconds;
     }
 

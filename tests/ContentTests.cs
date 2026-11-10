@@ -59,6 +59,8 @@ public class ContentTests
         defs.AddRange(db.Domains); defs.AddRange(db.Customs);
         defs.AddRange(db.Needs);
         defs.AddRange(db.Buildings);
+        defs.AddRange(db.Zones);
+        defs.AddRange(db.Rhythms);
         foreach (object def in defs)
             foreach (PropertyInfo p in def.GetType().GetProperties())
                 if (p.PropertyType == typeof(string) && p.Name.EndsWith("Key", StringComparison.Ordinal) && p.Name != "Key")
@@ -138,6 +140,35 @@ public class ContentTests
         Assert.Contains("bread", ex.Message);
     }
 
+    /// <summary>A zone kind whose behaviour this build does not implement fails at load, naming the file and the kind (ADR-0028).</summary>
+    [Fact]
+    public void AZoneWithAnUnknownBehaviourFailsAtLoad()
+    {
+        string mod = Path.Combine(Path.GetTempPath(), "return-mod-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(mod);
+        File.WriteAllText(Path.Combine(mod, "zones.json"),
+            "[{ \"id\": \"orchard\", \"nameKey\": \"zone.stockpile.name\", \"hintKey\": \"zone.stockpile.hint\", \"behaviour\": \"grow\", \"layer\": \"use\" }]");
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(ContentDir, new[] { mod }));
+        Assert.Contains("zones.json", ex.Message);
+        Assert.Contains("orchard", ex.Message);
+    }
+
+    /// <summary>A mod may add a kind with a behaviour that exists (a granary that stores), but not on the wrong layer.</summary>
+    [Fact]
+    public void AModMayAddAStoresKindButOnlyOnTheUseLayer()
+    {
+        string mod = Path.Combine(Path.GetTempPath(), "return-mod-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(mod);
+        string granary = "[{ \"id\": \"granary\", \"nameKey\": \"zone.stockpile.name\", \"hintKey\": \"zone.stockpile.hint\", \"behaviour\": \"stores\", \"layer\": \"LAYER\" }]";
+        Directory.CreateDirectory(Path.Combine(mod, "loc"));
+        File.WriteAllText(Path.Combine(mod, "loc", "en.granary.json"), "{ \"zone.granary.a\": \"a granary\", \"zone.granary.the\": \"the granary\" }");
+        File.WriteAllText(Path.Combine(mod, "zones.json"), granary.Replace("LAYER", "use", StringComparison.Ordinal));
+        Assert.Equal("stores", ContentDb.Load(ContentDir, new[] { mod }).ZoneById("granary").Behaviour);
+        File.WriteAllText(Path.Combine(mod, "zones.json"), granary.Replace("LAYER", "area", StringComparison.Ordinal));
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(ContentDir, new[] { mod }));
+        Assert.Contains("granary", ex.Message);
+    }
+
     /// <summary>A bargain's offer reads from text keyed by its service and price; a service with no words for it fails at load, not in play.</summary>
     [Fact]
     public void ABargainServiceWithoutWordsIsRejected()
@@ -165,11 +196,14 @@ public class ContentTests
             ("item", db.Items.Select(i => i.Id).ToHashSet(), RequiredContent.Items),
             ("species", db.Species.Select(s => s.Id).ToHashSet(), RequiredContent.Species),
             ("work", db.Work.Select(x => x.Id).ToHashSet(), RequiredContent.Work),
-            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).Concat(RequiredContent.FateThoughts).Concat(RequiredContent.BuildThoughts).ToList()),
+            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).Concat(RequiredContent.FateThoughts)
+                .Concat(RequiredContent.BuildThoughts).Concat(RequiredContent.ZoneThoughts).Concat(RequiredContent.ScheduleThoughts).ToList()),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
             ("need", db.Needs.Select(n => n.Id).ToHashSet(), RequiredContent.Needs.Select(n => n.Id).ToList()),
             ("gift", db.Gifts.Select(g => g.Id).ToHashSet(), RequiredContent.Gifts.Select(g => g.Id).ToList()),
             ("building", db.Buildings.Select(b => b.Id).ToHashSet(), RequiredContent.Buildings.Select(b => b.Id).ToList()),
+            // A behaviour may share its name with a kind ("home"): code names behaviours, which ZoneBehaviours lists.
+            ("zone", db.Zones.Select(z => z.Id).Where(id => !RequiredContent.ZoneBehaviours.Any(b => b.Behaviour == id)).ToHashSet(), RequiredContent.Zones),
         };
         var giftNum = new System.Text.RegularExpressions.Regex("(?<!EventArg)\\.Num\\(\"([A-Za-z]+)\"");
         var giftParams = RequiredContent.Gifts.SelectMany(g => g.Params).ToHashSet();
