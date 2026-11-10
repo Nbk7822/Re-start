@@ -190,7 +190,7 @@ public static class JobPicker
             && Stock.Count(w, "timber") >= w.Content.WorkById("repair_roof").TimberCost)
         {
             Job? roof = RoofJob(w, c, roofPromise);
-            if (roof != null) return roof;
+            if (roof != null && !Zones.KeepsIn(w, c, roof.Target)) return roof; // roofing is work: after dark it waits for the morning if the timber lies outside the home area
         }
         string food = Places.Species(w, c).FoodSource;
         if (!Places.Species(w, c).EatsItem) food = "berries";
