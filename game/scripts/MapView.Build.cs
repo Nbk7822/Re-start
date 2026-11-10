@@ -30,6 +30,7 @@ public partial class MapView
 
     private int _artRevision;
     private bool[] _planWalls = Array.Empty<bool>();
+    private byte[] _markRuns = Array.Empty<byte>();
     private Func<int, int, bool>? _planJoins;
     private readonly List<(Vector2 At, string Text)> _captions = new();
 
@@ -200,17 +201,23 @@ public partial class MapView
         _captions.Clear();
         OrderDrafts drafts = _host!.Drafts;
         BuildTool tool = _host.Build;
+        Map m = w.Map;
+        // One-tile plans not yet begun share one outline per run: a row of planned walls reads as one plan.
+        if (_markRuns.Length != m.Width * m.Height) _markRuns = new byte[m.Width * m.Height];
+        else Array.Clear(_markRuns);
+        foreach (Blueprint bp in w.Blueprints)
+            if (bp.Progress == 0 && bp.Area.W == 1 && bp.Area.H == 1 && m.InBounds(new SimPoint(bp.Area.X, bp.Area.Y)) && !drafts.CallingOff(bp.Id))
+                _markRuns[m.Index(new SimPoint(bp.Area.X, bp.Area.Y))] = Refused(w, bp) ? (byte)2 : (byte)1;
         foreach (Blueprint bp in w.Blueprints)
         {
             if (drafts.CallingOff(bp.Id) || w.Content.TryBuilding(bp.DefId) is not { } def) continue;
-            bool shutIn = bp.Blocked == BlockedReason.WouldShutIn && bp.BlockedRevision == w.Map.Revision;
-            Color ink = shutIn ? BadInk : PlanInk;
-            Rect2 r = ScreenRect(PieceRect(bp.Area));
-            if (bp.Progress > 0) _brush.RectOutline(r, ink.WithAlpha(0.55f), 1f);
+            Color ink = Refused(w, bp) ? BadInk : PlanInk;
+            if (bp.Progress > 0) _brush.RectOutline(ScreenRect(PieceRect(bp.Area)), ink.WithAlpha(0.55f), 1f);
             else
             {
                 Ghost(def, bp.Area, ink.WithAlpha(0.15f));
-                Dashes(r, ink.WithAlpha(0.9f));
+                if (bp.Area.W == 1 && bp.Area.H == 1) RunEdges(m, new SimPoint(bp.Area.X, bp.Area.Y), ink.WithAlpha(0.9f));
+                else Dashes(ScreenRect(PieceRect(bp.Area)), ink.WithAlpha(0.9f));
             }
         }
 
@@ -330,19 +337,55 @@ public partial class MapView
         }
     }
 
+    /// <summary>A plan a builder refused to finish because it would shut people in (until the map changes).</summary>
+    private static bool Refused(World w, Blueprint bp) => bp.Blocked == BlockedReason.WouldShutIn && bp.BlockedRevision == w.Map.Revision;
+
+    /// <summary>The dashed edges of a one-tile plan that border no other such plan (of the same standing), so a run shares one outline.</summary>
+    private void RunEdges(Map m, SimPoint p, Color c)
+    {
+        byte run = _markRuns[m.Index(p)];
+        bool Open(int dx, int dy)
+        {
+            var q = new SimPoint(p.X + dx, p.Y + dy);
+            return !m.InBounds(q) || _markRuns[m.Index(q)] != run;
+        }
+        bool n = Open(0, -1), s = Open(0, 1), west = Open(-1, 0), e = Open(1, 0);
+        float x0 = p.X * TileSize, y0 = p.Y * TileSize, inset = 2f;
+        float l = west ? x0 + inset : x0, r = e ? x0 + TileSize - inset : x0 + TileSize;
+        float t = n ? y0 + inset : y0, b = s ? y0 + TileSize - inset : y0 + TileSize;
+        if (n) Dashed(new Vector2(l, t), new Vector2(r, t), c, 1.2f);
+        if (s) Dashed(new Vector2(l, b), new Vector2(r, b), c, 1.2f);
+        if (west) Dashed(new Vector2(l, t), new Vector2(l, b), c, 1.2f);
+        if (e) Dashed(new Vector2(r, t), new Vector2(r, b), c, 1.2f);
+    }
+
+    /// <summary>
+    /// A dashed line between two map points, drawn on screen: two dashes to a tile, each a quarter of a tile long and set
+    /// in the middle of its half, so dashes keep step from one tile to the next.
+    /// </summary>
+    private void Dashed(Vector2 mapA, Vector2 mapB, Color c, float width)
+    {
+        Vector2 a = _toScreen * mapA, b = _toScreen * mapB;
+        float len = a.DistanceTo(b), period = Mathf.Max(4f, TileSize * _toScreen.X.Length() * 0.5f);
+        int n = Math.Max(1, (int)MathF.Round(len / period));
+        Vector2 step = (b - a) / n;
+        for (int i = 0; i < n; i++) _brush.Line(a + step * (i + 0.25f), a + step * (i + 0.75f), c, width);
+    }
+
     /// <summary>A piece's tiles in map pixels, a little inside the grid lines.</summary>
     private static Rect2 PieceRect(SimRect a) => new(a.X * TileSize + 2f, a.Y * TileSize + 2f, a.W * TileSize - 4f, a.H * TileSize - 4f);
 
     private static Rect2 TilesRect(SimRect a) => new(a.X * TileSize, a.Y * TileSize, a.W * TileSize, a.H * TileSize);
 
+    /// <summary>A dashed outline round a screen rectangle, in the same step as <see cref="Dashed"/>.</summary>
     private void Dashes(Rect2 r, Color c, float width = 1.2f)
     {
-        float dash = Mathf.Clamp(r.Size.X / 5f, 2.5f, 5f);
-        Vector2 a = r.Position, b = new(r.End.X, r.Position.Y), e = r.End, d = new(r.Position.X, r.End.Y);
-        _brush.Dashed(a, b, c, width, dash);
-        _brush.Dashed(b, e, c, width, dash);
-        _brush.Dashed(e, d, c, width, dash);
-        _brush.Dashed(d, a, c, width, dash);
+        Transform2D toMap = _toScreen.AffineInverse();
+        Vector2 a = toMap * r.Position, b = toMap * new Vector2(r.End.X, r.Position.Y), e = toMap * r.End, d = toMap * new Vector2(r.Position.X, r.End.Y);
+        Dashed(a, b, c, width);
+        Dashed(b, e, c, width);
+        Dashed(e, d, c, width);
+        Dashed(d, a, c, width);
     }
 
     /// <summary>A red cross: this tile cannot take the plan, or this plan would be called off.</summary>
