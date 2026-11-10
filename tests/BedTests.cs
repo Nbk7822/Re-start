@@ -93,6 +93,21 @@ public class BedTests
         Assert.Contains(mira.Thoughts, t => t.DefId == "no_bed");
     }
 
+    /// <summary>
+    /// "Had no bed to sleep in" is for someone who has none: an owner who slept away from their bed (a vampire in the
+    /// ruins by day, its bed across open ground) feels neither the comfort nor the lack (review of ADR-0027).
+    /// </summary>
+    [Fact]
+    public void AnOwnerWhoSleptAwayFromTheirBedIsNotToldTheyHadNone()
+    {
+        World w = WorkTests.Only(1, "you", "ilex");
+        Character ilex = Cast(w, "ilex");
+        w.Map.Beds[0].OwnerId = ilex.Id;
+        ilex.Pos = w.Map.CoveredRuins.Center;
+        Building.Woke(w, ilex);
+        Assert.DoesNotContain(ilex.Thoughts, t => t.DefId is "no_bed" or "slept_in_own_bed");
+    }
+
     [Fact]
     public void WhoeverMendedTheRoofIsThankedByThoseWhoSleepUnderItOnceADay()
     {

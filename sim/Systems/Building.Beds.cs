@@ -89,14 +89,15 @@ public static partial class Building
     }
 
     /// <summary>
-    /// On waking: their own bed is a comfort and no bed at all is felt; waking under a roof someone else raised
-    /// or mended, or in a bed someone else built, warms them to that person (at most once a day for each).
+    /// On waking: their own bed is a comfort, and having no bed at all is felt (not by an owner who slept away from
+    /// theirs, such as a vampire kept in the ruins by the sun); waking under a roof someone else raised or mended, or
+    /// in a bed someone else built, warms them to that person (at most once a day for each).
     /// </summary>
     internal static void Woke(World w, Character c)
     {
         Bed? bed = BedAt(w, c.Pos);
-        if (bed == null) MoodSystem.AddThought(w, c, "no_bed", 0, 0);
-        else if (bed.OwnerId == c.Id) MoodSystem.AddThought(w, c, "slept_in_own_bed", 0, bed.ClaimEvent);
+        if (bed == null && OwnedBed(w, c.Id) == null) MoodSystem.AddThought(w, c, "no_bed", 0, 0);
+        else if (bed != null && bed.OwnerId == c.Id) MoodSystem.AddThought(w, c, "slept_in_own_bed", 0, bed.ClaimEvent);
         foreach (RoofSection r in w.Map.Roof)
         {
             if (!r.Sound || r.Removed || !r.Area.Contains(c.Pos)) continue;
