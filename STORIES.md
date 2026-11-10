@@ -194,3 +194,24 @@ On Day 34 two berries spoiled in the damp; by 19:00 Sennet, one of the Good Folk
 
 ### Your night on watch (seed 1, playtest view)
 Day 2, 09:00. Last night Oren kept the watch until 23:00, then woke you; you kept it until 04:00 and woke Mira. Your inspector's lived strip shows the five hours on watch, each notched where your planned day said sleep, and a nap from 18:00 to 21:00 the evening before, notched again. The Schedule list beside it reads "Last night: Oren 19:00–23:00 · You 23:00–04:00 · Mira 04:00–06:00". On Day 22 at midnight the lantern burns over Vale at the post; the night folk keep most watches once they have come.
+
+## 2026-11-10 — Zones slice 1, step 3: the home area and the dark (ADR-0028 update; soak 100 worlds × 1 year)
+
+With no home area marked, 1,406 stories (1,412 at the merge base): the dark beyond the firelight doubles the odds of an accident at night, and 91 of the year's 305 accidents happen in it, but none reaches a story. With the stand-in's home plans, 1,388 (`--zones home`, the camp clearing), 1,396 (`short`, the clearing one row short of the watch post) and 1,374 (`both`, with the stores in the ruins). Only 3 of those 300 worlds have a story through a home-area line, all in `short`; the design's floor is 15%, so its cut rule is triggered (ADR-0028). Seeds are from `tools/soak --worlds 100 --years 1 --zones <plan>`.
+
+### Nobody bound would keep the watch (seed 12, soak `--zones short`; policy "the hungriest eat first")
+On the first morning you marked out a home area round the camp, one row short of the watch post, asking everyone to keep inside it after dark. In the small hours of Day 37, deep in the winter squeeze, Vale's turn on watch ended, and there was nobody left to ask who could keep a post outside the home area: "You would not keep watch outside the home area after dark." Vale left the watch; nobody came to take it. At 04:20 a thief made off with the last berry; nobody was on watch. At 06:32 Nia went without so others could eat, by noon she was hungry, by evening starving, and on Day 39 she left the camp.
+- Chain: home area marked (World) → would not keep watch outside → left the watch (Work) → the theft, citing the empty post (Incident) → went without, hungry, starving (Needs) → left (Social).
+- Why it matters: the design's story 3, arising unprompted. Everyone did what you asked, the vampire would not stay on alone, and the line that names why the post was empty is yours.
+
+### The meal Sennet took (seed 77, soak `--zones short` and `--zones mixed`; policy "you eat first")
+Your home area left the watch post just outside it. On Day 33 at 23:12 nobody bound by it could be asked to keep watch ("Wren would not keep watch outside the home area after dark."), and at 03:12 Varrow left the watch; nobody came to take it. At 05:17 a thief made off with 3 berries. By that evening Sennet, one of the Good Folk, was hungry, by one in the morning starving, and at the 02:18 share-out on Day 35, with you eating first, Sennet went without. Thirteen minutes later Sennet took the meal set aside for you, and you now hold a grudge against Sennet.
+- Chain: home area marked (World) → would not keep watch outside → left the watch (Work) → theft (Incident) → hungry, starving, went without (Needs) → took the meal → grudge (Social). 9 steps.
+
+### Mira stayed in (seed 82, soak `--zones home --days nightwatcher`; policy "promised meals come first")
+You put Mira on nights and marked out a home area round the camp. Winter came on Day 31 and the frost took the berries from the bushes. At midnight on Day 37, at work in her night hours, Mira was getting hungry, and the berries left were on bushes beyond the home area: "Mira, hungry, stayed in camp after dark as you asked." At the 02:29 share-out she went without, and at 03:22 she took the meal set aside for Hollis. Hollis now holds a grudge against Mira.
+- Chain: winter (World) → hungry (Needs) → stayed in as asked (Work) → went without (Needs) → took the meal → grudge (Social).
+- Why it matters: obeying at a cost, as the design wanted: the line that she stayed in is the cause of the hunger that follows. It happens almost only to people on nights (5 of 100 nightwatcher worlds), because under the camp's day nobody else is out and hungry after dark.
+
+### The post beyond the edge (seed 1, playtest view)
+Day 3, 20:01. You marked out the home area a moment ago. The camp sits round the fire inside it (Oren, Ilex, you), the home area's faint dashed edge runs across the grass below the fire, and beyond it Mira keeps the watch at the post under the lit lantern: she was already there, so the turn is hers to finish, and from the next handover nobody the home area binds will be asked to go out to it. The tile tooltip by the fire reads "Home area · By the fire's light".
