@@ -1,0 +1,54 @@
+[
+  {
+    "id": "forager",
+    "nameKey": "role.forager.name",
+    "priorities": [
+      { "work": "forage", "priority": 1 },
+      { "work": "haul", "priority": 2 },
+      { "work": "care", "priority": 2 },
+      { "work": "gather_timber", "priority": 3 },
+      { "work": "repair_roof", "priority": 3 },
+      { "work": "build", "priority": 3 },
+      { "work": "keep_watch", "priority": 3 }
+    ]
+  },
+  {
+    "id": "builder",
+    "nameKey": "role.builder.name",
+    "priorities": [
+      { "work": "repair_roof", "priority": 1 },
+      { "work": "build", "priority": 1 },
+      { "work": "gather_timber", "priority": 1 },
+      { "work": "haul", "priority": 2 },
+      { "work": "forage", "priority": 3 },
+      { "work": "care", "priority": 3 },
+      { "work": "keep_watch", "priority": 3 }
+    ]
+  },
+  {
+    "id": "carer",
+    "nameKey": "role.carer.name",
+    "priorities": [
+      { "work": "care", "priority": 1 },
+      { "work": "forage", "priority": 2 },
+      { "work": "haul", "priority": 2 },
+      { "work": "gather_timber", "priority": 3 },
+      { "work": "repair_roof", "priority": 3 },
+      { "work": "build", "priority": 3 },
+      { "work": "keep_watch", "priority": 3 }
+    ]
+  },
+  {
+    "id": "watcher",
+    "nameKey": "role.watcher.name",
+    "priorities": [
+      { "work": "keep_watch", "priority": 1 },
+      { "work": "haul", "priority": 2 },
+      { "work": "care", "priority": 2 },
+      { "work": "forage", "priority": 3 },
+      { "work": "gather_timber", "priority": 3 },
+      { "work": "repair_roof", "priority": 3 },
+      { "work": "build", "priority": 3 }
+    ]
+  }
+]

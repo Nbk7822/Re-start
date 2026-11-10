@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Return.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageReference Include="JsonSchema.Net" Version="9.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../sim/Return.Sim.csproj" />
+    <ProjectReference Include="../tools/Return.Runner/Return.Runner.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!-- The Godot-free half of the view (loc helper, tick clock, view text). Compiled here so it is
+       unit-tested and cannot pick up a Godot dependency; the Godot project compiles the same files. -->
+  <ItemGroup>
+    <Compile Include="../game/scripts/Ui.cs" Link="GameView/Ui.cs" />
+    <Compile Include="../game/scripts/Logic/*.cs" Link="GameView/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

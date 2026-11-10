@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Thoughts: remembered moments with a mood effect, an optional opinion effect and an emote",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "textKey", "mood", "durationHours"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "textKey": { "$ref": "#/$defs/locKey" },
+      "mood": { "type": "integer", "minimum": -100, "maximum": 100 },
+      "opinion": { "type": "integer", "minimum": -100, "maximum": 100 },
+      "durationHours": { "type": "integer", "minimum": 1 },
+      "emote": { "enum": ["none", "anger", "sweat", "hearts", "sparkle", "alert", "question", "zzz", "gloom", "music"] },
+      "stackLimit": { "type": "integer", "minimum": 1 }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

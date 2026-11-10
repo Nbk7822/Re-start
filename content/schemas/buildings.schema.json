@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Buildings: what the Build list offers, what each costs and takes to build, and the behaviour (kind) the simulation gives it",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKey", "descKey", "kind", "category", "materials", "workTicks", "takeDownPct", "placeOn"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKey": { "$ref": "#/$defs/locKey" },
+      "descKey": { "$ref": "#/$defs/locKey" },
+      "kind": { "description": "The behaviour the simulation implements; a kind with no behaviour in this version fails at load", "enum": ["wall", "door", "roof", "bed", "grave"] },
+      "category": { "description": "How the Build list groups it", "enum": ["shelter", "rest", "rites"] },
+      "materials": {
+        "description": "The cost; perTiles is for roofs (count per that many tiles, rounded up)",
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["item", "count"],
+          "properties": {
+            "item": { "$ref": "#/$defs/id" },
+            "count": { "type": "integer", "minimum": 1 },
+            "perTiles": { "type": "integer", "minimum": 1 }
+          }
+        }
+      },
+      "workTicks": { "description": "Work to finish; per tile for roofs", "type": "integer", "minimum": 1 },
+      "takeDownPct": { "description": "Share of the materials returned when it is taken down", "type": "integer", "minimum": 0, "maximum": 100 },
+      "placeOn": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["grass", "soil", "floor"] } },
+      "maxSide": { "description": "Roof only: the longest side of one section", "type": "integer", "minimum": 1 },
+      "supportRange": { "description": "Roof only: every tile must be this close (Chebyshev) to a wall or door", "type": "integer", "minimum": 0 },
+      "restBonusPct": { "description": "Bed only: how much faster sleep restores rest in it", "type": "integer", "minimum": 0, "maximum": 100 },
+      "tags": { "description": "Free tags other systems may read (wood, stone, iron, grave, holy)", "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+    },
+    "allOf": [
+      { "if": { "properties": { "kind": { "const": "roof" } } }, "then": { "required": ["maxSide", "supportRange"] } },
+      { "if": { "properties": { "kind": { "const": "bed" } } }, "then": { "required": ["restBonusPct"] } }
+    ]
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

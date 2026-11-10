@@ -1,0 +1,73 @@
+[
+  {
+    "id": "hearth",
+    "nameKeys": ["culture.hearth.name.0", "culture.hearth.name.1", "culture.hearth.name.2"],
+    "peoples": [ { "species": "human", "weight": 5 }, { "species": "*", "weight": 1 } ],
+    "ethics": { "mortalImmortal": 1, "arcaneMundane": -1, "wildCivil": -2, "oathboundFree": 2 },
+    "faiths": [ { "faith": "sworn", "weight": 3 }, { "faith": "roots", "weight": 1 } ],
+    "otherFaithPermille": 100,
+    "devotion": { "min": 20, "max": 80 },
+    "customs": [
+      { "custom": "clasp_greeting", "always": true },
+      { "custom": "guest_bread", "weight": 3 },
+      { "custom": "leader_last", "weight": 3 },
+      { "custom": "harvest_fire", "weight": 2 },
+      { "custom": "debt_of_honour", "weight": 1 }
+    ],
+    "customPicks": 2,
+    "attitudes": [ { "species": "vampire", "stance": "wary" } ]
+  },
+  {
+    "id": "reed",
+    "nameKeys": ["culture.reed.name.0", "culture.reed.name.1", "culture.reed.name.2"],
+    "peoples": [ { "species": "human", "weight": 4 }, { "species": "*", "weight": 1 } ],
+    "ethics": { "mortalImmortal": 1, "arcaneMundane": 0, "wildCivil": 2, "oathboundFree": -2 },
+    "faiths": [ { "faith": "roots", "weight": 3 }, { "faith": "sworn", "weight": 1 } ],
+    "otherFaithPermille": 150,
+    "devotion": { "min": 10, "max": 70 },
+    "customs": [
+      { "custom": "no_touch_greeting", "always": true },
+      { "custom": "blood_taboo", "weight": 3 },
+      { "custom": "longest_night", "weight": 2 },
+      { "custom": "guest_bread", "weight": 1 }
+    ],
+    "customPicks": 2,
+    "attitudes": [ { "species": "vampire", "stance": "fear" } ]
+  },
+  {
+    "id": "ashen",
+    "nameKeys": ["culture.ashen.name.0", "culture.ashen.name.1", "culture.ashen.name.2"],
+    "peoples": [ { "species": "human", "weight": 3 }, { "species": "vampire", "weight": 3 }, { "species": "*", "weight": 2 } ],
+    "ethics": { "mortalImmortal": -1, "arcaneMundane": 1, "wildCivil": 0, "oathboundFree": 1 },
+    "faiths": [ { "faith": "ember", "weight": 3 }, { "faith": "sworn", "weight": 1 } ],
+    "otherFaithPermille": 100,
+    "devotion": { "min": 30, "max": 95 },
+    "customs": [
+      { "custom": "bow_greeting", "always": true },
+      { "custom": "debt_of_honour", "weight": 3 },
+      { "custom": "blood_gift", "weight": 2 },
+      { "custom": "longest_night", "weight": 2 },
+      { "custom": "leader_last", "weight": 1 }
+    ],
+    "customPicks": 2,
+    "attitudes": [ { "species": "vampire", "stance": "revere" } ]
+  },
+  {
+    "id": "night",
+    "nameKeys": ["culture.night.name.0", "culture.night.name.1", "culture.night.name.2"],
+    "peoples": [ { "species": "vampire", "weight": 5 }, { "species": "*", "weight": 3 }, { "species": "human", "weight": 1 } ],
+    "ethics": { "mortalImmortal": -2, "arcaneMundane": 2, "wildCivil": 1, "oathboundFree": 0 },
+    "faiths": [ { "faith": "ember", "weight": 3 }, { "faith": "roots", "weight": 1 } ],
+    "otherFaithPermille": 150,
+    "devotion": { "min": 20, "max": 90 },
+    "customs": [
+      { "custom": "veiled_greeting", "always": true },
+      { "custom": "debt_of_honour", "weight": 2 },
+      { "custom": "longest_night", "weight": 2 },
+      { "custom": "guest_bread", "weight": 1 },
+      { "custom": "blood_gift", "weight": 1 }
+    ],
+    "customPicks": 2,
+    "attitudes": []
+  }
+]

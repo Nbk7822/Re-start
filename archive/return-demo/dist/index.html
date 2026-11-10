@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Return — The First Camp</title>
+  <meta name="description" content="A playable pausable simulation about a small camp, difficult needs, and promises people remember.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23202a2c'/%3E%3Cpath d='M28 13H15v14m0-14-6 6m6-6 6 6' fill='none' stroke='%23d9b76d' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+ <div class="brand"><span class="brand-mark">↰</span><div><strong>RETURN</strong><span>The First Camp</span></div></div>
+ <div class="resources" aria-label="Camp supplies"><div><span class="resource-mark">◈</span><strong id="food">0</strong><span>meals</span></div><div><span class="resource-mark">▥</span><strong id="wood">0</strong><span>timber</span></div><div><span class="resource-mark">⌂</span><strong id="roof">0/3</strong><span>shelter</span></div></div>
+ <div class="header-actions"><button id="help" class="quiet">How to play</button><button id="new-camp" class="quiet">New camp</button></div>
+</header>
+<div class="goalbar"><span class="eyebrow">YOUR FIRST TWO DAYS</span><span id="goal-text">Stay alive. Build shelter. Give people a reason to stay.</span><span id="goal-progress">0 / 3 companions</span></div>
+<main class="game-layout">
+ <aside class="panel people-panel"><div class="panel-heading"><h1>Your people</h1><span id="cast-count" class="muted">2 nearby</span></div><div id="people" class="people-list"></div><div class="ration-box"><label for="ration-policy">When food runs short</label><select id="ration-policy"><option value="need">Feed the hungriest first</option><option value="promises">Honor meal promises first</option><option value="you">Keep yourself fed first</option></select><p>One shared store. Someone bears the cost.</p></div></aside>
+ <section class="world-column" aria-label="Camp map and history">
+  <div class="map-panel"><div class="map-topline"><span id="time-label">Day 1 · Morning</span><span id="weather-label">Clear</span></div><canvas id="world" aria-label="Top-down camp map. Select a person on the map or in the people list."></canvas><div class="map-caption"><span id="map-status">Time is paused</span><span>Click a person to know them</span></div></div>
+  <div class="time-controls"><button id="pause" class="primary"><span id="pause-symbol">▶</span> <span id="pause-label">Let time pass</span><kbd>Space</kbd></button><div class="speeds" aria-label="Time speed"><button data-speed="1" class="active">1×</button><button data-speed="3">3×</button><button data-speed="8">8×</button></div><button id="step" class="shift-button">Finish shift <span>↦</span></button><span id="shift-count" class="muted">Shift 0 / 12</span></div>
+  <div id="feedback" class="feedback" role="status">You have nothing. Finding food is a place to start.</div>
+  <section class="panel journal"><div class="panel-heading"><div><span class="eyebrow">A HISTORY IN THE MAKING</span><h2>What happened here</h2></div><div class="journal-tools"><button id="filter-moments" class="quiet" aria-pressed="false">Only turning points</button><button id="export" class="quiet" title="Download the factual event record">↓ Record</button></div></div><div id="events" class="event-list" aria-live="polite" aria-relevant="additions"></div></section>
+ </section>
+ <aside id="inspector" class="panel inspector" aria-label="Selected person"></aside>
+</main>
+<footer class="page-footer"><span>A small companion simulation · one timeline · humans & vampires</span><button id="console-toggle" class="quiet">Text controls</button><span class="muted">No direct unit control. Set intentions; people decide.</span></footer>
+<section id="console-panel" class="console-panel" hidden><label for="console-input">The same commands as the buttons</label><form id="console-form"><input id="console-input" spellcheck="false" aria-label="Structured text command" value='{"type":"intent","actorId":"you","task":"forage"}'><button type="submit">Run</button></form><div><button id="observe">Read visible state</button><span>Also available as window.Return.observe() and window.Return.command(object).</span></div><pre id="console-output"></pre></section>
+<dialog id="welcome"><div class="dialog-kicker">RETURN · PLAYABLE PROTOTYPE</div><h2>The first camp</h2><p class="dialog-lead">You wake beside a ruined shelter with nothing. A stranger waits nearby. Two days from now, this could be a home.</p><ol class="instructions"><li><b>Choose an intention.</b> Gather food, repair the roof, or rest. Your character handles the journey.</li><li><b>Ask people to stay.</b> They have needs of their own. A meal or a promise can turn a stranger into an ally.</li><li><b>Live with what follows.</b> People remember care, stolen meals, and broken promises. Pause whenever you need to think.</li></ol><div class="demo-goal"><b>Survive 12 shifts</b><span>Repair all 3 shelter sections · Keep 3 companions · Finish with 3 meals</span></div><div class="dialog-actions"><button id="begin" class="primary">Enter the camp <span>↦</span></button><button id="begin-paused">Start paused</button></div><p class="small muted">Space pauses time. “Finish shift” advances immediately. This demo has no rewind; death ends the session.</p></dialog>
+<dialog id="ending"><div class="dialog-kicker">THE CHRONICLE OF THIS CAMP</div><h2 id="ending-title"></h2><p id="ending-copy" class="dialog-lead"></p><div id="ending-stats" class="ending-stats"></div><div id="ending-moments"></div><div class="dialog-actions"><button id="ending-restart" class="primary">Begin another life</button><button id="ending-close">Look around the camp</button></div></dialog>
+<dialog id="restart"><div class="dialog-kicker">A NEW PLAYTHROUGH</div><h2>Another beginning</h2><p>This camp’s state will be replaced. You can download its record first.</p><label for="seed-input">World seed</label><input id="seed-input" type="number" min="1" max="2147483647"><div class="dialog-actions"><button id="confirm-restart" class="primary">Start a new camp</button><button id="cancel-restart">Keep this camp</button></div></dialog>
+<script type="module" src="app.js"></script>
+</body></html>

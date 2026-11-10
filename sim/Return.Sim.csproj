@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Return.Sim: pure simulation library. No Godot references, no NuGet packages (CLAUDE.md, ADR-0003). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Return.Sim</RootNamespace>
+    <AssemblyName>Return.Sim</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Return.Tests" />
+    <!-- The runner's fates mode forces one death per world (Simulation.ForceDeath); no command can kill you (ADR-0030). -->
+    <InternalsVisibleTo Include="return-runner" />
+  </ItemGroup>
+
+</Project>

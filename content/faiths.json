@@ -1,0 +1,67 @@
+[
+  {
+    "id": "sworn",
+    "nameKeys": ["faith.sworn.name.0", "faith.sworn.name.1", "faith.sworn.name.2"],
+    "ethics": { "mortalImmortal": 0, "arcaneMundane": -1, "wildCivil": -1, "oathboundFree": 2 },
+    "gods": [
+      {
+        "nameKeys": ["god.sworn.a.0", "god.sworn.a.1", "god.sworn.a.2"],
+        "domains": [ { "domain": "oaths", "weight": 3 }, { "domain": "hearth", "weight": 1 } ],
+        "wrath": { "min": 40, "max": 90 },
+        "grace": { "min": 20, "max": 60 }
+      },
+      {
+        "nameKeys": ["god.sworn.b.0", "god.sworn.b.1", "god.sworn.b.2"],
+        "domains": [ { "domain": "hearth", "weight": 3 }, { "domain": "oaths", "weight": 1 } ],
+        "wrath": { "min": 20, "max": 60 },
+        "grace": { "min": 40, "max": 90 }
+      }
+    ],
+    "customs": [
+      { "custom": "guest_bread", "weight": 2 },
+      { "custom": "debt_of_honour", "weight": 2 }
+    ],
+    "customPicks": 1,
+    "omenDevotion": 50
+  },
+  {
+    "id": "roots",
+    "nameKeys": ["faith.roots.name.0", "faith.roots.name.1", "faith.roots.name.2"],
+    "ethics": { "mortalImmortal": 1, "arcaneMundane": 1, "wildCivil": 2, "oathboundFree": 0 },
+    "gods": [
+      {
+        "nameKeys": ["god.roots.a.0", "god.roots.a.1", "god.roots.a.2"],
+        "domains": [ { "domain": "grove", "weight": 3 }, { "domain": "hearth", "weight": 1 } ],
+        "wrath": { "min": 30, "max": 80 },
+        "grace": { "min": 30, "max": 80 }
+      }
+    ],
+    "customs": [
+      { "custom": "sacred_grove", "always": true },
+      { "custom": "blood_taboo", "weight": 1 },
+      { "custom": "harvest_fire", "weight": 1 }
+    ],
+    "customPicks": 1,
+    "omenDevotion": 40
+  },
+  {
+    "id": "ember",
+    "nameKeys": ["faith.ember.name.0", "faith.ember.name.1", "faith.ember.name.2"],
+    "ethics": { "mortalImmortal": -2, "arcaneMundane": 1, "wildCivil": 0, "oathboundFree": 1 },
+    "gods": [
+      {
+        "nameKeys": ["god.ember.a.0", "god.ember.a.1", "god.ember.a.2"],
+        "domains": [ { "domain": "vein", "weight": 3 }, { "domain": "oaths", "weight": 1 } ],
+        "wrath": { "min": 40, "max": 90 },
+        "grace": { "min": 30, "max": 70 }
+      }
+    ],
+    "customs": [
+      { "custom": "blood_gift", "always": true },
+      { "custom": "debt_of_honour", "weight": 1 },
+      { "custom": "longest_night", "weight": 1 }
+    ],
+    "customPicks": 1,
+    "omenDevotion": 50
+  }
+]

@@ -1,0 +1,907 @@
+using System.Diagnostics;
+using System.Text.RegularExpressions;
+using Return.Runner;
+using Return.Sim;
+using Return.Sim.Api;
+using Return.Sim.Content;
+using Return.Sim.Core;
+using Return.Sim.Events;
+using Return.Sim.Snapshots;
+using Return.Sim.Systems;
+
+namespace Return.Tests;
+
+/// <summary>
+/// Who you are and Return by Death (the player design §4–§6, ADR-0030): the rebirth Truths, aging and the end of a
+/// lifetime, fate knots, the pick, the return and what you keep, lost futures, memories and replay.
+/// </summary>
+public class FateTests
+{
+    private const int Day = 7_200, Hour = 300;
+
+    private static Character You(World w) => w.Get(w.PlayerId);
+    private static Character Cast(World w, string key) => w.Characters.First(c => c.CastKey == key);
+
+    /// <summary>Kills you now and steps once, so the step ends in a return; the world after it.</summary>
+    private static World DieAndReturn(Simulation sim)
+    {
+        Assert.True(sim.ForceDeath());
+        sim.Step();
+        return sim.World;
+    }
+
+    // ---- Rebirth ----
+
+    [Fact]
+    public void RebirthIsATruth()
+    {
+        ContentDb db = TestContent.Rolled;
+        foreach (ulong seed in new ulong[] { 1, 2, 3, 17, 40 })
+        {
+            var sim = Simulation.Create(db, seed);
+            World w = sim.World;
+            string people = Rebirth.PeopleOf(db, seed, "you");
+            Assert.Equal(people, You(w).SpeciesId);
+            Assert.Equal(people, w.Fate.PeopleId);
+            Assert.Equal(Rebirth.GiftOf(db, seed, "you", people), w.Fate.GiftId);
+            Assert.Equal(WorldGen.NatureOf(db, seed, "you").WantType, You(w).Growth.Want!.TypeId);
+            var ages = w.Characters.Select(c => (c.BirthTick, c.OldAgeTick)).ToList();
+            long soul = w.Fate.SoulEndTick;
+
+            // Reseeded Dice and re-drawn arrivals (what a return does) change none of it.
+            w.Rng.Dice.Reseed(99);
+            WorldGen.RedrawArrivals(w);
+            w.Arrivals.Reverse();
+            sim.Advance(Day);
+            Assert.Equal(people, You(sim.World).SpeciesId);
+            Assert.Equal(soul, sim.World.Fate.SoulEndTick);
+            Assert.Equal(ages, sim.World.Characters.Take(ages.Count).Select(c => (c.BirthTick, c.OldAgeTick)).ToList());
+        }
+
+        // Over 1,000 seeds each people lands within 3 points of its weight.
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (ulong seed = 1; seed <= 1_000; seed++)
+        {
+            string p = Rebirth.PeopleOf(db, seed, "you");
+            counts[p] = counts.GetValueOrDefault(p) + 1;
+        }
+        int total = db.Rebirth.Peoples.Sum(p => p.Weight);
+        foreach (RebirthPeopleDef p in db.Rebirth.Peoples)
+        {
+            double expected = 100.0 * p.Weight / total, got = counts.GetValueOrDefault(p.Species) / 10.0;
+            Assert.True(Math.Abs(expected - got) <= 3, $"{p.Species}: {got}% of 1,000 seeds, expected {expected}% ± 3");
+        }
+    }
+
+    [Fact]
+    public void EveryoneAgesWithinTheirPeoplesFigures()
+    {
+        ContentDb db = TestContent.Rolled;
+        WorldDef def = db.World;
+        for (ulong seed = 1; seed <= 30; seed++)
+        {
+            World w = WorldGen.Create(db, seed);
+            foreach (Character c in w.Characters)
+            {
+                SpeciesDef sp = db.AgesAs(c.SpeciesId);
+                int age = Rebirth.AgeYears(w, c, 0);
+                Assert.InRange(age, sp.AdultAtYears[0], sp.AdultAtYears[1]);
+                if (sp.Ageless) Assert.Equal(0, c.OldAgeTick);
+                else Assert.InRange((c.OldAgeTick - c.BirthTick) / def.TicksPerYear, sp.LifespanYears[0], sp.LifespanYears[1]);
+            }
+            int soulYears = (int)(w.Fate.SoulEndTick / def.TicksPerYear);
+            Assert.InRange(soulYears, db.Rebirth.SoulSpanYears[0], db.Rebirth.SoulSpanYears[1]);
+        }
+    }
+
+    [Fact]
+    public void ChosenForTestingIsMarkedAndHonoured()
+    {
+        var sim = Simulation.Create(TestContent.Rolled, 3, new RebirthChoice("fae", RebirthChoice.NoGift));
+        World w = sim.World;
+        Assert.Equal("fae", You(w).SpeciesId);
+        Assert.Equal("", w.Fate.GiftId);
+        Assert.True(w.Fate.Chosen);
+        Assert.Contains(You(w).NatureNeeds, n => n.Id == "courtesy");
+        Assert.False(Simulation.Create(TestContent.Rolled, 3).World.Fate.Chosen);
+        Assert.Throws<ContentException>(() => Simulation.Create(TestContent.Rolled, 3, new RebirthChoice("dragon")));
+    }
+
+    [Fact]
+    public void YouWakeOnTheFirstTick()
+    {
+        var sim = Simulation.Create(TestContent.Rolled, 4, new RebirthChoice("vampire"));
+        sim.Step();
+        SimEvent woke = sim.World.Log.All[0];
+        Assert.Equal(Fate.WokeKey, woke.Key);
+        Assert.Equal(SystemTag.Fate, woke.System);
+        Assert.Equal("You died on Earth, and woke here as a vampire.", EventText.Describe(sim.World, woke));
+    }
+
+    /// <summary>
+    /// The three guarantees that let rebirth sit under every world (§12.1): the rebirth Truths draw no Dice; the Fate
+    /// stream leaves every other stream's sequence alone; and tying knots changes nothing but the run memory.
+    /// </summary>
+    [Fact]
+    public void RebirthChangesNothingWhenHumanAndGiftless()
+    {
+        // 1. Whoever you are reborn as, creating the world draws the same Dice.
+        foreach (ulong seed in new ulong[] { 2, 3, 7 })
+        {
+            World rolled = WorldGen.Create(TestContent.Rolled, seed);
+            World human = WorldGen.Create(TestContent.Rolled, seed, new RebirthChoice("human", RebirthChoice.NoGift));
+            Assert.Equal(System.Text.Json.JsonSerializer.Serialize(human.Rng.Dice, SnapshotSerializer.Options),
+                System.Text.Json.JsonSerializer.Serialize(rolled.Rng.Dice, SnapshotSerializer.Options));
+        }
+
+        // 2. Draws from the Fate stream move no other stream: the worlds stay the same.
+        Simulation a = Simulation.Create(TestContent.Db, 11), b = Simulation.Create(TestContent.Db, 11);
+        for (int i = 0; i < 50; i++) b.World.Rng.Dice[DiceSystem.Fate].Range(DiceId.FateKnotPick, 0, 1000);
+        a.Advance(2 * Day);
+        b.Advance(2 * Day);
+        b.World.Rng.Dice.Streams[(int)DiceSystem.Fate] = a.World.Rng.Dice.Streams[(int)DiceSystem.Fate];
+        Assert.Equal(a.StateHash(), b.StateHash());
+
+        // 3. A world that ties knots hashes the same, the run memory aside, as one that ties none.
+        Simulation tying = Simulation.Create(TestContent.Db, 12), plain = Simulation.Create(TestContent.Db, 12);
+        plain.TieKnots = false;
+        tying.Advance(3 * Day);
+        plain.Advance(3 * Day);
+        Assert.NotEmpty(tying.World.Fate.Knots);
+        Assert.Empty(plain.World.Fate.Knots);
+        tying.World.Fate = new FateBook();
+        plain.World.Fate = new FateBook();
+        Assert.Equal(tying.StateHash(), plain.StateHash());
+    }
+
+    // ---- The end of a lifetime ----
+
+    /// <summary>The shipped content (you human, giftless) with humans born the year the world begins and living a year.</summary>
+    private static ContentDb ShortLived(string rebirth = "")
+    {
+        var files = new List<(string, string)>
+        {
+            ("species.json", File.ReadAllText(Path.Combine(TestPaths.Root, "content", "species.json"))
+                .Replace("\"adultAtYears\": [18, 22],\n    \"lifespanYears\": [60, 78]", "\"adultAtYears\": [0, 0],\n    \"lifespanYears\": [1, 1]", StringComparison.Ordinal)),
+        };
+        if (rebirth.Length > 0) files.Add(("rebirth.json", rebirth));
+        return ContentDb.Load(Path.Combine(TestPaths.Root, "content"), new[] { FateFixtures.HumanGiftless, CultureContentTests.Mod(files.ToArray()) });
+    }
+
+    [Fact]
+    public void OldAgeEndsTheRun()
+    {
+        ContentDb db = ShortLived();
+        var sim = Simulation.Create(db, 1); // seed 5 now dies once before old age (Zones and Schedule merged)
+        Character you = You(sim.World);
+        Assert.InRange(you.OldAgeTick, 1, 80L * Day);
+        Assert.True(sim.AdvanceTo(81L * Day, 200L * Day) || sim.World.Fate.Ended);
+        World w = sim.World;
+        Assert.True(w.Fate.Ended);
+        Assert.Equal("old_age", w.Fate.EndKind);
+        Assert.Equal(0, w.Fate.Returns); // the only death with no return
+        SimEvent death = w.Log.All.Last(e => e.Effects.Any(f => f.Kind == EffectKind.Death && f.A == w.PlayerId));
+        Assert.Equal(Fate.OldAgeKey, death.Key);
+        Assert.Equal("You died of old age.", EventText.Describe(w, death));
+        long tick = w.Tick;
+        sim.Advance(1_000);
+        Assert.Equal(tick, sim.World.Tick); // nothing steps after the end
+
+        // The Chronicle closes on lines from stored state (§6.3): how and when, who you were, how long, the lives lost, who outlived you.
+        PlayerState p = StateApi.Player(w);
+        Assert.Equal(p.EndText, p.EndLines[0]);
+        Assert.Matches(@"^You died of old age, at \d+\. There is no return from this\.$", p.EndLines[0]);
+        Assert.Equal("You were reborn here as a human, with no gift.", p.EndLines[1]);
+        long lived = w.Fate.EndTick / db.World.TicksPerYear; // from arrival; a year here is forty days
+        Assert.Equal(lived == 0 ? "You lived less than a year here." : lived == 1 ? "You lived a year here." : $"You lived {lived} years here.", p.EndLines[2]);
+        Assert.Equal(w.Fate.Returns == 0 ? "You never died before this." : w.Fate.Returns == 1 ? "You died once before this, and came back."
+            : $"You died {w.Fate.Returns} times before this, and came back each time.", p.EndLines[3]);
+        var alive = w.Characters.Where(c => c.Id != w.PlayerId && c.Named && c.Status is CharStatus.Member or CharStatus.Left).Select(c => EventText.Name(w, c.Id)).ToList();
+        Assert.Equal(alive.Count == 0 ? "Nobody you knew outlived you."
+            : (alive.Count == 1 ? alive[0] : string.Join(", ", alive.Take(alive.Count - 1)) + " and " + alive[^1]) + " outlived you.", p.EndLines[4]);
+        Assert.Equal(5, p.EndLines.Count);
+        var log = new StringWriter();
+        StoryLog.Write(sim, log);
+        Assert.Contains("The end of a life\n-----------------\n  " + p.EndLines[0] + "\n", log.ToString());
+    }
+
+    [Fact]
+    public void ADeathWithNowhereToGoBackToSaysSo()
+    {
+        var sim = Simulation.Create(TestContent.Db, 5);
+        Assert.True(sim.ForceDeath()); // before the first tick: no knot is tied yet
+        sim.Step();
+        World w = sim.World;
+        Assert.True(w.Fate.Ended);
+        Assert.Equal("no_return", w.Fate.EndKind);
+        Assert.Equal("You died at 0, with nowhere in your past to go back to. There is no return from this.".Replace("at 0", "at " + Rebirth.AgeYears(w, You(w), w.Fate.EndTick)),
+            StateApi.Player(w).EndText);
+    }
+
+    [Fact]
+    public void TheSoulRunsOut()
+    {
+        string rebirth = File.ReadAllText(Path.Combine(TestPaths.Root, "content", "rebirth.json"))
+            .Replace("\"soulSpanYears\": [40, 50]", "\"soulSpanYears\": [1, 1]", StringComparison.Ordinal);
+        ContentDb db = ContentDb.Load(Path.Combine(TestPaths.Root, "content"), new[] { CultureContentTests.Mod(("rebirth.json", rebirth)) });
+        var sim = Simulation.Create(db, 1, new RebirthChoice("vampire", RebirthChoice.NoGift)); // ageless: only the soul's span ends it
+        Assert.Equal(db.World.TicksPerYear, sim.World.Fate.SoulEndTick);
+        // Keep you alive and fed so only the soul can end the run.
+        for (int i = 0; i < 300 && !sim.World.Fate.Ended; i++)
+        {
+            Character you = You(sim.World);
+            you.Food = 1000;
+            you.Health = 1000;
+            you.Bleed = 0;
+            sim.Advance(Day / 6);
+        }
+        World w = sim.World;
+        Assert.True(w.Fate.Ended);
+        Assert.Equal("soul_spent", w.Fate.EndKind);
+        SimEvent end = w.Log.All.Last(e => e.Key == Fate.SoulSpentKey);
+        Assert.Equal("Your soul's thread ran out.", EventText.Describe(w, end));
+        Assert.True(end.Tick >= w.Fate.SoulEndTick);
+    }
+
+    // ---- Knots and the pick ----
+
+    [Fact]
+    public void KnotsAreSafe()
+    {
+        var sim = Simulation.Create(TestContent.Db, 21);
+        sim.Advance(Day + 9 * Hour);
+        World w = sim.World;
+        Assert.True(Fate.Safe(w));
+        Character you = You(w);
+        void Unsafe(Action make, Action undo)
+        {
+            make();
+            Assert.False(Fate.Safe(w));
+            Assert.False(Fate.KnotDue(w, w.Log.All.Count).Due);
+            undo();
+            Assert.True(Fate.Safe(w));
+        }
+        Unsafe(() => you.Downed = true, () => you.Downed = false);
+        Unsafe(() => you.Bleed = 5, () => you.Bleed = 0);
+        int health = you.Health;
+        Unsafe(() => you.Health = 399, () => you.Health = health);
+        int stage = you.HungerStage;
+        Unsafe(() => you.HungerStage = 2, () => you.HungerStage = stage);
+        Job? job = you.Job;
+        Unsafe(() => you.Job = new Job { Kind = JobKind.Fight }, () => you.Job = job);
+        Unsafe(() => you.Job = new Job { Kind = JobKind.Flee }, () => you.Job = job);
+
+        // Every knot a year ties was tied with you safe, at most six a day, two hours apart.
+        sim.Advance(20 * Day);
+        w = sim.World;
+        Assert.Equal(KnotReason.Arrival, w.Fate.Knots[0].Reason);
+        for (int i = 0; i < w.Fate.Knots.Count; i++)
+        {
+            KnotRecord k = w.Fate.Knots[i];
+            World knot = sim.KnotWorld(k.Id)!;
+            Assert.Equal(k.Tick, knot.Tick);
+            if (k.Reason != KnotReason.Arrival) // the arrival knot is tied on the first tick whatever your state
+                Assert.True(Fate.Safe(knot), $"knot {k.Id} at tick {k.Tick} was tied while you were not safe");
+            if (i > 0) Assert.True(k.Tick - w.Fate.Knots[i - 1].Tick >= 2 * Hour);
+        }
+        Assert.All(w.Fate.Knots.GroupBy(k => k.Tick / Day), g => Assert.True(g.Count() <= 6));
+        Assert.Contains(w.Fate.Knots, k => k.Reason == KnotReason.Turn);
+        Assert.Contains(w.Fate.Knots, k => k.Reason == KnotReason.Quiet);
+    }
+
+    [Fact]
+    public void PickHonoursTheShape()
+    {
+        WorldDef def = TestContent.Db.World;
+        ReturnRulesDef rules = TestContent.Db.Rebirth.Return;
+        long death = 12L * Day;
+        var knots = new List<KnotRecord> { new() { Id = 1, Tick = 1, Reason = KnotReason.Arrival } };
+        for (int d = 2; d <= 6; d++) knots.Add(new KnotRecord { Id = knots.Count + 1, Tick = d * Day, Reason = KnotReason.Quiet });
+        for (int h = 0; h < 5; h++) knots.Add(new KnotRecord { Id = knots.Count + 1, Tick = 10L * Day + h * 6 * Hour, Reason = KnotReason.Turn });
+        knots[2].Uses = 1; // an old knot used once
+        DiceStream dice = DiceRng.FromSeed(42)[DiceSystem.Fate];
+        long recentFrom = death - rules.RecentDays * Day;
+        var picks = new Dictionary<int, int>();
+        int deep = 0;
+        for (int i = 0; i < 10_000; i++)
+        {
+            KnotRecord k = Fate.Pick(knots, death, rules, def, dice)!;
+            picks[k.Id] = picks.GetValueOrDefault(k.Id) + 1;
+            if (k.Tick < recentFrom) deep++;
+        }
+        Assert.InRange(deep, 1_350, 1_650); // 150‰ ± 15
+        // Old knots weigh the same, a used one half.
+        double ratio = picks.GetValueOrDefault(knots[2].Id) / (double)picks.GetValueOrDefault(knots[3].Id);
+        Assert.InRange(ratio, 0.4, 0.6);
+        // Recent knots weigh by rank: the latest heaviest.
+        Assert.True(picks[knots[^1].Id] > picks[knots[^2].Id] && picks[knots[^2].Id] > picks[knots[^5].Id]);
+        // Nothing within two hours of the death (but the arrival knot always qualifies).
+        var close = new List<KnotRecord> { new() { Id = 1, Tick = 1, Reason = KnotReason.Arrival }, new() { Id = 2, Tick = death - Hour, Reason = KnotReason.Turn } };
+        for (int i = 0; i < 200; i++) Assert.Equal(1, Fate.Pick(close, death, rules, def, dice)!.Id);
+    }
+
+    // ---- The return ----
+
+    [Fact]
+    public void YourDeathReturns()
+    {
+        var sim = Simulation.Create(TestContent.Db, 5);
+        sim.Advance(3 * Day + 2 * Hour);
+        long deathTick = sim.World.Tick;
+        World dying = sim.World;
+        World w = DieAndReturn(sim);
+        Assert.NotSame(dying, w);
+        Assert.Equal(1, w.Fate.Returns);
+        Assert.Equal(1, w.Fate.Timeline);
+        LostFuture lost = Assert.Single(w.Fate.LostFutures);
+        Assert.Equal(lost.KnotTick, w.Tick);
+        KnotRecord knot = w.Fate.Knots.Single(k => k.Tick == w.Tick);
+        Assert.True(knot.Reason == KnotReason.Arrival || knot.Tick <= deathTick - 2 * Hour);
+        Assert.Equal(1, knot.Uses);
+        Assert.Equal(Fate.ForcedDeathKey, lost.Lines[lost.DeathLine].Key);
+        Assert.Equal(deathTick, lost.DeathTick);
+        Assert.All(w.Fate.Knots, k => Assert.True(k.Tick <= w.Tick)); // knots tied after it are gone...
+        Assert.Equal(w.Fate.Knots.Select(k => k.Id), sim.ArchivedKnots); // ...from the archive too
+        Assert.NotEqual(sim.KnotWorld(knot.Id)!.Rng.Dice.DiceSeed, w.Rng.Dice.DiceSeed); // Dice reseeded
+        Assert.Equal(CharStatus.Member, You(w).Status);
+        SimEvent back = w.Log.All.Single(e => e.Key == Fate.ReturnedKey);
+        Assert.Equal("You came back, remembering how you died.", EventText.Describe(w, back));
+        if (knot.TriggerEvent != 0) Assert.Contains(knot.TriggerEvent, back.Causes);
+        sim.Advance(Day); // and the world goes on
+        Assert.Equal(CharStatus.Member, You(sim.World).Status);
+    }
+
+    [Fact]
+    public void ArrivalsReroll()
+    {
+        int changed = 0, checkedWorlds = 0;
+        for (ulong seed = 1; seed <= 12; seed++)
+        {
+            var sim = Simulation.Create(TestContent.Db, seed);
+            sim.Advance(4 * Day);
+            World w = DieAndReturn(sim);
+            World knot = sim.KnotWorld(w.Fate.Knots.Single(k => k.Tick == w.Tick).Id)!;
+            var before = knot.Arrivals.Where(a => !a.Done).Select(a => (a.CharacterId, a.Tick)).ToList();
+            var after = w.Arrivals.Where(a => !a.Done).Select(a => (a.CharacterId, a.Tick)).ToList();
+            if (before.Count == 0) continue;
+            checkedWorlds++;
+            if (!before.SequenceEqual(after)) changed++;
+            foreach (Arrival a in w.Arrivals.Where(a => !a.Done))
+            {
+                Assert.True(a.Tick > w.Tick, $"seed {seed}: an arrival re-drawn into the past");
+                int day = Calendar.Day(a.Tick, w.Content.World);
+                Assert.InRange(day, a.FirstDay, a.LastDay);
+                Assert.Contains(Calendar.Hour(a.Tick, w.Content.World), WorldGen.ArrivalHours(w, w.Get(a.CharacterId)));
+            }
+            // Everyone still to come is still to come, once.
+            Assert.Equal(before.Select(x => x.CharacterId).OrderBy(x => x), after.Select(x => x.CharacterId).OrderBy(x => x));
+        }
+        Assert.True(checkedWorlds >= 10);
+        Assert.True(changed >= checkedWorlds - 1, $"arrivals changed in only {changed} of {checkedWorlds} worlds");
+    }
+
+    [Fact]
+    public void ReturnIsDeterministic()
+    {
+        Simulation Live(ulong seed)
+        {
+            var s = Simulation.Create(TestContent.Rolled, seed);
+            int mira = Cast(s.World, "mira").Id;
+            bool firstDeath = false, secondDeath = false, priority = false;
+            while (!(secondDeath && s.World.Fate.Timeline >= 2 && s.World.Tick >= 5 * Day))
+            {
+                World w = s.World;
+                if (w.Tick == 1_000 && w.Fate.Timeline == 0) s.Enqueue(new SetRationPolicy(w.Tick, RationPolicy.SelfFirst));
+                if (!firstDeath && w.Fate.Timeline == 0 && w.Tick >= 2 * Day) firstDeath = s.ForceDeath();
+                if (!priority && w.Fate.Timeline == 1) { s.Enqueue(new SetWorkPriority(w.Tick + 30, mira, "forage", 1)); priority = true; }
+                if (!secondDeath && w.Fate.Timeline == 1 && w.Tick >= 4 * Day) secondDeath = s.ForceDeath();
+                s.Step();
+            }
+            return s;
+        }
+        Simulation a = Live(8), b = Live(8);
+        Assert.True(a.World.Fate.Returns >= 2);
+        Assert.Equal(a.StateHash(), b.StateHash());
+        Simulation replay = Simulation.Replay(TestContent.Rolled, 8, a.World.Fate, a.World.Tick);
+        Assert.Equal(a.World.Tick, replay.World.Tick);
+        Assert.Equal(a.StateHash(), replay.StateHash());
+    }
+
+    /// <summary>A replay whose timeline no longer ends in its recorded death has diverged: it fails at once instead of stepping on forever.</summary>
+    [Fact]
+    public void AReplayThatDivergesFailsInsteadOfRunningOn()
+    {
+        var sim = Simulation.Create(TestContent.Db, 8);
+        sim.Advance(2 * Day);
+        Assert.True(sim.ForceDeath());
+        sim.Step();
+        sim.Advance(Day);
+        FateBook life = sim.World.Fate;
+        Assert.Equal(sim.StateHash(), Simulation.Replay(TestContent.Db, 8, life, sim.World.Tick).StateHash());
+        life.Timelines[^1].Forced = false; // as if that death had come on its own: the replay cannot meet it
+        var error = Assert.Throws<InvalidOperationException>(() => Simulation.Replay(TestContent.Db, 8, life, sim.World.Tick));
+        Assert.Contains("diverged", error.Message);
+    }
+
+    [Fact]
+    public void WhatYouKeep()
+    {
+        var sim = Simulation.Create(TestContent.Db, 9);
+        sim.Advance(2 * Day + 4 * Hour);
+        World dying = sim.World;
+        Character you = You(dying);
+        Character mira = Cast(dying, "mira");
+        // After every knot: you learn a custom, meet someone, take a grudge, and find your gift.
+        string custom = dying.Content.Customs.First(c => c.Kind == "greeting").Id;
+        you.LearnedCustoms.Clear();
+        you.LearnedCustoms.Add(custom);
+        Relations.Meet(dying, you, Cast(dying, "oren"));
+        Relations.ChangeOpinion(dying, you, mira.Id, -60, 0);
+        SimEvent wrong = dying.Log.Emit(dying, SystemTag.Social, "event.social.insulted", new[] { mira.Id, you.Id }, Array.Empty<long>(), null,
+            EventArg.Char("a", mira.Id), EventArg.Char("b", you.Id));
+        Relations.FormGrudge(dying, you, mira, 30, wrong.Id);
+        dying.Fate.GiftAwakened = true;
+        dying.Fate.GiftMastery = 1;
+        int items = dying.Items.Sum(i => i.Count), futures = dying.Fate.LostFutures.Count;
+
+        World w = DieAndReturn(sim);
+        KnotRecord knot = w.Fate.Knots.Single(k => k.Tick == w.Tick);
+        World atKnot = sim.KnotWorld(knot.Id)!;
+        Character back = You(w);
+
+        // You keep: the lost future, your memory of the wrong (half strength), the custom, whom you met, what you know of your gift.
+        Assert.Equal(futures + 1, w.Fate.LostFutures.Count); // (seed 9 also dies once on its own, early on)
+        Memory memory = w.Fate.Memories.Single(m => m.PersonId == mira.Id);
+        Assert.Equal(MemoryKind.Wrong, memory.Kind);
+        Assert.True(memory.Opinion <= -25, $"a memory at half of a −60 drop is about −30, got {memory.Opinion}");
+        Assert.Contains(custom, back.LearnedCustoms);
+        Assert.Contains(Cast(w, "oren").Id, back.Met);
+        Assert.True(w.Fate.GiftAwakened);
+        Assert.Equal(1, w.Fate.GiftMastery);
+        Assert.Contains(back.Thoughts, t => t.DefId == "remembered_wrong" && t.AboutId == mira.Id);
+        int older = atKnot.Remembered.Find(m => m.PersonId == mira.Id)?.Opinion ?? 0; // a memory of her the knot already held is replaced, not added to
+        Assert.Equal(Relations.Opinion(atKnot, atKnot.PlayerId, mira.Id) + memory.Opinion - older, Relations.Opinion(w, back.Id, mira.Id));
+        SimEvent remembered = w.Log.All.Last(e => e.Key == "event.fate.remembered_wrong");
+        Assert.Equal("You remembered a wrong from a future that never came: Mira insulted you.", EventText.Describe(w, remembered));
+
+        // Your grudge comes back at half its intensity, formed by the memory (your feelings at half strength, fading as grudges do).
+        Grudge again = w.Grudges.Single(g => g.HolderId == back.Id && g.TargetId == mira.Id && g.Active);
+        Assert.Equal(15, again.Intensity);
+        Assert.Equal(remembered.Id, again.CauseEvent);
+        Assert.Equal(w.Tick, again.FormedTick);
+
+        // And nothing else: the others, the stores and the camp are the knot's.
+        string Json<T>(T x) => System.Text.Json.JsonSerializer.Serialize(x, SnapshotSerializer.Options);
+        foreach (Character c in w.Characters.Where(c => c.Id != back.Id))
+            Assert.Equal(Json(atKnot.Get(c.Id)), Json(c));
+        Assert.Equal(Json(atKnot.Items), Json(w.Items));
+        Assert.Equal(Json(atKnot.Debts), Json(w.Debts));
+        Assert.Equal(Json(atKnot.Map), Json(w.Map));
+        Assert.Equal(Json(atKnot.Culture), Json(w.Culture));
+        Assert.Equal(atKnot.Policy, w.Policy);
+        Assert.Equal((atKnot.Get(atKnot.PlayerId).Food, atKnot.Get(atKnot.PlayerId).Health, atKnot.Get(atKnot.PlayerId).Pos), (back.Food, back.Health, back.Pos));
+        Assert.Equal(Json(atKnot.Log.All), Json(w.Log.All.Take(atKnot.Log.All.Count).ToList())); // the log goes back too
+        Assert.True(items > 0);
+    }
+
+    /// <summary>
+    /// A return restores the knot exactly (§5.3, §5.4): the world gone back to is the archived knot field by field, but
+    /// for what the design says you keep and what the return itself does. Everyone else is the knot's (Familiar faces may
+    /// move only their thoughts of you and their regard for you); you differ only in the customs you learned, whom you met,
+    /// and the thoughts and regard your memories bring; the log, the grudges, the applied memories and the ids only grow,
+    /// by the return's own lines and the grudges memories bring back; the gift's state is the knot's but for when you came
+    /// back; the arrivals still to come are the same people within the same windows; the run memory is the dying world's,
+    /// so the Truths hold; and the Dice are reseeded from the timeline and the death. Natural and forced returns, every
+    /// gift, with memories made on purpose in half the worlds.
+    /// </summary>
+    [Fact]
+    public void AReturnRestoresTheKnotExactlyButForWhatYouKeep()
+    {
+        int returns = 0;
+        var peoples = new HashSet<string>();
+        var gifts = new HashSet<string>();
+        for (ulong seed = 1; seed <= 12; seed++)
+        {
+            var sim = Simulation.Create(TestContent.Rolled, seed);
+            FateBook start = sim.World.Fate;
+            (string People, string Gift, long Soul) truths = (start.PeopleId, start.GiftId, start.SoulEndTick);
+            var ages = sim.World.Characters.Select(c => (c.Id, c.SpeciesId, c.BirthTick, c.OldAgeTick)).ToList();
+            peoples.Add(truths.People);
+            gifts.Add(truths.Gift);
+            sim.Returned += r =>
+            {
+                AssertRestoredExactly(sim, r);
+                Assert.Equal(truths, (r.Restored.Fate.PeopleId, r.Restored.Fate.GiftId, r.Restored.Fate.SoulEndTick));
+                Assert.Equal(ages, r.Restored.Characters.Take(ages.Count).Select(c => (c.Id, c.SpeciesId, c.BirthTick, c.OldAgeTick)).ToList());
+                returns++;
+            };
+            long forceAt = 3L * Day + (long)seed * Hour;
+            bool forced = false;
+            for (int steps = 0; !(forced && sim.World.Fate.Returns > 0) && steps < 10 * Day; steps++)
+            {
+                World w = sim.World;
+                if (!forced && w.Tick >= forceAt)
+                {
+                    if (seed % 2 == 0)
+                    {
+                        // Something to remember: a wrong, a custom learned, someone met, all after the last knot.
+                        Character you = You(w), mira = Cast(w, "mira");
+                        Relations.ChangeOpinion(w, you, mira.Id, -40, 0);
+                        SimEvent insult = w.Log.Emit(w, SystemTag.Social, "event.social.insulted", new[] { mira.Id, you.Id }, Array.Empty<long>(), null,
+                            EventArg.Char("a", mira.Id), EventArg.Char("b", you.Id));
+                        Relations.FormGrudge(w, you, mira, 30, insult.Id);
+                        you.LearnedCustoms.Add(w.Content.Customs.First(c => c.Kind == "greeting").Id);
+                        Relations.Meet(w, you, Cast(w, "oren"));
+                    }
+                    forced = sim.ForceDeath();
+                }
+                sim.Step();
+            }
+            Assert.True(forced, $"seed {seed}: no forced death");
+        }
+        Assert.True(returns >= 12, $"only {returns} returns were checked");
+        Assert.True(peoples.Count >= 4, "too few peoples among the seeds: " + string.Join(", ", peoples));
+        Assert.Equal(new[] { Gifts.LuckId, Gifts.FamiliarId, Gifts.SatchelId }.OrderBy(g => g), gifts.OrderBy(g => g));
+    }
+
+    private static System.Text.Json.Nodes.JsonObject Node<T>(T x) =>
+        System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(x, SnapshotSerializer.Options))!.AsObject();
+
+    private static bool Same(System.Text.Json.Nodes.JsonNode? a, System.Text.Json.Nodes.JsonNode? b) => System.Text.Json.Nodes.JsonNode.DeepEquals(a, b);
+
+    /// <summary>The world a return produced against the knot it went back to: only what the design keeps, and the return's own doing, differ.</summary>
+    private static void AssertRestoredExactly(Simulation sim, FateReturn r)
+    {
+        World back = r.Restored;
+        KnotRecord rec = back.Fate.Knots.Single(k => k.Tick == back.Tick);
+        World knot = sim.KnotWorld(rec.Id)!;
+        int you = knot.PlayerId, cut = knot.Log.All.Count;
+        System.Text.Json.Nodes.JsonObject a = Node(knot), b = Node(back);
+
+        // Everything the return does not touch is the knot's, byte for byte.
+        string[] touched = { "Fate", "Rng", "Arrivals", "Gift", "Log", "Grudges", "Remembered", "NextId", "Characters" };
+        foreach (KeyValuePair<string, System.Text.Json.Nodes.JsonNode?> p in a)
+            if (!touched.Contains(p.Key)) Assert.True(Same(p.Value, b[p.Key]), $"{p.Key} is not the knot's after the return");
+
+        // The run memory is the dying world's, carried forward (it holds your Truths).
+        Assert.Same(r.Lost.Fate, back.Fate);
+
+        // The return's own lines follow the knot's log, at the moment gone back to.
+        Assert.Equal(cut, knot.Log.NextId - 1);
+        Assert.True(Same(Node(new { knot.Log.All }), Node(new { All = back.Log.All.Take(cut).ToList() })), "the log before the knot changed");
+        var added = back.Log.All.Skip(cut).ToList();
+        Assert.Equal(Fate.ReturnedKey, added[0].Key);
+        Assert.All(added, e =>
+        {
+            Assert.Equal(back.Tick, e.Tick);
+            Assert.True(e.Key.StartsWith("event.fate.", StringComparison.Ordinal) || e.Key == "event.social.grudge_formed"
+                || e.Key.StartsWith("event.gift.familiar.", StringComparison.Ordinal), $"a return logged '{e.Key}'");
+        });
+        var memoryLines = added.Where(e => e.Key.StartsWith("event.fate.remembered", StringComparison.Ordinal)).ToList();
+        var remembered = memoryLines.Select(e => e.Actors[1]).ToHashSet();
+
+        // Grudges and ids only grow: by the grudges memories bring back.
+        Assert.True(Same(Node(new { knot.Grudges }), Node(new { Grudges = back.Grudges.Take(knot.Grudges.Count).ToList() })), "a grudge of the knot's changed");
+        var newGrudges = back.Grudges.Skip(knot.Grudges.Count).ToList();
+        Assert.All(newGrudges, g =>
+        {
+            Assert.Equal(you, g.HolderId);
+            Assert.Contains(g.CauseEvent, memoryLines.Select(e => e.Id));
+        });
+        Assert.Equal(knot.NextId + newGrudges.Count, back.NextId);
+
+        // Applied memories only change for the people remembered now.
+        foreach (AppliedMemory m in knot.Remembered.Where(m => !remembered.Contains(m.PersonId)))
+            Assert.True(Same(Node(m), Node(back.Remembered.Single(x => x.PersonId == m.PersonId))));
+
+        // Everyone else is the knot's; under Familiar faces only their thoughts of you and their regard for you may move.
+        bool familiar = back.Fate.GiftId == Gifts.FamiliarId;
+        Assert.Equal(knot.Characters.Count, back.Characters.Count);
+        foreach (Character k in knot.Characters)
+        {
+            Character c = back.Get(k.Id);
+            System.Text.Json.Nodes.JsonObject x = Node(k), y = Node(c);
+            var differs = x.Where(p => !Same(p.Value, y[p.Key])).Select(p => p.Key).ToList();
+            if (k.Id == you)
+            {
+                Assert.All(differs, d => Assert.Contains(d, new[] { "LearnedCustoms", "Met", "Thoughts", "Opinions" }));
+                Assert.Subset(c.LearnedCustoms.ToHashSet(), k.LearnedCustoms.ToHashSet());
+                Assert.Subset(c.Met.ToHashSet(), k.Met.ToHashSet());
+                // A thought is only ever added, or refreshed in place at its stack limit: the knot's stay where they were.
+                for (int t = 0; t < k.Thoughts.Count; t++)
+                    if (!k.Thoughts[t].DefId.StartsWith("remembered_", StringComparison.Ordinal)) Assert.True(Same(Node(k.Thoughts[t]), Node(c.Thoughts[t])));
+                Assert.All(c.Thoughts.Skip(k.Thoughts.Count), t => Assert.StartsWith("remembered_", t.DefId));
+                foreach (Opinion o in k.Opinions.Where(o => !remembered.Contains(o.TargetId)))
+                    Assert.Equal(o.Value, Relations.Opinion(back, you, o.TargetId));
+            }
+            else if (familiar)
+            {
+                Assert.All(differs, d => Assert.Contains(d, new[] { "Thoughts", "Opinions" }));
+                for (int t = 0; t < k.Thoughts.Count; t++)
+                    if (k.Thoughts[t].DefId is not ("familiar" or "uneasy_familiar")) Assert.True(Same(Node(k.Thoughts[t]), Node(c.Thoughts[t])));
+                Assert.All(c.Thoughts.Skip(k.Thoughts.Count), t => Assert.True(t.DefId is "familiar" or "uneasy_familiar" && t.AboutId == you));
+                foreach (Opinion o in k.Opinions.Where(o => o.TargetId != you)) Assert.Equal(o.Value, Relations.Opinion(back, k.Id, o.TargetId));
+            }
+            else Assert.True(differs.Count == 0, $"{c.CastKey} differs from the knot in {string.Join(", ", differs)}");
+        }
+
+        // The gift's state is the knot's but for when you came back.
+        System.Text.Json.Nodes.JsonObject ga = Node(knot.Gift), gb = Node(back.Gift);
+        foreach (KeyValuePair<string, System.Text.Json.Nodes.JsonNode?> p in ga)
+            if (p.Key is not ("ReturnedTick" or "ReturnedEvent" or "Familiar" or "FamiliarEvents" or "FamiliarFriends")) Assert.True(Same(p.Value, gb[p.Key]), $"the gift's {p.Key} changed");
+        Assert.Equal(back.Tick, back.Gift.ReturnedTick);
+
+        // Arrivals still to come: the same people within the same windows, never in the past; those done are the knot's.
+        Assert.Equal(knot.Arrivals.Count, back.Arrivals.Count);
+        for (int i = 0; i < knot.Arrivals.Count; i++)
+        {
+            Arrival k = knot.Arrivals[i], c = back.Arrivals[i];
+            Assert.Equal((k.Done, k.FirstDay, k.LastDay, k.Shuffled), (c.Done, c.FirstDay, c.LastDay, c.Shuffled));
+            if (k.Done) Assert.Equal((k.CharacterId, k.Tick), (c.CharacterId, c.Tick));
+            else Assert.True(c.Tick > back.Tick);
+        }
+        Assert.Equal(knot.Arrivals.Where(x => !x.Done).Select(x => x.CharacterId).OrderBy(x => x),
+            back.Arrivals.Where(x => !x.Done).Select(x => x.CharacterId).OrderBy(x => x));
+
+        // The Truths stream is the world's; the Dice are reseeded from the timeline and the death.
+        Assert.True(Same(Node(knot.Rng.Truths), Node(back.Rng.Truths)));
+        long deathTick = back.Fate.LostFutures[r.Future].DeathTick;
+        Assert.Equal(Mix64.Combine(knot.Rng.Dice.DiceSeed, Mix64.Combine((ulong)back.Fate.Timeline, (ulong)deathTick)), back.Rng.Dice.DiceSeed);
+    }
+
+    [Fact]
+    public void MemoriesNeverStack()
+    {
+        int checkedReturns = 0;
+        for (ulong seed = 1; seed <= 40 && checkedReturns < 3; seed++)
+        {
+            var sim = Simulation.Create(TestContent.Db, seed);
+            sim.Advance(2 * Day);
+            World dying = sim.World;
+            Character you = You(dying);
+            Character mira = Cast(dying, "mira");
+            Relations.ChangeOpinion(dying, you, mira.Id, -50, 0);
+            Relations.FormGrudge(dying, you, mira, 30, 0);
+            World first = DieAndReturn(sim);
+            Assert.Contains(first.Remembered, m => m.PersonId == mira.Id);
+            sim.Advance(Day + 6 * Hour); // knots tied after the memory was applied
+            World before = sim.World;
+            var held = before.Remembered.ToDictionary(m => m.PersonId, m => (m.Key, m.Opinion));
+            World second = DieAndReturn(sim);
+            KnotRecord knot = second.Fate.Knots.Single(k => k.Tick == second.Tick);
+            if (knot.Timeline != 1) continue; // only a knot from after the first return already holds the memory
+            checkedReturns++;
+            World atKnot = sim.KnotWorld(knot.Id)!;
+            Character back = You(second);
+            foreach (Character x in second.Characters.Where(c => c.Id != back.Id))
+            {
+                AppliedMemory? had = atKnot.Remembered.Find(m => m.PersonId == x.Id), now = second.Remembered.Find(m => m.PersonId == x.Id);
+                int expected = Relations.Opinion(atKnot, atKnot.PlayerId, x.Id) + (now?.Opinion ?? 0) - (had?.Opinion ?? 0);
+                Assert.Equal(expected, Relations.Opinion(second, back.Id, x.Id));
+            }
+            // The memory the knot already held is not told again.
+            AppliedMemory miraMemory = atKnot.Remembered.Single(m => m.PersonId == mira.Id);
+            if (second.Remembered.Single(m => m.PersonId == mira.Id).Key == miraMemory.Key)
+                Assert.DoesNotContain(second.Log.All.Skip(atKnot.Log.All.Count), e => e.Key.StartsWith("event.fate.remembered", StringComparison.Ordinal) && e.Actors.Contains(mira.Id));
+        }
+        Assert.True(checkedReturns >= 1, "no second return landed on a knot tied after the first");
+    }
+
+    /// <summary>
+    /// Going back past an earlier return can make a remembered grudge the wrong a new memory quotes; the line then quotes
+    /// what was first remembered, not "You remembered a wrong ...: You remembered a wrong ...".
+    /// </summary>
+    [Fact]
+    public void AMemoryOfAMemoryQuotesWhatWasFirstRemembered()
+    {
+        World w = Simulation.Create(TestContent.Db, 3).World;
+        int you = w.PlayerId, nia = Cast(w, "nia").Id;
+        var first = new LostFuture();
+        first.Lines.Add(new LostLine { Key = "event.social.insulted", Args = { EventArg.Char("a", nia), EventArg.Char("b", you) } });
+        var second = new LostFuture();
+        second.Lines.Add(new LostLine
+        {
+            Key = "event.fate.remembered_wrong",
+            Args = { EventArg.Char("a", you), EventArg.Char("b", nia), new EventArg { Name = "what", Value = "e:0:0" } },
+        });
+        w.Fate.LostFutures.Add(first);
+        w.Fate.LostFutures.Add(second);
+        SimEvent again = w.Log.Emit(w, SystemTag.Mood, "event.fate.remembered_wrong", new[] { you, nia }, Array.Empty<long>(), null,
+            EventArg.Char("a", you), EventArg.Char("b", nia), new EventArg { Name = "what", Value = "e:1:0" });
+        Assert.Equal("You remembered a wrong from a future that never came: Nia insulted you.", EventText.Describe(w, again));
+        // The memory line itself, in its own lost future, still reads in full.
+        Assert.Equal("You remembered a wrong from a future that never came: Nia insulted you.", EventText.Describe(w, second.Lines[0]));
+    }
+
+    [Fact]
+    public void LostFutureLinesRender()
+    {
+        var bad = new Regex(@"⟦|\bYou (is|was|has|holds|owes|wants)\b|\b[Yy]ou's\b");
+        for (ulong seed = 1; seed <= 8; seed++)
+        {
+            Simulation sim = StoryLog.Simulate(TestContent.Rolled, seed, 1, new RunSetup(null, Fates: true));
+            World w = sim.World;
+            Assert.NotEmpty(w.Fate.LostFutures);
+            foreach (LostFuture f in w.Fate.LostFutures)
+            {
+                Assert.True(f.DeathLine >= 0);
+                Assert.Contains("You", EventText.Describe(w, f.Lines[f.DeathLine]));
+                foreach (LostLine line in f.Lines)
+                {
+                    string text = EventText.Describe(w, line);
+                    Assert.False(bad.IsMatch(text), $"seed {seed}: '{text}' ({line.Key})");
+                }
+            }
+            foreach (SimEvent e in w.Log.All.Where(e => e.Key.StartsWith("event.fate.remembered", StringComparison.Ordinal)))
+            {
+                string text = EventText.Describe(w, e);
+                Assert.DoesNotMatch(new Regex(@"e:\d+:\d+"), text); // the quoted line is read out, never shown as its reference
+                Assert.False(bad.IsMatch(text), text);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A bare world snapshot carries no knot archive: restored, it forgets its knots and ties a fresh one once you are
+    /// safe. That knot is not the arrival knot, so it never qualifies within two hours of a death; a death that soon
+    /// still goes back (to the oldest knot there is) rather than ending the run.
+    /// </summary>
+    [Fact]
+    public void ABareWorldSnapshotTiesAFreshKnotThatIsNotTheArrival()
+    {
+        var sim = Simulation.Create(TestContent.Db, 19);
+        sim.Advance(Day + 9 * Hour);
+        Simulation bare = Simulation.Restore(TestContent.Db, SnapshotSerializer.Save(sim.World));
+        Assert.Empty(bare.World.Fate.Knots);
+        for (int i = 0; i < Day && bare.World.Fate.Knots.Count == 0; i++) bare.Step();
+        KnotRecord fresh = Assert.Single(bare.World.Fate.Knots);
+        Assert.Equal(KnotReason.Quiet, fresh.Reason);
+        Assert.True(fresh.Tick > 1);
+        Assert.Null(Fate.Pick(bare.World.Fate.Knots, fresh.Tick + Hour, TestContent.Db.Rebirth.Return, TestContent.Db.World,
+            DiceRng.FromSeed(1)[DiceSystem.Fate]));
+        Assert.True(bare.ForceDeath());
+        bare.Step();
+        Assert.Equal(1, bare.World.Fate.Returns);
+        Assert.False(bare.World.Fate.Ended);
+        Assert.Equal(fresh.Tick, bare.World.Tick);
+    }
+
+    [Fact]
+    public void ASnapshotAfterAReturnRestoresToTheSameFuture()
+    {
+        var straight = Simulation.Create(TestContent.Rolled, 13);
+        straight.Advance(2 * Day);
+        DieAndReturn(straight);
+        straight.Advance(Day);
+        Simulation restored = Simulation.Restore(TestContent.Rolled, straight.Snapshot());
+        Assert.Equal(straight.StateHash(), restored.StateHash());
+        Assert.Equal(straight.ArchivedKnots, restored.ArchivedKnots);
+        // Both die again at the same tick: the restored archive takes them to the same knot.
+        DieAndReturn(straight);
+        DieAndReturn(restored);
+        straight.Advance(Day);
+        restored.Advance(Day);
+        Assert.Equal(straight.StateHash(), restored.StateHash());
+    }
+
+    /// <summary>
+    /// The new state round-trips and counts (§10): a world after a return, mid-bleed, with berries in the satchel, a standing
+    /// order, an applied memory, re-drawn arrival windows and a run memory holding a lost future, memories, an echo, every
+    /// timeline's commands and its knots, saves and loads to the same bytes; a restore keeps the wound's bleed, its cause and
+    /// its death line, and continues to the same future as the straight run.
+    /// </summary>
+    [Fact]
+    public void TheNewStateRoundTripsAndARestoreMidBleedKeepsBleeding()
+    {
+        var sim = Simulation.Create(TestContent.Rolled, 2, new RebirthChoice("human", Gifts.SatchelId));
+        sim.Advance(Day + 4 * Hour);
+        World w = sim.World;
+        Relations.ChangeOpinion(w, You(w), Cast(w, "mira").Id, -40, 0);
+        Relations.FormGrudge(w, You(w), Cast(w, "mira"), 30, 0);
+        DieAndReturn(sim);
+        w = sim.World;
+        w.Fate.GiftAwakened = true;
+        w.Gift.Held = 2;
+        w.Fate.Echoes.Add(new Echo { PersonId = Cast(w, "oren").Id, Opinion = 44 });
+        sim.Enqueue(new SetStandingOrder(w.Tick, "gift.satchel", Satchel.Share));
+        sim.Advance(Hour);
+        w = sim.World;
+        Character mira = Cast(w, "mira");
+        CombatSystem.Hurt(w, mira, 150, 0, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
+        Assert.True(mira.Bleed > 0 && w.Fate.LostFutures.Count > 0 && w.Fate.Timelines.Count > 0 && w.Remembered.Count > 0 && w.StandingOrders.Count == 1);
+
+        byte[] bytes = SnapshotSerializer.Save(w);
+        Assert.Equal(bytes, SnapshotSerializer.Save(SnapshotSerializer.Load(bytes, TestContent.Rolled)));
+        Simulation restored = Simulation.Restore(TestContent.Rolled, sim.Snapshot());
+        Assert.Equal(sim.StateHash(), restored.StateHash());
+        Character again = Cast(restored.World, "mira");
+        Assert.Equal((mira.Bleed, mira.BleedCause, mira.BleedDeath), (again.Bleed, again.BleedCause, again.BleedDeath));
+        // The next hour bleeds in both alike (the hash covers health, bleed and who came to tend her).
+        sim.Advance(Hour);
+        restored.Advance(Hour);
+        Assert.Equal(sim.StateHash(), restored.StateHash());
+        Assert.Equal(Cast(sim.World, "mira").Health, Cast(restored.World, "mira").Health);
+    }
+
+    [Fact]
+    public void ReturnUnderOneSecondAt200Characters()
+    {
+        var sim = Simulation.Create(TestContent.Db, 4);
+        WorldGen.AddSyntheticCharacters(sim.World, 200);
+        sim.Advance(2 * Day);
+        Assert.NotEmpty(sim.World.Fate.Knots);
+        Assert.True(sim.ForceDeath());
+        var sw = Stopwatch.StartNew();
+        sim.Step();
+        sw.Stop();
+        Assert.Equal(1, sim.World.Fate.Returns);
+        Assert.Equal(200, sim.World.Characters.Count(c => c.CastKey.Length > 0));
+        Assert.True(sw.ElapsedMilliseconds < 1000, $"the return took {sw.ElapsedMilliseconds} ms at 200 characters");
+    }
+
+    [Fact]
+    public void KnotsCostWithinTheTickBudgetAtTheLargestCamp()
+    {
+        var sim = Simulation.Create(TestContent.Db, 3);
+        sim.Advance(24 * Day); // everyone has arrived by Day 20
+        int knots = sim.World.Fate.Knots.Count;
+        int characters = sim.World.Characters.Count;
+        var sw = Stopwatch.StartNew();
+        sim.Advance(Day);
+        sw.Stop();
+        Assert.True(sim.World.Fate.Knots.Count > knots, "no knot was tied in the measured day");
+        double nsPerCharTick = sw.Elapsed.TotalMilliseconds * 1_000_000.0 / (Day * (double)characters);
+        Assert.True(nsPerCharTick <= 2_000, $"a day with knots cost {nsPerCharTick:F0} ns per character per tick, over ADR-0005's 2,000");
+    }
+
+    [Fact]
+    public void HooksSeeTheReturnAndTheWorldGoneBackTo()
+    {
+        var sim = Simulation.Create(TestContent.Db, 14);
+        var hook = new FateHook();
+        sim.AddHook(hook);
+        sim.Advance(Day);
+        FateReturn? raised = null;
+        sim.Returned += r => raised = r;
+        World w = DieAndReturn(sim);
+        Assert.Equal(1, hook.Created); // re-attached, not created again
+        Assert.Same(w, hook.Returned);
+        Assert.NotNull(raised);
+        Assert.Same(w, raised!.Restored);
+        Assert.Contains(hook.Seen, e => e.Key == Fate.ReturnedKey);
+        Assert.Contains(hook, w.Hooks);
+        long seen = hook.Seen.Count;
+        sim.Advance(10);
+        Assert.True(hook.Seen.Count >= seen);
+        Assert.Equal(w.Log.All.Last().Id, hook.Seen.Last().Id);
+    }
+
+    private sealed class FateHook : Return.Sim.Modding.IModHook, Return.Sim.Modding.IFateHook
+    {
+        public int Created;
+        public World? Returned;
+        public readonly List<SimEvent> Seen = new();
+        public void OnWorldCreated(World w) => Created++;
+        public void OnEvent(World w, SimEvent e) => Seen.Add(e);
+        public void OnReturned(World w, LostFuture lost) => Returned = w;
+        public void OnLifeEnded(World w) { }
+    }
+
+    [Fact]
+    public void EveryRollablePeopleCanBeYou()
+    {
+        foreach (RebirthPeopleDef p in TestContent.Rolled.Rebirth.Peoples)
+        {
+            var setup = new RunSetup(new RebirthChoice(p.Species), Fates: true);
+            Simulation sim = StoryLog.Simulate(TestContent.Rolled, 2, 1, setup);
+            Assert.Equal(p.Species, You(sim.World).SpeciesId);
+            var text = new StringWriter();
+            StoryLog.Write(sim, text);
+            string log = text.ToString();
+            Assert.DoesNotContain("⟦", log);
+            Assert.DoesNotMatch(new Regex(@"\bYou (is|was|has|burns|owes)\b"), log);
+            Assert.Contains("Lost futures", log);
+            Assert.Contains("chosen for testing", log);
+        }
+    }
+}

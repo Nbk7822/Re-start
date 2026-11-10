@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Traits: integer modifiers on needs, mood, social odds, work and combat",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKey", "descKey"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKey": { "$ref": "#/$defs/locKey" },
+      "descKey": { "$ref": "#/$defs/locKey" },
+      "careUrgency": { "type": "integer", "minimum": 0, "maximum": 10 },
+      "promisePriority": { "type": "integer", "minimum": 0, "maximum": 10 },
+      "insultPermilleAdd": { "type": "integer", "minimum": -1000, "maximum": 1000 },
+      "insultOpinionScalePct": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "consentBias": { "type": "integer", "minimum": -100, "maximum": 100 },
+      "fightsThieves": { "type": "boolean" },
+      "fleeHealthBelow": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "stealFoodBelow": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "offersBlood": { "type": "boolean" },
+      "sharesFood": { "type": "boolean" },
+      "restThresholdAdd": { "type": "integer", "minimum": -1000, "maximum": 1000 },
+      "riskyWorkHealthBelow": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "riskyWorkRestBelow": { "description": "Skips risky work, the watch among it, below this rest (ADR-0029)", "type": "integer", "minimum": 0, "maximum": 1000 },
+      "priorityRespectPct": { "type": "integer", "minimum": 0, "maximum": 100 },
+      "refusesUnsafeBargain": { "description": "Will not strike a bargain the camp could not pay (ADR-0022)", "type": "boolean" },
+      "workBias": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["work", "add"],
+          "properties": {
+            "work": { "$ref": "#/$defs/id" },
+            "add": { "type": "integer", "minimum": -10, "maximum": 10 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

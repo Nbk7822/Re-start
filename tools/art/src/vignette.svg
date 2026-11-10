@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Screen vignette: clear in the middle, darkening to grimy black at the edges and corners, as if seen
+     through a dirty lens. Stretched over the window. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="320" viewBox="0 0 512 320">
+  <defs>
+    <radialGradient id="dark" cx="256" cy="160" r="300" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 160) scale(1 0.72) translate(-256 -160)">
+      <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.68" stop-color="#050403" stop-opacity="0.16"/>
+      <stop offset="0.82" stop-color="#050403" stop-opacity="0.42"/>
+      <stop offset="0.95" stop-color="#050403" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#050403" stop-opacity="0.82"/>
+    </radialGradient>
+    <radialGradient id="ring" cx="256" cy="160" r="300" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 160) scale(1 0.72) translate(-256 -160)">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.9" stop-color="#ffffff" stop-opacity="1"/>
+    </radialGradient>
+    <mask id="edges"><rect width="512" height="320" fill="url(#ring)"/></mask>
+    <filter id="grime" filterUnits="userSpaceOnUse" x="0" y="0" width="512" height="320" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="4" seed="97"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.03  0 0 0 0 0.025  0 0 0 0 0.02  2.4 0 0 0 -1.0"/>
+    </filter>
+  </defs>
+  <rect width="512" height="320" fill="url(#dark)"/>
+  <rect width="512" height="320" filter="url(#grime)" mask="url(#edges)"/>
+</svg>

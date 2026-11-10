@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Play the current build: the Godot view of a live world.
+#   tools/play          seed 1, from day 1
+#   tools/play 7        seed 7
+#   tools/play 7 28     seed 7, starting on day 28 (winter begins on day 31)
+# In the game: Space pauses, 1/2/3 set the speed, WASD or arrows pan, the wheel zooms,
+# click someone to inspect them, hover a tile to see what is there, Esc closes panels.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+seed="${1:-1}"
+day="${2:-1}"
+ticks_per_day="$(python3 -c "import json,sys; w=json.load(open(sys.argv[1])); print(w['ticksPerHour'] * w['hoursPerDay'])" "$root/content/world.json")"
+godot="$(command -v godot-mono || true)"
+[ -n "$godot" ] || godot="/Applications/Godot_mono.app/Contents/MacOS/Godot"
+dotnet build "$root/game/Return.Game.csproj" -nologo -v q
+RETURN_SEED="$seed" RETURN_TICKS=$(( (day - 1) * ticks_per_day )) exec "$godot" --path "$root/game"

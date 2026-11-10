@@ -1,0 +1,4 @@
+[
+  { "id": "berries", "nameKey": "item.berries.name", "nutrition": 450, "spoilDays": 5, "stackLimit": 40 },
+  { "id": "timber", "nameKey": "item.timber.name", "nutrition": 0, "spoilDays": 0, "stackLimit": 40 }
+]

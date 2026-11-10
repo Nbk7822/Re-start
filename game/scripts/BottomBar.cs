@@ -1,0 +1,506 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+using Return.Game.Logic;
+using Return.Sim;
+using Return.Sim.Api;
+
+namespace Return.Game;
+
+/// <summary>
+/// The one menu bar along the bottom edge (ADR-0008): Build (what the camp should build; its list is
+/// in BottomBar.Build.cs), Orders (the ration policy), Zones (stockpiles, meeting places and the home
+/// area, ADR-0028), Work (who does what first) and Schedule (the camp's day and the watch, ADR-0029),
+/// People and Chronicle, each opening a small list on demand; then the clock, and pause plus the speed
+/// buttons with the active one highlighted. Nothing else stays on screen. Choices become commands
+/// through SimHost.Order.
+/// </summary>
+public partial class BottomBar : PanelContainer
+{
+    public const float Height = 40f;
+
+    private const float PopupGap = 6f;
+    private const double RefreshSeconds = 0.25;
+
+    private SimHost? _host;
+    private Label _clock = null!;
+    private readonly List<Button> _speedButtons = new();
+    private ListPopup _orders = null!;
+    private ListPopup _work = null!;
+    private ListPopup _people = null!;
+    private ListPopup _chronicle = null!;
+    private ListPopup _zones = null!;
+    private ZonesList _zonesList = null!;
+    private ListPopup _schedule = null!;
+    private ScheduleList _scheduleList = null!;
+    private ListPopup? _open;
+    private readonly List<int> _peopleIds = new();
+    private readonly List<int> _workIds = new();
+    private readonly List<(RationPolicy Policy, Button Button)> _policyButtons = new();
+    private Label? _ordersPending;
+    // Your gift's standing order in Orders, and the Chronicle's two tabs (ADR-0030).
+    private VBoxContainer? _giftOrder;
+    private string _giftOrderId = "";
+    private readonly List<(string Choice, Button Button)> _giftButtons = new();
+    private Button _lifeTab = null!;
+    private Button _lostTab = null!;
+    private bool _showLost;
+    private long _clockTick = -1;
+    private double _refresh;
+
+    public void Bind(SimHost host)
+    {
+        _host = host;
+        Theme = Ui.Theme;
+        SetAnchorsPreset(LayoutPreset.BottomWide);
+        OffsetLeft = 0;
+        OffsetRight = 0;
+        OffsetTop = -Height;
+        OffsetBottom = 0;
+        GrowVertical = GrowDirection.Begin;
+        CustomMinimumSize = new Vector2(0, Height);
+        StyleBoxFlat strip = Ui.Box(Ui.PanelBg, Ui.Edge, 0, 0, 10, 5);
+        strip.BorderWidthTop = 1;
+        AddThemeStyleboxOverride("panel", strip);
+
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 6);
+        AddChild(row);
+
+        Node layer = GetParent();
+        _orders = new ListPopup(layer, Ui.T("ui.orders.title"), 320f);
+        _work = new ListPopup(layer, Ui.T("ui.work.title"), 380f);
+        _people = new ListPopup(layer, Ui.T("ui.people.title"), 300f);
+        _chronicle = new ListPopup(layer, Ui.T("ui.chronicle.title"), 540f);
+        _build = new ListPopup(layer, Ui.T("ui.build.title"), 300f);
+        var tabs = new HBoxContainer();
+        tabs.AddThemeConstantOverride("separation", 4);
+        var tabGroup = new ButtonGroup();
+        _lifeTab = Ui.MakeButton(Ui.T("ui.chronicle.tab.life"));
+        _lostTab = Ui.MakeButton(Ui.T("ui.chronicle.tab.lost"));
+        foreach (Button tab in new[] { _lifeTab, _lostTab })
+        {
+            tab.ToggleMode = true;
+            tab.ButtonGroup = tabGroup;
+            tabs.AddChild(tab);
+        }
+        _lifeTab.SetPressedNoSignal(true);
+        _lifeTab.Pressed += () => ShowChronicleTab(false);
+        _lostTab.Pressed += () => ShowChronicleTab(true);
+        _chronicle.AddHeader(tabs);
+        _zones = new ListPopup(layer, Ui.T("ui.zones.title"), 360f);
+        _zonesList = new ZonesList(host, _zones.Rows, () => SetOpen(null));
+        _schedule = new ListPopup(layer, Ui.T("ui.schedule.title"), 440f);
+        _scheduleList = new ScheduleList(host, _schedule.Rows, () => SetOpen(null));
+
+        row.AddChild(Toggle(_build, Ui.T("ui.bar.build"), Ui.T("ui.bar.build_hint")));
+        row.AddChild(Toggle(_orders, Ui.T("ui.bar.orders"), Ui.T("ui.bar.orders_hint")));
+        row.AddChild(Toggle(_zones, Ui.T("ui.bar.zones"), Ui.T("ui.bar.zones_hint")));
+        row.AddChild(Toggle(_work, Ui.T("ui.bar.work"), Ui.T("ui.bar.work_hint")));
+        row.AddChild(Toggle(_schedule, Ui.T("ui.bar.schedule"), Ui.T("ui.bar.schedule_hint")));
+        row.AddChild(new VSeparator());
+        row.AddChild(Toggle(_people, Ui.T("ui.bar.people"), Ui.T("ui.bar.people_hint")));
+        row.AddChild(Toggle(_chronicle, Ui.T("ui.bar.chronicle"), Ui.T("ui.bar.chronicle_hint")));
+
+        row.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
+        _clock = Ui.MakeLabel("");
+        _clock.VerticalAlignment = VerticalAlignment.Center;
+        row.AddChild(_clock);
+        row.AddChild(new VSeparator());
+
+        var group = new ButtonGroup();
+        for (int s = 0; s < host.Clock.SpeedCount; s++)
+        {
+            int speed = s;
+            int multiplier = host.Clock.MultiplierOf(s);
+            string hint = s == 0
+                ? Ui.T("ui.speed.pause_hint")
+                : Ui.F("ui.speed.multiplier_hint", ("n", Ui.N(multiplier)), ("key", Ui.N(s)));
+            Button b = Ui.MakeButton(ViewText.SpeedLabel(multiplier), hint);
+            b.ToggleMode = true;
+            b.ButtonGroup = group;
+            b.CustomMinimumSize = new Vector2(s == 0 ? 64 : 44, 0);
+            b.Pressed += () => _host?.SetSpeed(speed);
+            row.AddChild(b);
+            _speedButtons.Add(b);
+        }
+
+        host.SpeedChanged += SyncSpeed;
+        SyncSpeed();
+        UpdateClock();
+    }
+
+    /// <summary>Opens a list by name (build, orders, zones, work, schedule, people, chronicle, or lost: the Chronicle on its Lost futures tab); false if there is no such list.</summary>
+    public bool Open(string name)
+    {
+        ListPopup? popup = name switch
+        {
+            "build" => _build, "orders" => _orders, "zones" => _zones, "work" => _work, "schedule" => _schedule, "people" => _people,
+            "chronicle" or "lost" => _chronicle, _ => null,
+        };
+        if (popup == null) return false;
+        if (popup == _chronicle) ShowChronicleTab(name == "lost");
+        SetOpen(popup);
+        return true;
+    }
+
+    /// <summary>The Chronicle's tabs: what happened in this life, or the futures you lost (ADR-0030).</summary>
+    private void ShowChronicleTab(bool lost)
+    {
+        _showLost = lost;
+        _lifeTab.SetPressedNoSignal(!lost);
+        _lostTab.SetPressedNoSignal(lost);
+        _refresh = 0;
+        if (_open == _chronicle) RefreshChronicle();
+    }
+
+    /// <summary>Closes the open list, if any; true when something was closed.</summary>
+    public bool ClosePopups()
+    {
+        if (_open == null) return false;
+        SetOpen(null);
+        return true;
+    }
+
+    public override void _Process(double delta)
+    {
+        if (_host == null) return;
+        if (_host.World.Tick != _clockTick) UpdateClock();
+        if (_open == null) return;
+        _refresh -= delta;
+        if (_refresh <= 0)
+        {
+            _refresh = RefreshSeconds;
+            if (_open == _people) RefreshPeople();
+            else if (_open == _chronicle) RefreshChronicle();
+            else if (_open == _orders) RefreshOrders();
+            else if (_open == _build) RefreshBuild();
+            else if (_open == _zones) _zonesList.Refresh();
+            else if (_open == _schedule) _scheduleList.Refresh();
+            else RefreshWork();
+        }
+        Place(_open);
+    }
+
+    private Button Toggle(ListPopup popup, string text, string hint)
+    {
+        Button b = Ui.MakeButton(text, hint);
+        b.ToggleMode = true;
+        b.Toggled += on => SetOpen(on ? popup : _open == popup ? null : _open);
+        popup.Toggle = b;
+        return b;
+    }
+
+    private void SetOpen(ListPopup? popup)
+    {
+        _open = popup;
+        foreach (ListPopup p in new[] { _build, _orders, _zones, _work, _schedule, _people, _chronicle })
+        {
+            bool open = p == popup;
+            p.Panel.Visible = open;
+            p.Toggle.SetPressedNoSignal(open);
+        }
+        _refresh = 0;
+    }
+
+    private void SyncSpeed()
+    {
+        if (_host == null) return;
+        for (int i = 0; i < _speedButtons.Count; i++) _speedButtons[i].SetPressedNoSignal(i == _host.Clock.Speed);
+    }
+
+    private void UpdateClock()
+    {
+        World w = _host!.World;
+        _clockTick = w.Tick;
+        _clock.Text = ViewText.Clock(w);
+    }
+
+    private void RefreshPeople()
+    {
+        IReadOnlyList<ViewText.PersonLine> lines = ViewText.People(_host!.World);
+        _peopleIds.Clear();
+        foreach (ViewText.PersonLine line in lines) _peopleIds.Add(line.Id);
+        int rows = Math.Max(1, lines.Count);
+        while (_people.Rows.GetChildCount() < rows)
+        {
+            int index = _people.Rows.GetChildCount();
+            Button b = Ui.MakeButton("");
+            b.Flat = true;
+            b.Alignment = HorizontalAlignment.Left;
+            b.Pressed += () => OnPersonPressed(index);
+            _people.Rows.AddChild(b);
+        }
+        for (int i = 0; i < _people.Rows.GetChildCount(); i++)
+        {
+            var b = _people.Rows.GetChild<Button>(i);
+            b.Visible = i < rows;
+            b.Disabled = lines.Count == 0;
+            b.Text = lines.Count == 0 ? Ui.T("ui.people.empty") : i < lines.Count ? lines[i].Text : "";
+        }
+    }
+
+    private void OnPersonPressed(int index)
+    {
+        if (_host == null || index >= _peopleIds.Count) return;
+        Character? c = _host.World.Find(_peopleIds[index]);
+        if (c == null) return;
+        _host.Select(c.Id);
+        _host.FocusCamera(c.Pos);
+    }
+
+    /// <summary>"When food runs short": the three ration policies, the current one pressed.</summary>
+    private void RefreshOrders()
+    {
+        if (_policyButtons.Count == 0)
+        {
+            var group = new ButtonGroup();
+            foreach (RationPolicy p in Enum.GetValues<RationPolicy>())
+            {
+                RationPolicy policy = p;
+                Button b = Ui.MakeButton(ViewText.PolicyOption(policy), ViewText.PolicyHint(policy));
+                b.ToggleMode = true;
+                b.ButtonGroup = group;
+                b.Alignment = HorizontalAlignment.Left;
+                b.Pressed += () => ChoosePolicy(policy);
+                _orders.Rows.AddChild(b);
+                _policyButtons.Add((policy, b));
+            }
+            Label note = Ui.MakeLabel(Ui.T("ui.orders.note"), Ui.SmallFontSize, Ui.Dim);
+            note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _orders.Rows.AddChild(note);
+            _ordersPending = Ui.MakeLabel(Ui.T("ui.orders.pending"), Ui.SmallFontSize, Ui.Accent);
+            _orders.Rows.AddChild(_ordersPending);
+        }
+        World w = _host!.World;
+        PolicyState s = StateApi.Policy(w);
+        RationPolicy shown = _host.Drafts.Policy ?? s.Effective;
+        foreach ((RationPolicy policy, Button button) in _policyButtons) button.SetPressedNoSignal(policy == shown);
+        _ordersPending!.Visible = s.Pending || shown != w.Policy;
+        RefreshGiftOrder();
+    }
+
+    /// <summary>Your gift's standing order (the satchel's), only while you hold a gift that has one and have found it (ADR-0030).</summary>
+    private void RefreshGiftOrder()
+    {
+        FateText.GiftOrder? order = FateText.Order(_host!.World, _host.Drafts);
+        if (_giftOrder == null)
+        {
+            _giftOrder = new VBoxContainer();
+            _giftOrder.AddThemeConstantOverride("separation", 2);
+            _orders.Rows.AddChild(_giftOrder);
+        }
+        _giftOrder.Visible = order != null;
+        if (order == null) return;
+        if (order.OrderId != _giftOrderId)
+        {
+            foreach (Node n in _giftOrder.GetChildren()) n.QueueFree();
+            _giftButtons.Clear();
+            _giftOrderId = order.OrderId;
+            _giftOrder.AddChild(new HSeparator());
+            var title = new HBoxContainer();
+            Label name = Ui.MakeLabel(order.Title, Ui.FontSize, Ui.Accent);
+            name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            title.AddChild(name);
+            title.AddChild(Ui.MakeLabel(Ui.T("ui.order.gift_note"), Ui.SmallFontSize, Ui.Dim));
+            _giftOrder.AddChild(title);
+            var group = new ButtonGroup();
+            foreach ((string choice, string text, string hint) in order.Choices)
+            {
+                string c = choice, id = order.OrderId;
+                Button b = Ui.MakeButton(text, hint);
+                b.ToggleMode = true;
+                b.ButtonGroup = group;
+                b.Alignment = HorizontalAlignment.Left;
+                b.Pressed += () => ChooseStandingOrder(id, c);
+                _giftOrder.AddChild(b);
+                _giftButtons.Add((c, b));
+            }
+        }
+        foreach ((string choice, Button button) in _giftButtons) button.SetPressedNoSignal(choice == order.Current);
+    }
+
+    private void ChooseStandingOrder(string orderId, string choice)
+    {
+        if (_host == null) return;
+        if (FateText.Order(_host.World, _host.Drafts) is { } order && order.Current != choice)
+            _host.Order(new SetStandingOrder(_host.World.Tick, orderId, choice));
+        RefreshOrders();
+    }
+
+    /// <summary>Is the Zones list open? (The map then shows every zone in full.)</summary>
+    public bool ZonesOpen => _open == _zones;
+
+    /// <summary>Opens Schedule and paints a kind of day's hours with a brush (0 sleep, 1 work, 2 free time) through the list's own code (RETURN_PRESS checks).</summary>
+    public bool PressDay(string rhythm, int block, int from, int to)
+    {
+        SetOpen(_schedule);
+        return _scheduleList.PressDay(rhythm, block, from, to);
+    }
+
+    /// <summary>Opens Schedule and sets the watch's hours as a drag along its row would (RETURN_PRESS checks).</summary>
+    public bool PressWatch(int from, int to)
+    {
+        SetOpen(_schedule);
+        return _scheduleList.PressWatch(from, to);
+    }
+
+    /// <summary>Opens Zones and presses a kind's entry, or Unmark for null, through its signal (RETURN_PRESS checks).</summary>
+    public bool PressZoneTool(string? kind)
+    {
+        SetOpen(_zones);
+        return kind == null ? _zonesList.PressUnmark() : _zonesList.PressKind(kind);
+    }
+
+    /// <summary>Presses the nth ration policy button through its signal (RETURN_PRESS checks).</summary>
+    public bool PressPolicy(int index)
+    {
+        if (_host == null) return false;
+        RefreshOrders();
+        if (index < 0 || index >= _policyButtons.Count) return false;
+        _policyButtons[index].Button.EmitSignal(BaseButton.SignalName.Pressed);
+        RefreshOrders();
+        return true;
+    }
+
+    private void ChoosePolicy(RationPolicy policy)
+    {
+        if (_host == null) return;
+        RationPolicy shown = _host.Drafts.Policy ?? StateApi.Policy(_host.World).Effective;
+        if (shown != policy) _host.Order(new SetRationPolicy(_host.World.Tick, policy));
+        RefreshOrders();
+    }
+
+    /// <summary>Each member and what they do first; clicking one opens their inspector, where priorities are set.</summary>
+    private void RefreshWork()
+    {
+        if (_work.Rows.GetChildCount() == 0)
+        {
+            Label hint = Ui.MakeLabel(Ui.T("ui.work.hint"), Ui.SmallFontSize, Ui.Dim);
+            hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _work.Rows.AddChild(hint);
+        }
+        IReadOnlyList<ViewText.PersonLine> lines = ViewText.WorkLines(_host!.World);
+        _workIds.Clear();
+        foreach (ViewText.PersonLine line in lines) _workIds.Add(line.Id);
+        int rows = Math.Max(1, lines.Count);
+        while (_work.Rows.GetChildCount() - 1 < rows)
+        {
+            int index = _work.Rows.GetChildCount() - 1;
+            Button b = Ui.MakeButton("");
+            b.Flat = true;
+            b.Alignment = HorizontalAlignment.Left;
+            b.Pressed += () => OnWorkPersonPressed(index);
+            _work.Rows.AddChild(b);
+        }
+        for (int i = 1; i < _work.Rows.GetChildCount(); i++)
+        {
+            var b = _work.Rows.GetChild<Button>(i);
+            int k = i - 1;
+            b.Visible = k < rows;
+            b.Disabled = lines.Count == 0;
+            b.Text = lines.Count == 0 ? Ui.T("ui.people.empty") : k < lines.Count ? lines[k].Text : "";
+        }
+    }
+
+    private void OnWorkPersonPressed(int index)
+    {
+        if (_host == null || index >= _workIds.Count) return;
+        Character? c = _host.World.Find(_workIds[index]);
+        if (c == null) return;
+        _host.Select(c.Id);
+        _host.FocusCamera(c.Pos);
+    }
+
+    private void RefreshChronicle()
+    {
+        var lines = new List<(string Text, Color Tint)>();
+        if (_showLost)
+        {
+            foreach (FateText.LostLine l in FateText.LostFutures(_host!.World))
+                lines.Add((l.Text, l.Kind switch
+                {
+                    FateText.LineKind.Heading => Ui.Accent,
+                    FateText.LineKind.Death => new Color(0.86f, 0.55f, 0.48f),
+                    FateText.LineKind.Growth or FateText.LineKind.Note => Ui.Dim,
+                    _ => Colors.White,
+                }));
+        }
+        else
+        {
+            // A life that has ended closes on its own lines (§6.3, ADR-0030), above the newest of what happened.
+            foreach (string l in FateText.EndCard(_host!.World)) lines.Add((l, Ui.Accent));
+            foreach (string l in ViewText.Chronicle(_host.World)) lines.Add((l, Colors.White));
+            if (lines.Count == 0) lines.Add((Ui.T("ui.chronicle.empty"), Ui.Dim));
+        }
+        int rows = Math.Max(1, lines.Count);
+        while (_chronicle.Rows.GetChildCount() < rows)
+        {
+            Label label = Ui.MakeLabel("", Ui.SmallFontSize);
+            label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _chronicle.Rows.AddChild(label);
+        }
+        for (int i = 0; i < _chronicle.Rows.GetChildCount(); i++)
+        {
+            var label = _chronicle.Rows.GetChild<Label>(i);
+            label.Visible = i < rows;
+            label.Text = i < lines.Count ? lines[i].Text : "";
+            label.Modulate = i < lines.Count ? lines[i].Tint : Colors.White;
+        }
+    }
+
+    /// <summary>Sits the list just above the bar, under its button, as tall as its rows allow, and clear of an open inspector.</summary>
+    private void Place(ListPopup p)
+    {
+        Vector2 vp = GetViewportRect().Size;
+        float bar = Size.Y;
+        float maxRows = Mathf.Max(60f, vp.Y - bar - PopupGap - 90f);
+        p.Scroll.CustomMinimumSize = new Vector2(p.Width, Mathf.Min(p.Rows.GetCombinedMinimumSize().Y, maxRows));
+        Vector2 size = p.Panel.GetCombinedMinimumSize();
+        p.Panel.Size = size;
+        float right = Mathf.Min(vp.X, _host?.InspectorLeft ?? vp.X);
+        float x = Mathf.Clamp(p.Toggle.GlobalPosition.X, PopupGap, Mathf.Max(PopupGap, right - size.X - PopupGap));
+        p.Panel.Position = new Vector2(x, vp.Y - bar - PopupGap - size.Y);
+    }
+
+    /// <summary>A titled, scrolling list panel that lives beside the bar on the UI layer.</summary>
+    private sealed class ListPopup
+    {
+        public ListPopup(Node layer, string title, float width)
+        {
+            Width = width;
+            Panel = new PanelContainer { Theme = Ui.Theme, Visible = false };
+            var box = new VBoxContainer();
+            _box = box;
+            box.AddThemeConstantOverride("separation", 6);
+            box.AddChild(Ui.MakeLabel(title, Ui.FontSize, Ui.Accent));
+            box.AddChild(new HSeparator());
+            Scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+            Rows = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            Rows.AddThemeConstantOverride("separation", 2);
+            Scroll.AddChild(Rows);
+            box.AddChild(Scroll);
+            Panel.AddChild(box);
+            layer.AddChild(Panel);
+        }
+
+        private readonly VBoxContainer _box;
+
+        /// <summary>Puts a row (the Chronicle's tabs) between the title and the scrolling list.</summary>
+        public void AddHeader(Control header)
+        {
+            _box.AddChild(header);
+            _box.MoveChild(header, _box.GetChildCount() - 2);
+        }
+
+        public float Width { get; }
+
+        public PanelContainer Panel { get; }
+
+        public ScrollContainer Scroll { get; }
+
+        public VBoxContainer Rows { get; }
+
+        public Button Toggle { get; set; } = null!;
+    }
+}

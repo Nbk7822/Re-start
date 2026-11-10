@@ -1,0 +1,14 @@
+[
+  { "id": "wall", "nameKey": "building.wall.name", "descKey": "building.wall.desc", "kind": "wall", "category": "shelter",
+    "materials": [{ "item": "timber", "count": 1 }], "workTicks": 300, "takeDownPct": 50,
+    "placeOn": ["grass", "soil", "floor"], "tags": ["wood"] },
+  { "id": "door", "nameKey": "building.door.name", "descKey": "building.door.desc", "kind": "door", "category": "shelter",
+    "materials": [{ "item": "timber", "count": 2 }], "workTicks": 450, "takeDownPct": 50,
+    "placeOn": ["grass", "soil", "floor"], "tags": ["wood"] },
+  { "id": "roof", "nameKey": "building.roof.name", "descKey": "building.roof.desc", "kind": "roof", "category": "shelter",
+    "materials": [{ "item": "timber", "count": 1, "perTiles": 2 }], "workTicks": 100, "takeDownPct": 50,
+    "maxSide": 4, "supportRange": 3, "placeOn": ["grass", "soil", "floor"], "tags": ["wood"] },
+  { "id": "bed", "nameKey": "building.bed.name", "descKey": "building.bed.desc", "kind": "bed", "category": "rest",
+    "materials": [{ "item": "timber", "count": 2 }], "workTicks": 450, "takeDownPct": 50, "restBonusPct": 20,
+    "placeOn": ["grass", "soil", "floor"], "tags": ["wood"] }
+]

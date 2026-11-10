@@ -1,0 +1,16 @@
+[
+  { "key": "you", "nameKey": "cast.you.name", "species": "human", "signatureTrait": "practical", "role": "forager", "otherworlder": true, "startsInCamp": true, "color": "#d9b76d" },
+  { "key": "mira", "nameKey": "cast.mira.name", "species": "human", "signatureTrait": "protective", "role": "forager", "startsInCamp": true, "color": "#a8b99c" },
+  { "key": "oren", "nameKey": "cast.oren.name", "species": "human", "signatureTrait": "oathbound", "role": "builder", "startsInCamp": true, "color": "#cb9c78" },
+  { "key": "ilex", "nameKey": "cast.ilex.name", "species": "vampire", "signatureTrait": "proud", "role": "carer", "color": "#b5a3c8" },
+  { "key": "bram", "nameKey": "cast.bram.name", "species": "human", "signatureTrait": "generous", "role": "carer", "color": "#93b7bb" },
+  { "key": "nia", "nameKey": "cast.nia.name", "species": "human", "signatureTrait": "desperate", "role": "forager", "color": "#d0ad88" },
+  { "key": "sera", "nameKey": "cast.sera.name", "species": "human", "signatureTrait": "independent", "role": "builder", "color": "#b1b972" },
+  { "key": "vale", "nameKey": "cast.vale.name", "species": "vampire", "signatureTrait": "anxious", "role": "watcher", "color": "#9d9fca" },
+  { "key": "wren", "nameKey": "cast.wren.name", "species": "human", "signatureTrait": "anxious", "role": "forager", "color": "#c7a0a0" },
+  { "key": "hollis", "nameKey": "cast.hollis.name", "species": "human", "signatureTrait": "proud", "role": "builder", "color": "#a0b4c7" },
+  { "key": "ketil", "nameKey": "cast.ketil.name", "species": "undead", "signatureTrait": "oathbound", "role": "watcher", "arrivalDays": [11, 17], "color": "#8b968a" },
+  { "key": "dryope", "nameKey": "cast.dryope.name", "species": "dryad", "signatureTrait": "protective", "role": "forager", "arrivalDays": [3, 7], "color": "#7f9a6a" },
+  { "key": "qamar", "nameKey": "cast.qamar.name", "species": "djinn", "signatureTrait": "independent", "role": "builder", "arrivalDays": [7, 12], "color": "#a8735a" },
+  { "key": "fionn", "nameKey": "cast.fionn.name", "species": "fae", "signatureTrait": "proud", "role": "carer", "arrivalDays": [14, 20], "color": "#8fa3a8" }
+]

@@ -1,0 +1,15 @@
+[
+  { "id": "forage", "nameKey": "work.forage.name", "durationTicks": 600, "restCostPerHour": 20, "accidentPermille": 15, "yield": 3, "risky": true },
+  { "id": "gather_timber", "nameKey": "work.gather_timber.name", "durationTicks": 450, "restCostPerHour": 25, "accidentPermille": 25, "yield": 3, "risky": true },
+  { "id": "haul", "nameKey": "work.haul.name", "durationTicks": 30, "restCostPerHour": 10 },
+  { "id": "repair_roof", "nameKey": "work.repair_roof.name", "durationTicks": 600, "restCostPerHour": 25, "accidentPermille": 30, "risky": true, "timberCost": 3 },
+  { "id": "keep_watch", "nameKey": "work.keep_watch.name", "durationTicks": 900, "restCostPerHour": 15, "risky": true },
+  { "id": "care", "nameKey": "work.care.name", "durationTicks": 300, "restCostPerHour": 15, "yield": 260, "berryCost": 1 },
+  { "id": "give_blood", "nameKey": "work.give_blood.name", "durationTicks": 150, "restCostPerHour": 10 },
+  { "id": "eat", "nameKey": "work.eat.name", "durationTicks": 60 },
+  { "id": "sleep", "nameKey": "work.sleep.name", "durationTicks": 0 },
+  { "id": "socialize", "nameKey": "work.socialize.name", "durationTicks": 120 },
+  { "id": "build", "nameKey": "work.build.name", "durationTicks": 0, "restCostPerHour": 25, "accidentPermille": 20, "risky": true },
+  { "id": "deliver", "nameKey": "work.deliver.name", "durationTicks": 0, "restCostPerHour": 10 },
+  { "id": "take_down", "nameKey": "work.take_down.name", "durationTicks": 0, "restCostPerHour": 25, "accidentPermille": 15 }
+]

@@ -1,0 +1,13 @@
+[
+  { "id": "diurnal", "nameKey": "rhythm.diurnal.name", "campDayKey": "rhythm.diurnal.camp_day",
+    "day": [ { "from": 22, "to": 6, "block": "sleep" },
+             { "from": 6, "to": 19, "block": "work" },
+             { "from": 19, "to": 22, "block": "free" } ] },
+  { "id": "nocturnal", "nameKey": "rhythm.nocturnal.name", "campDayKey": "rhythm.nocturnal.camp_day",
+    "day": [ { "from": 6, "to": 14, "block": "sleep" },
+             { "from": 14, "to": 19, "block": "free" },
+             { "from": 19, "to": 6, "block": "work" } ] },
+  { "id": "sleepless", "nameKey": "rhythm.sleepless.name", "campDayKey": "rhythm.sleepless.camp_day",
+    "day": [ { "from": 6, "to": 22, "block": "work" },
+             { "from": 22, "to": 6, "block": "free" } ] }
+]

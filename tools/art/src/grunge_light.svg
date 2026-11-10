@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tileable pale wash: dry, sun-bleached and dusty patches. Pale straw with noise-driven alpha. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <filter id="wash" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0390625" numOctaves="4" seed="11" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.82  0 0 0 0 0.77  0 0 0 0 0.62  3.6 0 0 0 -1.85"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" filter="url(#wash)"/>
+</svg>

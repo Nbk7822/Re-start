@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Faith templates: seeded once per world into named faiths with gods (one per slot), customs and the devotion needed to read omens (ADR-0023)",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKeys", "ethics", "gods", "customs", "customPicks", "omenDevotion"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKeys": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/locKey" } },
+      "ethics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mortalImmortal", "arcaneMundane", "wildCivil", "oathboundFree"],
+        "properties": {
+          "mortalImmortal": { "$ref": "#/$defs/axis" },
+          "arcaneMundane": { "$ref": "#/$defs/axis" },
+          "wildCivil": { "$ref": "#/$defs/axis" },
+          "oathboundFree": { "$ref": "#/$defs/axis" }
+        }
+      },
+      "gods": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 3,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nameKeys", "domains", "wrath", "grace"],
+          "properties": {
+            "nameKeys": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/locKey" } },
+            "domains": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["domain", "weight"],
+                "properties": {
+                  "domain": { "$ref": "#/$defs/id" },
+                  "weight": { "type": "integer", "minimum": 0, "maximum": 100 }
+                }
+              }
+            },
+            "wrath": { "$ref": "#/$defs/range" },
+            "grace": { "$ref": "#/$defs/range" }
+          }
+        }
+      },
+      "customs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["custom"],
+          "properties": {
+            "custom": { "$ref": "#/$defs/id" },
+            "always": { "type": "boolean" },
+            "weight": { "type": "integer", "minimum": 0, "maximum": 100 }
+          }
+        }
+      },
+      "customPicks": { "type": "integer", "minimum": 0, "maximum": 4 },
+      "omenDevotion": { "type": "integer", "minimum": 0, "maximum": 100 }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+    "axis": { "type": "integer", "minimum": -2, "maximum": 2 },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "max": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    }
+  }
+}

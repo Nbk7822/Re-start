@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Work types: durations, costs, yields and accident odds",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKey", "durationTicks"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKey": { "$ref": "#/$defs/locKey" },
+      "durationTicks": { "type": "integer", "minimum": 0 },
+      "restCostPerHour": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "accidentPermille": { "type": "integer", "minimum": 0, "maximum": 1000 },
+      "yield": { "type": "integer", "minimum": 0 },
+      "risky": { "type": "boolean" },
+      "timberCost": { "type": "integer", "minimum": 0 },
+      "berryCost": { "type": "integer", "minimum": 0 }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

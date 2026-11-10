@@ -1,0 +1,30 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+# Godot
+.godot/
+*.import
+export_presets.cfg
+.mono/
+data_*/
+mono_crash.*
+
+# Soak output
+/out/
+
+# Tools and OS
+.superpowers/
+.DS_Store
+.idea/
+.vscode/
+
+# Demo's own pre-archive git history, kept on disk only
+/archive/*.git/
+
+# Claude Code worktrees for background agents
+/.claude/worktrees/
