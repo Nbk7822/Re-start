@@ -13,7 +13,7 @@ namespace Return.Game;
 /// <summary>
 /// The Schedule list on the bottom bar (ADR-0029): the camp's day as a strip to paint with a brush, the night folk's
 /// day and the day of those who never sleep while any such live in camp, the watch's hours as a row to drag (or none),
-/// who keeps it now and kept it last night, and whose day differs (a click opens their day). Every strip is one day;
+/// who keeps it now, has kept it tonight and kept it last night, and whose day differs (a click opens their day). Every strip is one day;
 /// there is never a table of people against hours (fixed decision 2). Choices go out through SimHost.Order, as drafts
 /// while paused, and the list shows what will be once they apply.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class ScheduleList
     private readonly List<(string Rhythm, DayStripControl Strip, Label Line, bool Sleeps)> _days = new();
     private readonly List<(DayBlock Block, Button Button)> _brushes = new();
     private DayStripControl? _watch;
-    private Label? _watchText, _watchNow, _watchLast, _pending;
+    private Label? _watchText, _watchNow, _watchTonight, _watchLast, _pending;
     private Button? _noWatch;
 
     public ScheduleList(SimHost host, VBoxContainer rows, Action close)
@@ -125,6 +125,7 @@ public sealed class ScheduleList
         _rows.AddChild(_watch);
         _watchText = Wrapping("", Ui.Ink);
         _watchNow = Wrapping("", Ui.Ink);
+        _watchTonight = Wrapping("", Ui.Dim);
         _watchLast = Wrapping("", Ui.Dim);
         Wrapping(Ui.T("ui.schedule.asked_first"), Ui.Dim);
 
@@ -181,6 +182,11 @@ public sealed class ScheduleList
         }
         if (_watchText != null) _watchText.Text = st.Watch.Text;
         if (_watchNow != null) _watchNow.Text = st.Watch.Now;
+        if (_watchTonight != null)
+        {
+            _watchTonight.Text = st.Watch.TonightText; // in the watch hours, the turns already kept tonight
+            _watchTonight.Visible = st.Watch.TonightText.Length > 0;
+        }
         if (_watchLast != null)
         {
             _watchLast.Text = st.Watch.LastNightText;

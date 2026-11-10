@@ -20,10 +20,13 @@ public sealed record WatchSpan(int CharacterId, string Name, int From, int To);
 
 /// <summary>
 /// The camp's watch: its hours (equal: none) and turn length, who holds the post now and since when, last night as
-/// lived, whether a change waits, and its lines in words. (Named apart from the simulation's own WatchState.)
+/// lived, whether a change waits, and its lines in words. While the watch hours run, the hours already lived tonight
+/// are Tonight's and LastNight holds only the hours still to come (the lived strips keep one occurrence of each hour).
+/// (Named apart from the simulation's own WatchState.)
 /// </summary>
 public sealed record CampWatchState(int From, int To, int TurnHours, int WatcherId, string Watcher, long Since,
-    IReadOnlyList<WatchSpan> LastNight, bool Pending, string Text, string Now, string LastNightText);
+    IReadOnlyList<WatchSpan> LastNight, bool Pending, string Text, string Now, string LastNightText,
+    IReadOnlyList<WatchSpan> Tonight, string TonightText);
 
 /// <summary>Someone whose day differs from their kind's camp day, with what differs in words ("sleeps 07:00–15:00, works 22:00–06:00").</summary>
 public sealed record PersonDaySummary(int Id, string Name, string Summary);
@@ -190,25 +193,23 @@ public static partial class StateApi
             ? loc.Format("schedule.watch.now", Kv(("a", EventText.Name(w, watcherId)), ("since", EventText.Hour(w, Calendar.Hour(since, w.Content.World)))))
             : loc.Get("schedule.watch.nobody_now");
 
-        var spans = LastNight(w);
-        var parts = new List<string>(spans.Count);
-        foreach (WatchSpan s in spans)
-        {
-            string range = loc.Format("schedule.range", Kv(("from", EventText.Hour(w, s.From)), ("to", EventText.Hour(w, s.To))));
-            parts.Add(s.CharacterId == 0
-                ? loc.Format("schedule.watch.span_nobody", Kv(("range", range)))
-                : loc.Format("schedule.watch.span", Kv(("a", s.Name), ("range", range))));
-        }
-        string lastNight = parts.Count == 0 ? "" : loc.Format("schedule.watch.last_night", Kv(("spans", string.Join(loc.Get("schedule.watch.span_sep"), parts))));
-        return new CampWatchState(from, to, turn, watcherId, watcherId == 0 ? "" : EventText.Name(w, watcherId), since, spans, pending, text, now, lastNight);
+        // While the watch hours run, the hours already lived belong to tonight; the strips still hold last night's only for the rest.
+        int hours = ScheduleSystem.RangeLength(w.WatchFrom, w.WatchTo);
+        int hourNow = Calendar.Hour(w.Tick, w.Content.World);
+        int tonight = ScheduleSystem.InWatchHours(w, hourNow) ? ScheduleSystem.RangeLength(w.WatchFrom, hourNow) : 0;
+        List<WatchSpan> tonightSpans = Spans(w, 0, tonight), lastSpans = Spans(w, tonight, hours);
+        return new CampWatchState(from, to, turn, watcherId, watcherId == 0 ? "" : EventText.Name(w, watcherId), since, lastSpans, pending, text, now,
+            SpansText(w, "schedule.watch.last_night", lastSpans), tonightSpans, SpansText(w, "schedule.watch.tonight", tonightSpans));
     }
 
-    /// <summary>Last night's watch from the lived strips (no state of its own): for each watch hour, who lived it as on watch.</summary>
-    private static List<WatchSpan> LastNight(World w)
+    /// <summary>
+    /// The watch as lived from the strips (no state of its own), over the watch hours from the <paramref name="first"/>th to
+    /// before the <paramref name="end"/>th: for each hour, who lived it as on watch (nobody, when no one did).
+    /// </summary>
+    private static List<WatchSpan> Spans(World w, int first, int end)
     {
         var spans = new List<WatchSpan>();
-        int hours = ScheduleSystem.RangeLength(w.WatchFrom, w.WatchTo);
-        for (int i = 0; i < hours; i++)
+        for (int i = first; i < end; i++)
         {
             int h = (w.WatchFrom + i) % ScheduleSystem.HoursPerDay;
             int who = 0;
@@ -220,6 +221,21 @@ public static partial class StateApi
                 spans.Add(new WatchSpan(who, who == 0 ? "" : EventText.Name(w, who), h, (h + 1) % ScheduleSystem.HoursPerDay));
         }
         return spans;
+    }
+
+    /// <summary>"Last night: Vale 19:00–05:00 · nobody 05:00–06:00" (or tonight's), "" with no spans.</summary>
+    private static string SpansText(World w, string key, List<WatchSpan> spans)
+    {
+        LocTable loc = w.Content.Loc;
+        var parts = new List<string>(spans.Count);
+        foreach (WatchSpan s in spans)
+        {
+            string range = loc.Format("schedule.range", Kv(("from", EventText.Hour(w, s.From)), ("to", EventText.Hour(w, s.To))));
+            parts.Add(s.CharacterId == 0
+                ? loc.Format("schedule.watch.span_nobody", Kv(("range", range)))
+                : loc.Format("schedule.watch.span", Kv(("a", s.Name), ("range", range))));
+        }
+        return parts.Count == 0 ? "" : loc.Format(key, Kv(("spans", string.Join(loc.Get("schedule.watch.span_sep"), parts))));
     }
 
     /// <summary>What differs in someone's day from their kind's camp day, in words; "" when nothing does.</summary>

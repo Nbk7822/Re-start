@@ -120,10 +120,31 @@ public class ScheduleApiTests
     {
         World w = ScheduleCommandTests.Camp(1, "you", "vale").World;
         Character vale = Cast(w, "vale"), you = Cast(w, "you");
+        w.Tick = w.Content.World.TicksPerDay + 12L * w.Content.World.TicksPerHour; // noon: the whole of last night's watch is in the strips
         for (int h = 19; h < 24; h++) vale.Lived[h] = LivedKind.Watched;
         for (int h = 0; h < 5; h++) you.Lived[h] = LivedKind.Watched;
         CampWatchState st = StateApi.Schedule(w).Watch;
         Assert.Equal("Last night: Vale 19:00–00:00 · You 00:00–05:00 · nobody 05:00–06:00", st.LastNightText);
+        Assert.Equal("", st.TonightText);
+    }
+
+    /// <summary>
+    /// In the watch hours the hours already lived tonight are tonight's, not last night's: the strips hold last night only for
+    /// the hours still to come, so the list says each apart instead of running tonight's first turn into last night's.
+    /// </summary>
+    [Fact]
+    public void DuringTheWatchTonightsTurnsAreNotCalledLastNight()
+    {
+        World w = ScheduleCommandTests.Camp(1, "you", "vale").World;
+        Character vale = Cast(w, "vale"), you = Cast(w, "you");
+        w.Tick = w.Content.World.TicksPerDay + 2L * w.Content.World.TicksPerHour; // 02:00: 19:00–02:00 lived tonight
+        for (int h = 19; h < 24; h++) vale.Lived[h] = LivedKind.Watched;
+        for (int h = 0; h < 5; h++) you.Lived[h] = LivedKind.Watched;
+        CampWatchState st = StateApi.Schedule(w).Watch;
+        Assert.Equal("Tonight so far: Vale 19:00–00:00 · You 00:00–02:00", st.TonightText);
+        Assert.Equal("Last night: You 02:00–05:00 · nobody 05:00–06:00", st.LastNightText);
+        Assert.Equal(new[] { 19, 0 }, st.Tonight.Select(x => x.From));
+        Assert.Equal(new[] { 2, 5 }, st.LastNight.Select(x => x.From));
     }
 
     /// <summary>Every line the Schedule writes reads as a sentence, with the player in each place the player can fill.</summary>

@@ -146,7 +146,7 @@ public static class RequiredContent
         "schedule.range", "schedule.own.sleep", "schedule.own.work", "schedule.own.free", "schedule.own.and", "schedule.own.sep",
         "schedule.note.camp", "schedule.note.own", "schedule.note.never_sleeps", "schedule.note.sun", "schedule.note.declined", "schedule.latest",
         "schedule.hour.planned", "schedule.hour.lived", "schedule.hour.lived_differs", "schedule.hour.sun",
-        "schedule.watch.kept", "schedule.watch.none", "schedule.watch.now", "schedule.watch.nobody_now", "schedule.watch.last_night",
+        "schedule.watch.kept", "schedule.watch.none", "schedule.watch.now", "schedule.watch.nobody_now", "schedule.watch.last_night", "schedule.watch.tonight",
         "schedule.watch.span", "schedule.watch.span_nobody", "schedule.watch.span_sep",
     };
 

@@ -96,6 +96,7 @@
   "schedule.watch.now": "On watch now: {a} (since {since}).",
   "schedule.watch.nobody_now": "Nobody is on watch.",
   "schedule.watch.last_night": "Last night: {spans}",
+  "schedule.watch.tonight": "Tonight so far: {spans}",
   "schedule.watch.span": "{a} {range}",
   "schedule.watch.span_nobody": "nobody {range}",
   "schedule.watch.span_sep": " · ",
