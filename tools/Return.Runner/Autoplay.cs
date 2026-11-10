@@ -8,16 +8,16 @@ namespace Return.Runner;
 /// <summary>
 /// The headless runner's stand-in for a player. Each world sets one of the three ration policies on
 /// its first tick, chosen by seed, so a soak exercises every policy's stories (the demo's meal theft
-/// and broken promises depend on it), and then lays out the camp's zones by the chosen plan
-/// (ADR-0028) and its days by the chosen schedule plan (ADR-0029). `run` and `soak` share this, so a seed's log is the
+/// and broken promises depend on it), and then lays out the camp's zones by the chosen plan (stockpiles
+/// and the home area, ADR-0028) and its days by the chosen schedule plan (ADR-0029). `run` and `soak` share this, so a seed's log is the
 /// same either way.
 /// </summary>
 internal static class Autoplay
 {
     private static readonly RationPolicy[] Policies = { RationPolicy.Hungriest, RationPolicy.PromisesFirst, RationPolicy.SelfFirst };
 
-    /// <summary>The zone plans `--zones` accepts. home, short and both come with the home area (zones step 3).</summary>
-    internal static readonly IReadOnlyList<string> ZonePlans = new[] { "none", "dry", "mixed" };
+    /// <summary>The zone plans `--zones` accepts (design 9.1): no zones, dry stores, a home area round the camp clearing, one a row short of the watch post, dry stores and a home area, or a mix by seed.</summary>
+    internal static readonly IReadOnlyList<string> ZonePlans = new[] { "none", "dry", "home", "short", "both", "mixed" };
 
     /// <summary>
     /// What `--zones mixed` picks, by (seed / 9) % 5, so it varies apart from the ration policy (seed % 3)
@@ -27,20 +27,8 @@ internal static class Autoplay
 
     internal static RationPolicy PolicyFor(ulong seed) => Policies[(int)(seed % (ulong)Policies.Length)];
 
-    /// <summary>
-    /// The plan a world runs under. Until the home area exists, mixed's home and short worlds run with no
-    /// zones and its both worlds run dry, so each seed keeps its plan's stockpile when step 3 lands.
-    /// </summary>
-    internal static string ZonePlanFor(string plan, ulong seed)
-    {
-        if (plan != "mixed") return plan;
-        return Mixed[(int)(seed / 9 % (ulong)Mixed.Length)] switch
-        {
-            "home" or "short" => "none",
-            "both" => "dry",
-            string p => p,
-        };
-    }
+    /// <summary>The plan a world runs under: mixed picks one of none, dry, home, short and both by seed.</summary>
+    internal static string ZonePlanFor(string plan, ulong seed) => plan != "mixed" ? plan : Mixed[(int)(seed / 9 % (ulong)Mixed.Length)];
 
     /// <summary>The schedule plans `--days` accepts (ADR-0029): content as shipped, no watch, or Mira on nights; mixed picks by seed.</summary>
     internal static readonly IReadOnlyList<string> DaysPlans = new[] { "default", "nowatch", "nightwatcher", "mixed" };
@@ -55,7 +43,10 @@ internal static class Autoplay
     internal static void Begin(Simulation sim, string zones = "none", string days = "default")
     {
         sim.Enqueue(new SetRationPolicy(sim.World.Tick, PolicyFor(sim.World.Seed)));
-        if (ZonePlanFor(zones, sim.World.Seed) == "dry") Dry(sim);
+        string plan = ZonePlanFor(zones, sim.World.Seed);
+        if (plan is "dry" or "both") Dry(sim);
+        if (plan is "home" or "both") Home(sim, shortOfThePost: false);
+        if (plan == "short") Home(sim, shortOfThePost: true);
         switch (DaysPlanFor(days, sim.World.Seed))
         {
             case "nowatch":
@@ -74,6 +65,26 @@ internal static class Autoplay
         for (int h = 0; h < 24; h++)
             day[h] = h is >= 7 and < 15 ? DayBlock.Sleep : h is >= 15 and < 19 || h >= 22 || h < 7 ? DayBlock.Work : null;
         return day;
+    }
+
+    /// <summary>
+    /// The home plans (design 9.1): the camp clearing (the 22 × 19 rectangle world generation clears round the shelter,
+    /// which holds the watch post) as the home area; short of the post, the same without the rows from the watch post's
+    /// row down, so the post lies just outside (story 3's setup, the only plan that exercises the watch's skip). Tiles go
+    /// through the commands' own check.
+    /// </summary>
+    private static void Home(Simulation sim, bool shortOfThePost)
+    {
+        World w = sim.World;
+        Rect clearing = WorldGen.ClearingOf(w.Map.Shelter);
+        if (shortOfThePost) clearing = new Rect(clearing.X, clearing.Y, clearing.W, Math.Max(1, w.Map.WatchPost.Y - clearing.Y));
+        var area = new List<Point>();
+        for (int y = clearing.Y; y < clearing.Y + clearing.H; y++)
+            for (int x = clearing.X; x < clearing.X + clearing.W; x++) area.Add(new Point(x, y));
+        var ok = new List<Point>();
+        foreach (ZoneTileState t in StateApi.CanZone(w, "home", area))
+            if (t.Ok) ok.Add(new Point(t.X, t.Y));
+        sim.Enqueue(new MarkZone(w.Tick, 0, "home", Zones.Canonical(ok)));
     }
 
     /// <summary>

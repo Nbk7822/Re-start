@@ -13,8 +13,8 @@ namespace Return.Runner;
 public static class Cli
 {
     public const string Usage =
-        "usage: return-runner run --seed <n> --years <y> [--out <file>] [--zones none|dry|mixed] [--days default|nowatch|nightwatcher|mixed]\n" +
-        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--zones none|dry|mixed] [--days default|nowatch|nightwatcher|mixed]\n";
+        "usage: return-runner run --seed <n> --years <y> [--out <file>] [--zones none|dry|home|short|both|mixed] [--days default|nowatch|nightwatcher|mixed]\n" +
+        "       return-runner soak --worlds <n> --years <y> --out <dir> [--parallel <p>] [--zones none|dry|home|short|both|mixed] [--days default|nowatch|nightwatcher|mixed]\n";
 
     /// <summary>UTF-8 without a byte-order mark, for every file the runner writes.</summary>
     internal static readonly Encoding Utf8 = new UTF8Encoding(false);

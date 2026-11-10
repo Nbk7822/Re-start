@@ -54,7 +54,7 @@ public static class StoryLog
         var notable = new List<SimEvent>();
         foreach (SimEvent e in all)
             if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture || inStory.Contains(e.Id)
-                || IsZoneEvent(e) || e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal) || IsScheduleNotable(e.Key))
+                || IsZoneEvent(e) || e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal) || IsScheduleNotable(e.Key) || IsHomeLine(e.Key))
                 notable.Add(e);
         return new LogAnalysis(stories, notable);
     }
@@ -67,8 +67,12 @@ public static class StoryLog
     internal static bool IsScheduleNotable(string key) =>
         StateApi.IsScheduleLine(key) && key is not ("event.work.took_watch" or "event.work.went_to_wake");
 
-    /// <summary>Zone events explain behaviour to a stranger reader, as incidents do (ADR-0028): a stockpile marked or moved.</summary>
-    internal static bool IsZoneEvent(SimEvent e) => e.Key.StartsWith("event.world.zone_", StringComparison.Ordinal);
+    /// <summary>Zone events explain behaviour to a stranger reader, as incidents do (ADR-0028): a stockpile marked or moved, a home area marked out.</summary>
+    internal static bool IsZoneEvent(SimEvent e) =>
+        e.Key.StartsWith("event.world.zone_", StringComparison.Ordinal) || e.Key.StartsWith("event.world.home_", StringComparison.Ordinal);
+
+    /// <summary>The home area's lines (zones step 3): who went out after dark and why, who stayed in.</summary>
+    internal static bool IsHomeLine(string key) => Soak.IsHomeStoryEvent(key);
 
     internal static void Render(World w, LogAnalysis analysis, TextWriter writer)
     {
