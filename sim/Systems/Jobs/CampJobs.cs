@@ -24,7 +24,8 @@ public static class CampJobs
                 if (n == 0) return true;
                 bush!.Berries -= n;
                 c.Carrying = new Carry { DefId = "berries", Count = n };
-                SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.foraged", new[] { c.Id }, Array.Empty<long>(),
+                // The picking cites why they went (their hunger, when they foraged for it), so an accident at the bush chains back to it (zones design 5.5).
+                SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.foraged", new[] { c.Id }, new[] { j.CauseEvent },
                     EventArg.Char("a", c.Id), EventArg.Num("n", n), EventArg.Item("item", "berries"));
                 JobRunner.RollAccident(w, c, def, e.Id);
                 JobRunner.Next(w, c, j, Stock.DropTile(w, "berries", c.Pos));

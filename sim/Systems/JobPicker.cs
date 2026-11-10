@@ -60,7 +60,7 @@ public static class JobPicker
             {
                 Job? eat = EatJob(w, c, allowTheft: true);
                 if (eat != null) return eat;
-                Job? forage = roused ? ForageJob(w, c) : null;
+                Job? forage = roused ? ForageJob(w, c, c.LastFoodEvent) : null; // foraging for their own hunger carries it (zones design 5.5)
                 if (forage != null) return forage;
             }
         }
@@ -157,10 +157,11 @@ public static class JobPicker
         return null;
     }
 
-    private static Job? ForageJob(World w, Character c)
+    /// <summary>The nearest bush with berries to pick; <paramref name="cause"/> is why (their hunger when they forage for it, else 0).</summary>
+    private static Job? ForageJob(World w, Character c, long cause = 0)
     {
         Bush? bush = Places.BushWithBerries(w, c.Pos);
-        return bush == null ? null : new Job { Kind = JobKind.Forage, TargetId = bush.Id, Target = bush.Pos };
+        return bush == null ? null : new Job { Kind = JobKind.Forage, TargetId = bush.Id, Target = bush.Pos, CauseEvent = cause };
     }
 
     private static Job SleepJob(World w, Character c) => new() { Kind = JobKind.Sleep, Target = Places.SleepSpot(w, c), CauseEvent = c.LastRestEvent };
