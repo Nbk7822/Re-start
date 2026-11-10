@@ -229,3 +229,16 @@ Oren, Ilex, Bram, Nia, Sera, Vale, Wren, Hollis, Thessil, Cindral and Sennet out
 ```
 - Built from stored state: the run memory (your people, gift, returns, when it ended) and who is still alive.
 - Why it matters: the design closes a life on who you were and who outlived you (§6.3); the build closed it on one line. Mira and Varrow are not on the list: they died before you did. Screenshots: `final-end-card.png`, `final-end-chronicle.png`.
+
+## 2026-11-09 — The founder plays the return (ADR-0031 play check, first try; milestone-0 at 3f5068d)
+The founder played the merged slice of Who you are and Return by Death with `tools/play 23`: seed 23, where you wake as a vampire and, left alone, the build's own run dies of its wounds at 02:00 on Day 10 and comes back to Day 8, 15:00. It was a short session, well under ADR-0031's two hours, and before the opening act. Asked ADR-0031's four questions, the founder answered:
+1. Did you die and come back, and did you want to go on? "no"
+2. Can you name a companion and say what that person is like? "oren and not much"
+3. Did you do anything differently because of what you remembered? "don't know what i remembered"
+4. Your run in one line? "meh"
+- Lead's reading, for the designs that follow:
+  - The return did not land in this sitting: either it never came or it did not make the founder want more. That is ADR-0031 #3's case for the opening act.
+  - A companion's name stuck, but not who they are (ADR-0031 #4 and #5).
+  - Nothing showed the founder what was remembered (ADR-0031 #5: a memory of what you learned, and lost futures that hurt).
+  - The run missed the founder's goal of a story the player can't forget.
+- This counts as a miss, and ADR-0031 asks for misses to be recorded. It is not yet the full play check: that needs two hours, the opening act, and two players who have never seen the game.
