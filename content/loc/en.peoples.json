@@ -40,7 +40,7 @@
 
   "event.incident.dryad_arrives": "{a} stepped out from among the trees and came to the fire.",
   "event.needs.forest_low": "{a} is growing faint, too long away from the trees.",
-  "event.needs.forest_critical": "{a} is withering, cut off from the forest.",
+  "event.needs.forest_critical": "{a} is withering for want of the forest.",
   "event.needs.died_forest": "{a} withered away, far from the living trees.",
   "event.work.felled_bound_tree": "{a} felled the tree {b} was bound to.",
   "event.needs.tree_wound": "{a} cried out as their tree came down.",
