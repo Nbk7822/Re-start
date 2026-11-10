@@ -107,7 +107,13 @@ public static class EventText
             || !int.TryParse(body.AsSpan(colon + 1), NumberStyles.Integer, Inv, out int line)) return null;
         List<LostFuture> futures = w.Fate.LostFutures;
         if (future < 0 || future >= futures.Count || line < 0 || line >= futures[future].Lines.Count) return null;
-        return Describe(w, futures[future].Lines[line]);
+        LostLine quoted = futures[future].Lines[line];
+        // A memory of a memory (a return to before an earlier one, where the remembered grudge was the wrong) quotes what
+        // was first remembered, not the remembering. A line quotes only futures lost before its own, so this ends.
+        if (quoted.Key.StartsWith("event.fate.remembered", StringComparison.Ordinal))
+            foreach (EventArg a in quoted.Args)
+                if (a.Value.StartsWith("e:", StringComparison.Ordinal) && Quote(w, a.Value.Substring(2)) is { } first) return first;
+        return Describe(w, quoted);
     }
 
     public static string Name(World w, int id)

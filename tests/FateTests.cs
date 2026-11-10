@@ -687,6 +687,32 @@ public class FateTests
         Assert.True(checkedReturns >= 1, "no second return landed on a knot tied after the first");
     }
 
+    /// <summary>
+    /// Going back past an earlier return can make a remembered grudge the wrong a new memory quotes; the line then quotes
+    /// what was first remembered, not "You remembered a wrong ...: You remembered a wrong ...".
+    /// </summary>
+    [Fact]
+    public void AMemoryOfAMemoryQuotesWhatWasFirstRemembered()
+    {
+        World w = Simulation.Create(TestContent.Db, 3).World;
+        int you = w.PlayerId, nia = Cast(w, "nia").Id;
+        var first = new LostFuture();
+        first.Lines.Add(new LostLine { Key = "event.social.insulted", Args = { EventArg.Char("a", nia), EventArg.Char("b", you) } });
+        var second = new LostFuture();
+        second.Lines.Add(new LostLine
+        {
+            Key = "event.fate.remembered_wrong",
+            Args = { EventArg.Char("a", you), EventArg.Char("b", nia), new EventArg { Name = "what", Value = "e:0:0" } },
+        });
+        w.Fate.LostFutures.Add(first);
+        w.Fate.LostFutures.Add(second);
+        SimEvent again = w.Log.Emit(w, SystemTag.Mood, "event.fate.remembered_wrong", new[] { you, nia }, Array.Empty<long>(), null,
+            EventArg.Char("a", you), EventArg.Char("b", nia), new EventArg { Name = "what", Value = "e:1:0" });
+        Assert.Equal("You remembered a wrong from a future that never came: Nia insulted you.", EventText.Describe(w, again));
+        // The memory line itself, in its own lost future, still reads in full.
+        Assert.Equal("You remembered a wrong from a future that never came: Nia insulted you.", EventText.Describe(w, second.Lines[0]));
+    }
+
     [Fact]
     public void LostFutureLinesRender()
     {
