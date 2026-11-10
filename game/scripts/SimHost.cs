@@ -19,7 +19,7 @@ namespace Return.Game;
 ///   RETURN_SEED=n        world seed (default 1)
 ///   RETURN_TICKS=n       advance n ticks before the first frame
 ///   RETURN_SELECT=key    open the inspector for that cast key (e.g. "you")
-///   RETURN_OPEN=name     open a bar list at start: orders, zones, work, people or chronicle
+///   RETURN_OPEN=name     open a bar list at start: orders, zones, work, schedule, people or chronicle
 ///   RETURN_PAUSE=1       start paused
 ///   RETURN_PRESS=list    after 1 s, press buttons as a player would, comma-separated:
 ///                        "policy:N" presses ration policy N in Orders (0-based: 0 = the hungriest
@@ -27,7 +27,11 @@ namespace Return.Game;
 ///                        row R of the open inspector (0-based: 0 = the first kind of work);
 ///                        "zone:KIND:X:Y:W:H" picks a kind in Zones and drags a W×H box from tile
 ///                        (X, Y) with the marking tool; "unzone:X:Y:W:H" does the same with Unmark;
-///                        "open:NAME" opens a bar list as its button would (orders, zones, work, ...)
+///                        "open:NAME" opens a bar list as its button would (orders, zones, work, ...);
+///                        "camp:B:F:T" paints the camp's day with block B (0 sleep, 1 work, 2 free time)
+///                        from hour F to T (exclusive, wrapping) in Schedule, "night:B:F:T" the night
+///                        folk's day, "person:B:F:T" the open inspector's day, "watch:F:T" sets the
+///                        watch from F to T (ADR-0029)
 ///   RETURN_SCREENSHOT=p  save the window to PNG file p about 3 s after start, then quit
 /// </summary>
 public partial class SimHost : Node
@@ -252,6 +256,10 @@ public partial class SimHost : Node
             {
                 ("policy", 1) => _bar.PressPolicy(n[0]),
                 ("priority", 2) => _inspector.PressPriority(n[0], n[1]),
+                ("camp", 3) => _bar.PressDay(Return.Sim.Systems.ScheduleSystem.Diurnal, n[0], n[1], n[2]),
+                ("night", 3) => _bar.PressDay("nocturnal", n[0], n[1], n[2]),
+                ("person", 3) => _inspector.PressDay(n[0], n[1], n[2]),
+                ("watch", 2) => _bar.PressWatch(n[0], n[1]),
                 _ => false,
             };
             if (!ok) GD.PushWarning("Return: RETURN_PRESS could not press '" + item + "'.");

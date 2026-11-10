@@ -223,6 +223,14 @@ public static class ViewText
         return Ui.F("ui.inspector.want_stage", ("want", g.Want.Text), ("stage", g.Arc.StageLabel));
     }
 
+    /// <summary>The lantern on the watch pole burns while someone keeps watch at the post, awake: it goes dark when the watcher falls asleep there (ADR-0029).</summary>
+    public static bool LanternLit(World w)
+    {
+        foreach (Character c in w.Characters)
+            if (c.Status == CharStatus.Member && !c.Asleep && c.Job is { Kind: JobKind.KeepWatch, Stage: >= 1 }) return true;
+        return false;
+    }
+
     /// <summary>Items joined with the localised list separator.</summary>
     public static string JoinList(IReadOnlyList<string> items)
     {

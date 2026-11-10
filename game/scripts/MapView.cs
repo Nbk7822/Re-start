@@ -395,12 +395,7 @@ public partial class MapView : Node2D
         return false;
     }
 
-    private static bool LanternLit(World w)
-    {
-        foreach (Character c in w.Characters)
-            if (c.Status == CharStatus.Member && c.Job is { Kind: JobKind.KeepWatch, Stage: >= 1 }) return true;
-        return false;
-    }
+    private static bool LanternLit(World w) => ViewText.LanternLit(w);
 
     // ================= ground =================
 
