@@ -473,7 +473,7 @@ public class HomeAreaTests
         long none = v.Rng.Dice[DiceSystem.Work].Draws;
         Zones.Hourly(v);
         Assert.Equal(none, v.Rng.Dice[DiceSystem.Work].Draws);
-        Assert.Equal(-1, Cast(v, "sera").NightRollDay);
+        Assert.Equal(int.MinValue, Cast(v, "sera").NightRollDay);
     }
 
     [Fact]
@@ -508,6 +508,10 @@ public class HomeAreaTests
         return s;
     }
 
+    /// <summary>Tonight's lines of a key (the home area marked at the start of a test camp also speaks on the world's first night).</summary>
+    private static IEnumerable<SimEvent> TonightsLines(World w, string key) =>
+        w.Log.All.Where(e => e.Key == key && Zones.NightOf(w, e.Tick) == Zones.Tonight(w));
+
     private static void IdleAt(World w, Character c, Point p)
     {
         c.Pos = p;
@@ -527,7 +531,7 @@ public class HomeAreaTests
         foreach (Character c in new[] { you, mira, oren }) IdleAt(w, c, new Point(w.Map.Hearth.X - 1 + i++, w.Map.Hearth.Y + 1));
         for (int t = 0; t < 120; t++) s.Step();
 
-        SimEvent stayed = Assert.Single(w.Log.All, e => e.Key == "event.work.stayed_in_watch");
+        SimEvent stayed = Assert.Single(TonightsLines(w, "event.work.stayed_in_watch")); // the home area, marked at the start, also spoke on the first night
         Assert.Equal(new[] { Zones.HomeOf(w)!.MadeEvent }, stayed.Causes);
         Assert.Equal(stayed.Id, w.Watch.GapEvent);
         Assert.Equal(0, w.Watch.WatcherId);
@@ -547,7 +551,7 @@ public class HomeAreaTests
         }
         Assert.Equal("event.incident.stolen_unwatched", stolen?.Key);
         Assert.Contains(stayed.Id, stolen!.Causes);
-        Assert.Single(w.Log.All, e => e.Key == "event.work.stayed_in_watch"); // once a night for the camp
+        Assert.Single(TonightsLines(w, "event.work.stayed_in_watch")); // once a night for the camp
     }
 
     [Fact]
@@ -585,7 +589,7 @@ public class HomeAreaTests
         Assert.Equal(JobKind.KeepWatch, you.Job?.Kind);
 
         SimEvent left = RunUntilKey(s, "event.work.left_watch_unrelieved", (int)Hours(w, 1))!;
-        SimEvent stayed = w.Log.All.Single(e => e.Key == "event.work.stayed_in_watch");
+        SimEvent stayed = Assert.Single(TonightsLines(w, "event.work.stayed_in_watch"));
         Assert.Equal(new[] { stayed.Id }, left.Causes); // why nobody came is the home area, not the turn that ended
         Assert.DoesNotContain(began.Id, left.Causes);
         Assert.Equal(left.Id, w.Watch.GapEvent);
@@ -617,6 +621,26 @@ public class HomeAreaTests
         SimEvent breach = w.Log.All.Single(e => e.Key == "event.work.out_after_dark_own_way");
         Assert.Equal(sera.Id, breach.Actors[0]);
         Assert.Contains(oren.Thoughts, x => x.DefId == "saw_rule_broken" && x.AboutId == sera.Id); // he saw her go from the fire
+    }
+
+    /// <summary>
+    /// The small hours of the first day are night −1 (its dusk fell the day before day 0), so "never" cannot be −1: a home area
+    /// marked as the world begins still says, that first night, why the post outside it stands empty.
+    /// </summary>
+    [Fact]
+    public void OnTheWorldsFirstNightTheHomeAreaStillSaysWhyThePostStandsEmpty()
+    {
+        var s = Simulation.Create(TestContent.Db, 12);
+        Return.Runner.Autoplay.Begin(s, "short");
+        World w = s.World;
+        Assert.Equal(-1, Zones.Tonight(w));
+        for (int t = 0; t < (int)Hours(w, 2); t++) s.Step();
+        Assert.False(Zones.InHome(w, w.Map.WatchPost));
+        SimEvent stayed = Assert.Single(w.Log.All, e => e.Key == "event.work.stayed_in_watch");
+        Assert.Equal(-1, Zones.NightOf(w, stayed.Tick));
+        Assert.Equal(new[] { Zones.HomeOf(w)!.MadeEvent }, stayed.Causes);
+        Assert.DoesNotContain(w.Log.All, e => e.Key == "event.work.watch_unkept"); // the empty post has its reason
+        Assert.Equal(stayed.Id, w.Watch.GapEvent);
     }
 
     private static SimEvent? RunUntilKey(Simulation s, string key, int maxTicks)

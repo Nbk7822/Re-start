@@ -82,17 +82,18 @@ public sealed class Character
     public int LastKeptAwayDay { get; set; } = -1;
 
     // The home area's night memory (zones step 3, ADR-0028). A night belongs to the day its dusk fell on, so 02:00 on
-    // day 21 is night 20; these hold that number, −1 for never.
+    // day 21 is night 20; these hold that number, int.MinValue for never (the small hours of day 0 are night −1, so −1
+    // cannot mean never).
     /// <summary>The night they last rolled whether to go their own way under the home area.</summary>
-    public int NightRollDay { get; set; } = -1;
+    public int NightRollDay { get; set; } = int.MinValue;
     /// <summary>Tonight's answer, valid only while NightRollDay is tonight: the reason they go their own way (Compliance's), or "" if they keep the rule.</summary>
     public string DefiesTonight { get; set; } = "";
     /// <summary>The night they last went out after dark (a breach is said once a night).</summary>
-    public int LastBreachDay { get; set; } = -1;
+    public int LastBreachDay { get; set; } = int.MinValue;
     /// <summary>The night they last stayed in hungry as asked (said once a night).</summary>
-    public int LastStayedInDay { get; set; } = -1;
+    public int LastStayedInDay { get; set; } = int.MinValue;
     /// <summary>The night they last felt kept in (an Independent's kept_in, once a night).</summary>
-    public int LastKeptInDay { get; set; } = -1;
+    public int LastKeptInDay { get; set; } = int.MinValue;
 
     // The Schedule (ADR-0029).
     /// <summary>Hours this person keeps instead of their kind's camp day, in hour order; empty means the camp's day.</summary>
