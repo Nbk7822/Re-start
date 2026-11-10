@@ -25,11 +25,11 @@
   "thought.covered_for": "Had to keep someone else's watch",
   "thought.watch_taken_for_me": "Someone kept the watch for me",
 
-  "event.world.camp_day": "You changed {day}: sleep {sleep} hours, work {work}, free time {free}.",
+  "event.world.camp_day": "You changed {day}: sleep {sleep_hours} hours, work {work_hours}, free time {free_hours}.",
   "event.world.watch_hours": "You decided the camp keeps a watch from {from} to {to}.",
   "event.world.watch_hours_zero": "You decided the camp keeps no watch.",
-  "event.world.person_day": "You changed {a}'s day: sleep {sleep} hours, work {work}, free time {free}.",
-  "event.world.person_day_you_a": "You changed your own day: sleep {sleep} hours, work {work}, free time {free}.",
+  "event.world.person_day": "You changed {a}'s day: sleep {sleep_hours} hours, work {work_hours}, free time {free_hours}.",
+  "event.world.person_day_you_a": "You changed your own day: sleep {sleep_hours} hours, work {work_hours}, free time {free_hours}.",
   "event.world.person_day_reset": "{a} now keeps {day}.",
   "event.world.person_day_reset_you_a": "You now keep {day}.",
 

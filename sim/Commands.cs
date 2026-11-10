@@ -13,6 +13,9 @@ namespace Return.Sim;
 [JsonDerivedType(typeof(MarkZone), "markZone")]
 [JsonDerivedType(typeof(RemoveZone), "removeZone")]
 [JsonDerivedType(typeof(SetZoneItems), "setZoneItems")]
+[JsonDerivedType(typeof(SetCampDay), "setCampDay")]
+[JsonDerivedType(typeof(SetWatchHours), "setWatchHours")]
+[JsonDerivedType(typeof(SetPersonDay), "setPersonDay")]
 public abstract record Command(long Tick)
 {
     /// <summary>Order of enqueueing; ties on the same tick apply in this order.</summary>

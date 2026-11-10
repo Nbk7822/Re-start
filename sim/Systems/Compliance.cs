@@ -72,6 +72,36 @@ public static class Compliance
         return w.Rng.Dice[DiceSystem.Work].Chance(tag, odds.Permille) ? odds.Reason : null;
     }
 
+    /// <summary>
+    /// What a breach cites besides the rule itself, by the reason the odds named: for dislike, a grudge against
+    /// whoever set the rule, else the worst thought about them; for a black mood, the worst thought of all; for
+    /// their nature or their people's ways, nothing more (the rule is cause enough). 0 when there is nothing to cite.
+    /// </summary>
+    public static long ReasonCause(World w, Character c, int setterId, string reason)
+    {
+        if (reason == Dislike)
+            return Relations.ActiveGrudge(w, c.Id, setterId)?.FormedEvent ?? WorstThought(w, c, setterId);
+        return reason == Mood ? WorstThought(w, c, 0) : 0;
+    }
+
+    /// <summary>The event behind someone's most negative thought (only about aboutId, unless it is 0); 0 if none.</summary>
+    private static long WorstThought(World w, Character c, int aboutId)
+    {
+        int worst = 0;
+        long cause = 0;
+        foreach (Thought t in c.Thoughts)
+        {
+            if (aboutId != 0 && t.AboutId != aboutId) continue;
+            int mood = w.Content.ThoughtById(t.DefId).Mood;
+            if (mood < worst && t.CauseEvent != 0)
+            {
+                worst = mood;
+                cause = t.CauseEvent;
+            }
+        }
+        return cause;
+    }
+
     /// <summary>Keeps rules and judges those who break them: the Oathbound (promisePriority above 0), and those whose ways hold oaths heaviest (+2).</summary>
     public static bool KeepsRules(World w, Character c) =>
         Traits.Sum(w, c, t => t.PromisePriority) > 0 || Culture.Ways.Axis(w, c, EthicAxis.OathboundFree) >= KeepsRulesAxis;

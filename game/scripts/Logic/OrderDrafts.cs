@@ -6,7 +6,8 @@ namespace Return.Game.Logic;
 
 /// <summary>
 /// Player choices made while time is paused. A later choice for the same thing (the ration policy;
-/// one person's priority for one kind of work; one zone) replaces the earlier one, and when time moves
+/// one person's priority for one kind of work; one zone; one kind of day's camp day, the watch hours, one
+/// person's own day) replaces the earlier one, and when time moves
 /// the drafts go out together as commands, skipping any that would change nothing. So changing your mind
 /// while paused leaves no trace in the world or its history. Godot-free so the tests compile it.
 /// </summary>
@@ -80,6 +81,44 @@ public sealed class OrderDrafts
         return priority;
     }
 
+    /// <summary>The drafted camp day of a kind of day, if any (ADR-0029).</summary>
+    public IReadOnlyList<DayBlock>? CampDay(string rhythm)
+    {
+        IReadOnlyList<DayBlock>? day = null;
+        foreach (Command d in _drafts)
+            if (d is SetCampDay c && c.Rhythm == rhythm) day = c.Hours;
+        return day;
+    }
+
+    /// <summary>The drafted watch hours, if any.</summary>
+    public (int From, int To)? WatchHours()
+    {
+        (int, int)? hours = null;
+        foreach (Command d in _drafts)
+            if (d is SetWatchHours h) hours = (h.From, h.To);
+        return hours;
+    }
+
+    /// <summary>The drafted own hours of one person, if any (null entries keep the camp's day).</summary>
+    public IReadOnlyList<DayBlock?>? PersonDay(int characterId)
+    {
+        IReadOnlyList<DayBlock?>? day = null;
+        foreach (Command d in _drafts)
+            if (d is SetPersonDay p && p.CharacterId == characterId) day = p.Hours;
+        return day;
+    }
+
+    /// <summary>Is any schedule command drafted? (The Schedule list then says the change waits for time to move.)</summary>
+    public bool HasScheduleDrafts
+    {
+        get
+        {
+            foreach (Command d in _drafts)
+                if (d is SetCampDay or SetWatchHours or SetPersonDay) return true;
+            return false;
+        }
+    }
+
     /// <summary>Is any zone command drafted? (The Zones list then says the change waits for time to move.)</summary>
     public bool HasZoneDrafts
     {
@@ -102,6 +141,7 @@ public sealed class OrderDrafts
                 SetRationPolicy p => p.Policy != w.Policy,
                 SetWorkPriority p => w.Find(p.CharacterId) is { Status: CharStatus.Member } c && JobPicker.PriorityOf(c, p.WorkId) != p.Priority,
                 MarkZone or RemoveZone or SetZoneItems => Zones.Changes(w, d),
+                SetCampDay or SetWatchHours or SetPersonDay => ScheduleSystem.Changes(w, d),
                 _ => true,
             };
             if (!changes) continue;
@@ -135,6 +175,9 @@ public sealed class OrderDrafts
         (SetRationPolicy, SetRationPolicy) => true,
         (SetWorkPriority x, SetWorkPriority y) => x.CharacterId == y.CharacterId && x.WorkId == y.WorkId,
         (MarkZone or SetZoneItems, MarkZone or SetZoneItems) => ZoneOf(a) == ZoneOf(b) && !(a is MarkZone && b is SetZoneItems),
+        (SetCampDay x, SetCampDay y) => x.Rhythm == y.Rhythm,
+        (SetWatchHours, SetWatchHours) => true,
+        (SetPersonDay x, SetPersonDay y) => x.CharacterId == y.CharacterId,
         _ => false,
     };
 }
