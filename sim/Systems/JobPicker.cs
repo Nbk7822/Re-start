@@ -247,7 +247,7 @@ public static class JobPicker
             case "gather_timber":
             {
                 if (sunBlocked || Places.TimberNeeded(w) <= 0) return null;
-                Tree? tree = Places.StandingTree(w, c.Pos);
+                Tree? tree = Places.StandingTree(w, c.Pos, c);
                 return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos) };
             }
             case "forage":

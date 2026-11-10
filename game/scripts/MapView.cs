@@ -585,13 +585,27 @@ public partial class MapView : Node2D
         return null;
     }
 
+    /// <summary>Is this tree (or its stump) held sacred by a culture or faith (ADR-0023)? Read from the sim; the view never changes it.</summary>
+    private static bool Sacred(World w, Tree t)
+    {
+        foreach (SacredPlace p in w.Culture.SacredPlaces)
+            if (p.TreeId == t.Id) return true;
+        return false;
+    }
+
     private void Paint(World w, Drawable d, bool winter)
     {
         Map m = w.Map;
         switch (d.Kind)
         {
-            case Kind.Tree: _art.DrawTree(_brush, m.Trees[d.Index], _time, winter); break;
-            case Kind.Stump: WorldArt.DrawStump(_brush, m.Trees[d.Index]); break;
+            case Kind.Tree:
+                _art.DrawTree(_brush, m.Trees[d.Index], _time, winter);
+                if (Sacred(w, m.Trees[d.Index])) WorldArt.DrawRibbons(_brush, m.Trees[d.Index], _time);
+                break;
+            case Kind.Stump:
+                WorldArt.DrawStump(_brush, m.Trees[d.Index]);
+                if (Sacred(w, m.Trees[d.Index])) WorldArt.DrawTornRibbon(_brush, m.Trees[d.Index]);
+                break;
             case Kind.Bush: WorldArt.DrawBush(_brush, m.Bushes[d.Index], _time, winter); break;
             case Kind.Stack: WorldArt.DrawStack(_brush, w.Items[d.Index]); break;
             case Kind.Wall: _art.DrawWall(_brush, new SimPoint(d.Index % m.Width, d.Index / m.Width)); break;

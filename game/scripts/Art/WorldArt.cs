@@ -468,6 +468,34 @@ public sealed class WorldArt
         if (outline) b.Stroke(Palette.Ink, 0.9f);
     }
 
+    /// <summary>Pale cloth strips tied round a sacred tree's trunk, fluttering as it sways (ADR-0023).</summary>
+    public static void DrawRibbons(Brush b, Tree t, float time)
+    {
+        (float px, float py, float rad, bool pine) = TreeShape(t);
+        float sway = MathF.Sin(time * 0.9f + t.Id * 1.3f) * 1.6f;
+        float knot = pine ? py - rad * 0.3f : py - rad * 0.55f; // on the bare trunk, below the leaves
+        var cloth = new Color(0.80f, 0.75f, 0.62f);
+        var shade = new Color(0.58f, 0.52f, 0.41f);
+        for (int k = 0; k < 3; k++)
+        {
+            float x = px - 2.2f + k * 2.2f;
+            float flutter = MathF.Sin(time * 2.1f + k * 1.7f + t.Id) * 1.3f + sway * 0.4f;
+            float len = 6.5f + 2.5f * (k % 2);
+            b.Line(x, knot, x + flutter, knot + len, cloth, 1.4f);
+            b.Line(x + 0.6f, knot + 0.5f, x + 0.6f + flutter * 0.8f, knot + len * 0.8f, shade, 0.7f);
+        }
+        b.Line(px - 2.9f, knot, px + 2.9f, knot, shade, 1.2f);
+    }
+
+    /// <summary>One torn strip left on the stump of a felled sacred tree.</summary>
+    public static void DrawTornRibbon(Brush b, Tree t)
+    {
+        float px = (t.Pos.X + 0.5f) * T, py = (t.Pos.Y + 0.6f) * T;
+        var cloth = new Color(0.66f, 0.60f, 0.48f);
+        b.Line(px + 3.2f, py - 3.2f, px + 6.2f, py + 1.2f, cloth, 1.3f);
+        b.Line(px + 6.2f, py + 1.2f, px + 5.2f, py + 3.0f, cloth, 1f);
+    }
+
     public static void DrawStump(Brush b, Tree t)
     {
         float px = (t.Pos.X + 0.5f) * T, py = (t.Pos.Y + 0.6f) * T;
