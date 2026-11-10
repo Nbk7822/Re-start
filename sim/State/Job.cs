@@ -29,6 +29,12 @@ public enum JobKind
     Feast,
     /// <summary>Bringing a hungry creditor food to settle a debt of honour (ADR-0023).</summary>
     RepayDebt,
+
+    // The four peoples (ADR-0022).
+    /// <summary>A dryad standing by their tree (or another living one) to draw on the forest.</summary>
+    TendTree,
+    /// <summary>A djinn going to someone to offer the camp a bargain.</summary>
+    OfferBargain,
 }
 
 /// <summary>What a character is doing right now. Stage and Progress are job-specific counters.</summary>

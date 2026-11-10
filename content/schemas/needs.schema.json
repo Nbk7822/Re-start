@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Needs that come from a species' nature, beyond food, rest and company (ADR-0022). Each id names behaviour in code; params tune it.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKey", "start", "decayPerHour", "lowBelow", "criticalBelow", "satisfiedAt", "lowThought", "criticalThought", "lowEventKey", "criticalEventKey", "params"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKey": { "$ref": "#/$defs/locKey" },
+      "start": { "description": "Value on arrival", "$ref": "#/$defs/level" },
+      "decayPerHour": { "$ref": "#/$defs/level" },
+      "lowBelow": { "$ref": "#/$defs/level" },
+      "criticalBelow": { "$ref": "#/$defs/level" },
+      "satisfiedAt": { "description": "At or above this the need is met again", "$ref": "#/$defs/level" },
+      "lowThought": { "$ref": "#/$defs/id" },
+      "criticalThought": { "$ref": "#/$defs/id" },
+      "lowEventKey": { "$ref": "#/$defs/locKey" },
+      "criticalEventKey": { "$ref": "#/$defs/locKey" },
+      "criticalHealthPerHour": { "description": "Health lost each hour while critical", "$ref": "#/$defs/level" },
+      "deathKey": { "$ref": "#/$defs/locKey" },
+      "leavesAfterCriticalHours": { "description": "Hours critical after which they leave; 0 = never", "type": "integer", "minimum": 0 },
+      "bondWorks": { "description": "Works the need can be bound to (chosen per person from Truths)", "type": "array", "items": { "$ref": "#/$defs/id" } },
+      "bondItems": { "description": "Items the need can ask for (chosen per person from Truths)", "type": "array", "items": { "$ref": "#/$defs/id" } },
+      "params": {
+        "type": "object",
+        "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
+        "additionalProperties": { "type": "integer" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+    "level": { "type": "integer", "minimum": 0, "maximum": 1000 }
+  }
+}

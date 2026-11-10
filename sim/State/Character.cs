@@ -75,6 +75,8 @@ public sealed class Character
     public List<string> LearnedCustoms { get; set; } = new();
     /// <summary>Ids of everyone this person has spoken with; ascending.</summary>
     public List<int> Met { get; set; } = new();
+    /// <summary>Needs that come from this person's nature (their species), beyond food, rest and company (ADR-0022).</summary>
+    public List<NatureNeed> NatureNeeds { get; set; } = new();
 
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;

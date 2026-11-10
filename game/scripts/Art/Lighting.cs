@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using Return.Game.Logic;
 
@@ -10,10 +11,15 @@ namespace Return.Game.Art;
 /// winter), and a warm, flickering PointLight2D at the hearth lights everything near it with a
 /// soft falloff (the Inkscape light texture). It matters in proportion to the dark, so by day it is
 /// a faint warmth and at night it is the only place colour survives. The watch post's lantern
-/// gives a small second light while someone keeps watch at night.
+/// gives a small second light while someone keeps watch at night. Small glows follow people whose
+/// nature gives light (a dryad by her tree, a djinn's embers), from a pool of lights reused frame
+/// to frame.
 /// </summary>
 public sealed class Lighting
 {
+    /// <summary>A small light that follows someone this frame: where (map pixels), its colour, energy and reach in tiles.</summary>
+    public readonly record struct Glow(Vector2 At, Color Color, float Energy, float RadiusTiles);
+
     private const float FireRadiusTiles = 9.5f;
     private const float LanternRadiusTiles = 3.2f;
 
@@ -22,11 +28,18 @@ public sealed class Lighting
     private readonly PointLight2D _lantern;
     private readonly float _fireScale;
     private readonly float _lanternScale;
+    private readonly Node _parent;
+    private readonly Texture2D _falloff;
+    private readonly float _half;
+    private readonly List<PointLight2D> _glows = new();
 
     public Lighting(Node parent, ArtTextures tex, Vector2 hearth, Vector2 lantern)
     {
         Texture2D falloff = tex.Light ?? Gradient();
         float half = falloff.GetWidth() / 2f;
+        _parent = parent;
+        _falloff = falloff;
+        _half = half;
         _fireScale = FireRadiusTiles * MapView.TileSize / half;
         _lanternScale = LanternRadiusTiles * MapView.TileSize / half;
 
@@ -55,6 +68,32 @@ public sealed class Lighting
         float lantern = lanternLit ? 0.9f * light.Night : 0f;
         _lantern.Energy = lantern * (1f + MathF.Sin(time * 11.7f + 2f) * 0.04f);
         _lantern.Visible = lantern > 0.01f;
+    }
+
+    /// <summary>Lights the glows asked for this frame (adding lights to the pool as needed) and puts out the rest.</summary>
+    public void Glows(IReadOnlyList<Glow> glows)
+    {
+        while (_glows.Count < glows.Count)
+        {
+            var light = new PointLight2D
+            {
+                Name = "Glow" + _glows.Count, Texture = _falloff, BlendMode = Light2D.BlendModeEnum.Add, ShadowEnabled = false, Energy = 0f, Visible = false,
+            };
+            _parent.AddChild(light);
+            _glows.Add(light);
+        }
+        for (int i = 0; i < _glows.Count; i++)
+        {
+            PointLight2D light = _glows[i];
+            bool on = i < glows.Count && glows[i].Energy > 0.01f;
+            light.Visible = on;
+            if (!on) continue;
+            Glow g = glows[i];
+            light.Position = g.At;
+            light.Color = g.Color;
+            light.Energy = g.Energy;
+            light.TextureScale = g.RadiusTiles * MapView.TileSize / _half;
+        }
     }
 
     private static Texture2D Gradient()

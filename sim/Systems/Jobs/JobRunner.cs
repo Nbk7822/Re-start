@@ -30,6 +30,8 @@ public static class JobRunner
         JobKind.Rescue => IncidentJobs.Rescue(w, c, j),
         JobKind.Feast => CultureJobs.Feast(w, c, j),
         JobKind.RepayDebt => CultureJobs.RepayDebt(w, c, j),
+        JobKind.TendTree => Forest.Tend(w, c, j),
+        JobKind.OfferBargain => Bargains.Offer(w, c, j),
         _ => true,
     };
 

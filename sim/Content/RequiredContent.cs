@@ -23,6 +23,10 @@ public static class RequiredContent
         "insulted", "joined_camp", "lonely", "meal_stolen", "promise_broken", "promise_kept", "received_blood",
         "refused_someone", "rescued", "robbed", "roof_sound", "saw_death", "slept_in_shelter", "slept_outside", "soaked",
         "starving", "thief_driven_off", "thirsting", "was_refused", "windfall", "wounded",
+        // The four peoples (ADR-0022).
+        "at_purpose", "uneasy_near_dead", "among_trees", "tree_felled", "own_tree_felled",
+        "bound_by_bargain", "bargain_refused", "bargain_honoured", "bargain_betrayed", "fire_loosed",
+        "word_wound", "words_kept", "kept_my_word", "spoke_truth", "told_hard_truth", "heard_hard_truth",
     };
 
     /// <summary>Every incident M0 has behaviour for, with the params that behaviour reads.</summary>
@@ -83,4 +87,25 @@ public static class RequiredContent
         if (c.Kind == "festival" && c.Params.TryGetValue("feastPerHead", out int feast) && feast > 0) moments.Add("begins_lean");
         return moments;
     }
+
+    /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>
+    public static readonly IReadOnlyList<(string Id, string[] Params)> Needs = new (string, string[])[]
+    {
+        ("purpose", new[] { "restorePerHour", "boundWorkBias" }),
+        ("forest", new[]
+        {
+            "treeRange", "restorePerTree", "ownTreeWeight", "maxRestorePerHour", "tendMaxTicks", "bondSkipNearest", "bondCandidates",
+            "respectOpinion", "woundMin", "woundMax", "ownTreeLoss", "grudgeIntensity", "griefGrudgeIntensity",
+        }),
+        ("contract", new[]
+        {
+            "boundRestorePerHour", "priceAmount", "reserveDays", "serviceBias", "offerCooldownHours", "minTermDays", "betrayalLoss",
+            "grudgeIntensity", "refusedGrudgeIntensity", "troubleTimber", "fireGrudgeIntensity",
+        }),
+        ("courtesy", new[]
+        {
+            "brokenWordLoss", "brokenWordHurt", "keptWordGain", "chatGain", "deepTalkGain", "slightLoss", "truthEasesGrudge",
+            "witnessGrudgeIntensity", "grudgeIntensity",
+        }),
+    };
 }

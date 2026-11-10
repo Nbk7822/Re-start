@@ -70,6 +70,12 @@
   "ui.inspector.ways": "Their ways",
   "ui.inspector.gods": "Their gods",
   "ui.inspector.learned": "Ways learned here",
+  "ui.inspector.nature": "Nature",
+  "ui.inspector.nature_need": "{need} ({standing})",
+  "ui.inspector.nature_bond": "{need} ({standing}): {bond}",
+  "ui.inspector.bargain": "{bound} and {patron}: to {service}, for {price} each dawn ({status})",
+  "ui.inspector.bargain_open": "{bound} and {patron}: to {service}, for {price} each dawn, until {when}",
+  "ui.inspector.work_refused": "{work} (never, by their nature)",
   "ui.list_separator": ", ",
 
   "ui.tooltip.terrain": "{terrain} ({x}, {y})",

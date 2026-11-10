@@ -1,0 +1,77 @@
+[
+  {
+    "id": "purpose",
+    "nameKey": "need.purpose",
+    "start": 700,
+    "decayPerHour": 8,
+    "lowBelow": 350,
+    "criticalBelow": 150,
+    "satisfiedAt": 600,
+    "lowThought": "purpose_slipping",
+    "criticalThought": "fading",
+    "lowEventKey": "event.needs.purpose_low",
+    "criticalEventKey": "event.needs.purpose_critical",
+    "criticalHealthPerHour": 20,
+    "deathKey": "event.needs.died_purpose",
+    "bondWorks": ["keep_watch", "forage"],
+    "params": { "restorePerHour": 70, "boundWorkBias": 3 }
+  },
+  {
+    "id": "forest",
+    "nameKey": "need.forest",
+    "start": 800,
+    "decayPerHour": 20,
+    "lowBelow": 350,
+    "criticalBelow": 150,
+    "satisfiedAt": 650,
+    "lowThought": "forest_thin",
+    "criticalThought": "forest_withering",
+    "lowEventKey": "event.needs.forest_low",
+    "criticalEventKey": "event.needs.forest_critical",
+    "criticalHealthPerHour": 15,
+    "deathKey": "event.needs.died_forest",
+    "params": {
+      "treeRange": 3, "restorePerTree": 25, "ownTreeWeight": 3, "maxRestorePerHour": 150, "tendMaxTicks": 1800,
+      "bondSkipNearest": 3, "bondCandidates": 8, "respectOpinion": 15,
+      "woundMin": 250, "woundMax": 450, "ownTreeLoss": 400, "grudgeIntensity": 60, "griefGrudgeIntensity": 25
+    }
+  },
+  {
+    "id": "contract",
+    "nameKey": "need.contract",
+    "start": 600,
+    "decayPerHour": 15,
+    "lowBelow": 400,
+    "criticalBelow": 150,
+    "satisfiedAt": 700,
+    "lowThought": "restless",
+    "criticalThought": "unbound_fire",
+    "lowEventKey": "event.needs.restless",
+    "criticalEventKey": "event.needs.unbound",
+    "leavesAfterCriticalHours": 30,
+    "bondWorks": ["keep_watch", "forage"],
+    "bondItems": ["timber", "berries"],
+    "params": {
+      "boundRestorePerHour": 60, "priceAmount": 1, "reserveDays": 2, "serviceBias": 3, "offerCooldownHours": 3,
+      "minTermDays": 3, "betrayalLoss": 400, "grudgeIntensity": 50, "refusedGrudgeIntensity": 20, "troubleTimber": 3, "fireGrudgeIntensity": 20
+    }
+  },
+  {
+    "id": "courtesy",
+    "nameKey": "need.courtesy",
+    "start": 700,
+    "decayPerHour": 0,
+    "lowBelow": 500,
+    "criticalBelow": 250,
+    "satisfiedAt": 600,
+    "lowThought": "courtesy_thin",
+    "criticalThought": "courtesy_starved",
+    "lowEventKey": "event.needs.courtesy_low",
+    "criticalEventKey": "event.needs.courtesy_critical",
+    "leavesAfterCriticalHours": 24,
+    "params": {
+      "brokenWordLoss": 250, "brokenWordHurt": 50, "keptWordGain": 100, "chatGain": 15, "deepTalkGain": 50, "slightLoss": 120,
+      "truthEasesGrudge": 10, "witnessGrudgeIntensity": 20, "grudgeIntensity": 25
+    }
+  }
+]

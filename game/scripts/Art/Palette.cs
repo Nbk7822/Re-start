@@ -69,6 +69,9 @@ public static class Palette
     public static readonly Color VampMark = Hex(0xd2c5ad);
     public static readonly Color YouGold = Hex(0xd8b56c);
     public static readonly Color Steel = Hex(0x8d8f8c);
+
+    /// <summary>The grey of the grave the undead fade toward (ADR-0022's look).</summary>
+    public static readonly Color GraveGrey = Hex(0x8f948f);
     public static readonly Color Handle = Hex(0x4a3826);
 
     public static readonly Color BloodFresh = new(0.62f, 0.05f, 0.04f);

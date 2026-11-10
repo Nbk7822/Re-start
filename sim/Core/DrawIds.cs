@@ -20,6 +20,15 @@ public enum TruthId : ushort
     InitialWant = 20,
     /// <summary>Breaks a tie between equally fitting people when a want is about someone, keyed by cast key.</summary>
     WantTarget = 21,
+    // 30–39: the four peoples beyond human and vampire (ADR-0022).
+    /// <summary>The tree a dryad is bound to (keyed by cast key).</summary>
+    BoundTree = 30,
+    /// <summary>The work an undead came back to do (keyed by cast key).</summary>
+    PurposeWork = 31,
+    /// <summary>The service a djinn offers in its bargains (keyed by cast key).</summary>
+    BargainService = 32,
+    /// <summary>The price a djinn asks for that service (keyed by cast key).</summary>
+    BargainPrice = 33,
     // Culture and faith (ADR-0023; values 40-49 are this track's). The index argument names the fact.
     /// <summary>Per culture template: 0 name, 1 main faith, 2 + k the k-th custom drawn from its pool.</summary>
     CultureNature = 40,
@@ -60,6 +69,12 @@ public enum DiceId : ushort
     CombatDamage = 22,
     ArrivalOrder = 23,
 
+    // 120–139: the four peoples beyond human and vampire (ADR-0022).
+    /// <summary>The day, within their window, someone who comes in their own season arrives (cast.json arrivalDays).</summary>
+    PeopleArrivalDay = 120,
+    PeopleArrivalHour = 121,
+    /// <summary>How badly a dryad is hurt when their tree is felled.</summary>
+    TreeWound = 122,
     // Culture and faith (ADR-0023; values 140-159 are this track's). All draw from DiceSystem.Culture.
     FauxPas = 140,
     GuestOffer = 141,

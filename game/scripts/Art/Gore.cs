@@ -10,7 +10,9 @@ namespace Return.Game.Art;
 /// Draws what the gore log remembers (ADR-0009 update): blood thrown where people were hurt, pools
 /// that spread under the downed and the dead and then dry from wet red to brown-black, drops along
 /// a wounded walker's path, scorch where a vampire burned; and the living details of a corpse:
-/// flies by day, smoke from the sun-burnt. Stylised, never dismemberment.
+/// flies by day, smoke from the sun-burnt. A dryad's wounds run amber sap that dries dark; the
+/// undead and the djinn leave soft drifts of grave dust or ash instead of blood. Stylised, never
+/// dismemberment.
 /// </summary>
 public static class Gore
 {
@@ -19,6 +21,11 @@ public static class Gore
 
     /// <summary>Ground decals are flattened this much for the three-quarter view.</summary>
     private const float Squash = 0.78f;
+
+    private static readonly Color SapFresh = new(0.55f, 0.35f, 0.08f);
+    private static readonly Color SapDry = new(0.27f, 0.17f, 0.06f);
+    private static readonly Color GraveDust = new(0.60f, 0.58f, 0.52f);
+    private static readonly Color DjinnAsh = new(0.15f, 0.14f, 0.13f);
 
     /// <summary>
     /// Every mark on the ground, drawn texture by texture (pools, then each splatter, the drops, the
@@ -29,6 +36,7 @@ public static class Gore
         if (decals.Count == 0) return;
         Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Pool, -1);
         Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Scorch, -1);
+        for (int v = 0; v < GoreLog.DustVariants; v++) Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Dust, v);
         for (int v = 0; v < GoreLog.SplatterVariants; v++) Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Splatter, v);
         for (int v = 0; v < GoreLog.DropVariants; v++) Pass(b, tex, decals, tick, ticksPerHour, DecalKind.Drops, v);
     }
@@ -42,7 +50,8 @@ public static class Gore
             if (d.Kind != kind || (variant >= 0 && d.Variant != variant)) continue;
             float hours = Math.Max(0, tick - d.Tick) / (float)ticksPerHour;
             float fade = MathF.Pow(Math.Clamp(1f - d.Wear, 0f, 1f), 0.7f);
-            Color blood = Palette.BloodFresh.Lerp(Palette.BloodDry, Math.Clamp(hours / DryHours, 0f, 1f));
+            float dried = Math.Clamp(hours / DryHours, 0f, 1f);
+            Color blood = d.Ichor == Ichor.Sap ? SapFresh.Lerp(SapDry, dried) : Palette.BloodFresh.Lerp(Palette.BloodDry, dried);
             float x = d.X * T, y = d.Y * T;
             switch (kind)
             {
@@ -57,6 +66,14 @@ public static class Gore
                     float spread = Math.Min(1f, 0.3f + 0.7f * Math.Max(0, tick - d.Tick) / (float)GoreLog.PoolSpreadTicks);
                     Color pool = blood.Darkened(0.12f).WithAlpha(0.95f * (d.Lasting ? 1f : fade));
                     Draw(b, tex.Pool, x, y, T * 1.55f * d.Scale * spread, d.Rotation, pool, 0.36f);
+                    break;
+                }
+                case DecalKind.Dust:
+                {
+                    // A soft drift that settles and greys a little as it ages; a heap under a body stays.
+                    Color dust = d.Ichor == Ichor.Ash ? DjinnAsh : GraveDust.Darkened(0.12f * dried);
+                    float a = (d.Ichor == Ichor.Ash ? 0.8f : 0.72f) * (d.Lasting ? 1f : fade);
+                    Draw(b, tex.Blobs[d.Variant % tex.Blobs.Length], x, y, T * 1.05f * d.Scale, d.Rotation, dust.WithAlpha(a), 0.3f);
                     break;
                 }
                 case DecalKind.Scorch:

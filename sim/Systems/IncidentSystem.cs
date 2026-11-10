@@ -42,8 +42,10 @@ public static class IncidentSystem
         c.Status = CharStatus.Member;
         c.ArrivedTick = w.Tick;
         c.Pos = EdgeTile(w, DiceId.ArrivalEdge);
-        c.Food = dice.Range(DiceId.ArrivalFood, 280, 560);
-        SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.wanderer_arrives", new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
+        SpeciesDef sp = Places.Species(w, c);
+        c.Food = sp.EatsNothing ? 1000 : dice.Range(DiceId.ArrivalFood, 280, 560);
+        string key = sp.ArrivalKey.Length > 0 ? sp.ArrivalKey : "event.incident.wanderer_arrives";
+        SimEvent e = w.Log.Emit(w, SystemTag.Incident, key, new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
         c.LastFoodEvent = e.Id;
         Growth.EnterWorld(w, c, e.Id);
         Point near = Places.Adjacent(w, w.Map.Hearth, c.Pos);
@@ -74,6 +76,7 @@ public static class IncidentSystem
                 new[] { new Effect { Kind = EffectKind.Recruitment, A = c.Id, B = inviter.Id } },
                 EventArg.Char("a", c.Id), EventArg.Char("b", inviter.Id));
             MoodSystem.AddThought(w, c, "joined_camp", inviter.Id, welcomed.Id);
+            Courtesy.SwearWelcome(w, c, inviter, welcomed);
             return welcomed;
         }
 
@@ -96,6 +99,7 @@ public static class IncidentSystem
         promise.FormedEvent = joined.Id;
         if (!rest) c.LastFoodEvent = joined.Id;
         MoodSystem.AddThought(w, c, "joined_camp", inviter.Id, joined.Id);
+        Courtesy.SwearWelcome(w, c, inviter, joined);
         return joined;
     }
 
@@ -107,7 +111,9 @@ public static class IncidentSystem
     public static DebtKind? UnmetNeed(World w, Character c)
     {
         if (Places.BurnsInDaylight(w, c)) return w.Map.Roof.Exists(r => r.Sound) ? null : DebtKind.PromiseRest;
-        return Rations.Unreserved(w, Places.Species(w, c).FoodSource) > 0 ? null : DebtKind.PromiseMeal;
+        SpeciesDef sp = Places.Species(w, c);
+        if (!sp.EatsItem) return null; // a meal is no use to someone who eats nothing from the stores
+        return Rations.Unreserved(w, sp.FoodSource) > 0 ? null : DebtKind.PromiseMeal;
     }
 
     private static SimEvent? StartRain(World w)
@@ -215,7 +221,9 @@ public static class IncidentSystem
         {
             bool west = dice.Range(draw, 0, 2) == 0;
             Point p = west ? new Point(0, dice.Range(draw, 1, m.Height - 1)) : new Point(dice.Range(draw, 1, m.Width - 10), m.Height - 1);
-            if (m.Passable(p)) return p;
+            // An edge tile walled off from the camp by rock or river would strand whoever comes in there
+            // (a dryad withered in a corner on her fourth day, seed 3), so only a tile with a way to the hearth will do.
+            if (m.Passable(p) && Pathfinder.Find(m, p, Places.Adjacent(w, m.Hearth, p)) != null) return p;
         }
         return Places.Adjacent(w, m.Hearth, m.Hearth);
     }

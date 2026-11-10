@@ -24,6 +24,8 @@ public sealed class World
     public List<Reservation> Reservations { get; set; } = new();
     public List<Grudge> Grudges { get; set; } = new();
     public List<Debt> Debts { get; set; } = new();
+    /// <summary>Bargains struck with the camp (a djinn's), first-class like debts (ADR-0022).</summary>
+    public List<Contract> Contracts { get; set; } = new();
     public RationPolicy Policy { get; set; } = RationPolicy.Hungriest;
     public DirectorState Director { get; set; } = new();
     public WeatherState Weather { get; set; } = new();

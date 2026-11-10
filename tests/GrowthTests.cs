@@ -122,7 +122,7 @@ public class GrowthTests
                 Assert.Equal(Db.WantById(want.TypeId).BeatKey, beat.Key);
                 Assert.Contains(c.Id, beat.Actors);
                 if (want.FormedTick > 0)
-                    Assert.Equal("event.incident.wanderer_arrives", w.Log.Get(Assert.Single(beat.Causes))!.Key);
+                    Assert.Matches("^event\\.incident\\.[a-z_]+_arrives$", w.Log.Get(Assert.Single(beat.Causes))!.Key); // wanderers, and peoples who come in their own season (ADR-0022)
                 else
                     Assert.Empty(beat.Causes); // a starter's want formed with the world: nothing brought it about
             }

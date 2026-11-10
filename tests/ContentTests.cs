@@ -21,6 +21,7 @@ public class ContentTests
         Assert.Equal(schemaNames, files.Select(f => Path.GetFileNameWithoutExtension(f)));
         Assert.Contains(files, f => Path.GetFileName(f) == "wants.json");
         Assert.Contains(files, f => Path.GetFileName(f) == "cultures.json");
+        Assert.Contains(files, f => Path.GetFileName(f) == "needs.json");
         Assert.Contains(locFiles, f => Path.GetFileName(f) == "en.json");
         files.AddRange(locFiles);
         foreach (string file in files)
@@ -39,8 +40,9 @@ public class ContentTests
     public void M0ContentShape()
     {
         ContentDb db = ContentDb.Load(ContentDir);
-        Assert.Equal(10, db.Cast.Count);
-        Assert.Equal(new[] { "human", "vampire" }, db.Cast.Select(c => c.Species).Distinct().OrderBy(s => s, StringComparer.Ordinal));
+        // The M0 ten, plus one of each people beyond human and vampire (ADR-0022).
+        Assert.Equal(14, db.Cast.Count);
+        Assert.Equal(new[] { "djinn", "dryad", "fae", "human", "undead", "vampire" }, db.Cast.Select(c => c.Species).Distinct().OrderBy(s => s, StringComparer.Ordinal));
         Assert.Equal(8, db.Traits.Count);
         Assert.Equal(6, db.Incidents.Count);
         Assert.Single(db.Cast, c => c.Otherworlder);
@@ -55,11 +57,13 @@ public class ContentTests
         defs.AddRange(db.Roles); defs.AddRange(db.Thoughts); defs.AddRange(db.Incidents); defs.AddRange(db.Cast);
         defs.AddRange(db.Wants);
         defs.AddRange(db.Domains); defs.AddRange(db.Customs);
+        defs.AddRange(db.Needs);
         foreach (object def in defs)
             foreach (PropertyInfo p in def.GetType().GetProperties())
                 if (p.PropertyType == typeof(string) && p.Name.EndsWith("Key", StringComparison.Ordinal) && p.Name != "Key")
                 {
                     string key = (string)p.GetValue(def)!;
+                    if (key.Length == 0) continue; // an optional key left out (a species' arrival line, a need that never kills)
                     Assert.True(db.Loc.Has(key), $"{def.GetType().Name}.{p.Name} = '{key}' is missing from loc/en.json");
                 }
         foreach (string key in db.World.SeasonKeys) Assert.True(db.Loc.Has(key), key);
@@ -133,6 +137,21 @@ public class ContentTests
         Assert.Contains("bread", ex.Message);
     }
 
+    /// <summary>A bargain's offer reads from text keyed by its service and price; a service with no words for it fails at load, not in play.</summary>
+    [Fact]
+    public void ABargainServiceWithoutWordsIsRejected()
+    {
+        string dir = CopyContent();
+        string needs = Path.Combine(dir, "needs.json");
+        string text = File.ReadAllText(needs);
+        const string offer = "\"bondWorks\": [\"keep_watch\", \"forage\"],\n    \"bondItems\"";
+        Assert.Contains(offer, text); // the djinn's need: the one whose bond works come with items
+        File.WriteAllText(needs, text.Replace(offer, "\"bondWorks\": [\"keep_watch\", \"haul\"],\n    \"bondItems\"", StringComparison.Ordinal));
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(dir));
+        Assert.Contains("needs.json", ex.Message);
+        Assert.Contains("bargain.service.haul", ex.Message);
+    }
+
     /// <summary>Every content id named as a string in sim/ is in RequiredContent, so ContentDb checks it at load.</summary>
     [Fact]
     public void RequiredContentCoversIdsNamedInCode()
@@ -147,8 +166,9 @@ public class ContentTests
             ("work", db.Work.Select(x => x.Id).ToHashSet(), RequiredContent.Work),
             ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).ToList()),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
+            ("need", db.Needs.Select(n => n.Id).ToHashSet(), RequiredContent.Needs.Select(n => n.Id).ToList()),
         };
-        var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).ToHashSet();
+        var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).Concat(RequiredContent.Needs.SelectMany(n => n.Params)).ToHashSet();
         var customArg = new System.Text.RegularExpressions.Regex("Arg\\(\"([A-Za-z]+)\"\\)");
         var customParams = RequiredContent.CustomKinds.SelectMany(k => k.Params).ToHashSet();
         var missing = new List<string>();

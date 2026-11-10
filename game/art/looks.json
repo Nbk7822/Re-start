@@ -1,5 +1,5 @@
 {
-  "_note": "View asset (not content): how people look beyond what the sim models. Keyed by cast key. Cloth and hair are the archived demo's CLOTH and hair tables (wren and hollis from docs/art/art-direction-2026-11-09.html); cloth is optional and falls back to content/cast.json's colour. The view darkens and mutes cloth at runtime. build: slight|average|broad|tall. hairStyle: short|long|tied|cropped|bald.",
+  "_note": "View asset (not content): how people look beyond what the sim models. Keyed by cast key. Cloth and hair are the archived demo's CLOTH and hair tables (wren and hollis from docs/art/art-direction-2026-11-09.html); cloth is optional and falls back to content/cast.json's colour. The view darkens and mutes cloth at runtime. build: slight|average|broad|tall. hairStyle: short|long|tied|cropped|bald. The four peoples (ADR-0022) take their silhouette (leaf crown, ember eyes, wings, hollow eyes) from their species' nature in content; here they get the skin and hair of their people: a dryad's bark and moss, a djinn's ember-bronze skin (living flame, never smoke), a fae's pallor, the undead's grave-grey.",
   "default": { "hair": "#4a3c2e", "skin": "#b8977a", "build": "average", "hairStyle": "short", "beard": false },
   "hostile": { "cloth": "#2c2b2f", "hair": "#1f1e22", "skin": "#a88a70", "build": "average", "hairStyle": "short", "hood": true },
   "people": {
@@ -12,6 +12,10 @@
     "sera":   { "cloth": "#9da96f", "hair": "#705446", "skin": "#a98261", "build": "average", "hairStyle": "tied" },
     "vale":   { "cloth": "#73728f", "hair": "#353341", "skin": "#c8c4c6", "build": "slight",  "hairStyle": "short" },
     "wren":   {                     "hair": "#5d4129", "skin": "#d2b090", "build": "slight",  "hairStyle": "short" },
-    "hollis": {                     "hair": "#423427", "skin": "#8d6649", "build": "tall",    "hairStyle": "cropped", "beard": true }
+    "hollis": {                     "hair": "#423427", "skin": "#8d6649", "build": "tall",    "hairStyle": "cropped", "beard": true },
+    "ketil":  {                     "hair": "#4a4943", "skin": "#7f8b8e", "build": "tall",    "hairStyle": "long" },
+    "dryope": {                     "hair": "#3e4c24", "skin": "#7a6649", "build": "slight",  "hairStyle": "long" },
+    "qamar":  {                     "hair": "#15110f", "skin": "#7a5139", "build": "tall",    "hairStyle": "tied" },
+    "fionn":  {                     "hair": "#b39a5e", "skin": "#ddd6c9", "build": "slight",  "hairStyle": "long" }
   }
 }

@@ -45,17 +45,53 @@ public class WorldGenTests
     public void CastShape()
     {
         World w = WorldGen.Create(Db, 11);
-        Assert.Equal(10, w.Characters.Count);
+        Assert.Equal(Db.Cast.Count, w.Characters.Count);
         Assert.Equal(new[] { "mira", "oren", "you" }, w.Members().Select(c => c.CastKey).OrderBy(k => k, StringComparer.Ordinal));
         foreach (Character c in w.Characters)
         {
             Assert.Equal(2, c.Traits.Count);
             Assert.NotEqual(c.Traits[0], c.Traits[1]);
         }
-        Assert.Equal(7, w.Arrivals.Count);
-        int[] days = w.Arrivals.Select(a => Calendar.Day(a.Tick, w.Content.World)).OrderBy(d => d).ToArray();
+        Assert.Equal(Db.Cast.Count - 3, w.Arrivals.Count);
+
+        // The M0 wanderers keep their shuffle: four in the first week, three on the eve of winter.
+        bool OwnSeason(Arrival a) => Db.CastByKey(w.Get(a.CharacterId).CastKey).ArrivalDays.Length > 0;
+        int[] days = w.Arrivals.Where(a => !OwnSeason(a)).Select(a => Calendar.Day(a.Tick, w.Content.World)).OrderBy(d => d).ToArray();
+        Assert.Equal(7, days.Length);
         Assert.All(days.Take(4), d => Assert.InRange(d, 1, 7));
         Assert.All(days.Skip(4), d => Assert.InRange(d, 29, 39));
+
+        // The peoples beyond human and vampire come in their own season (ADR-0022), on a day the log numbers within it.
+        foreach (Arrival a in w.Arrivals.Where(OwnSeason))
+        {
+            int[] window = Db.CastByKey(w.Get(a.CharacterId).CastKey).ArrivalDays;
+            Assert.InRange(Calendar.Day(a.Tick, w.Content.World) + 1, window[0], window[1]);
+        }
+    }
+
+    [Fact]
+    public void AddingSomeoneWhoComesInTheirOwnSeasonMovesNoOtherArrival()
+    {
+        World w = WorldGen.Create(Db, 11);
+        string dir = Path.Combine(Path.GetTempPath(), "return-content-" + Guid.NewGuid().ToString("N"));
+        foreach (string file in Directory.GetFiles(Path.Combine(TestPaths.Root, "content"), "*", SearchOption.AllDirectories))
+        {
+            string target = Path.Combine(dir, Path.GetRelativePath(Path.Combine(TestPaths.Root, "content"), file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
+        string cast = Path.Combine(dir, "cast.json");
+        var entries = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(cast))!.AsArray();
+        for (int i = entries.Count - 1; i >= 0; i--)
+            if (entries[i]!["arrivalDays"] != null) entries.RemoveAt(i);
+        File.WriteAllText(cast, entries.ToJsonString());
+        World without = WorldGen.Create(ContentDb.Load(dir), 11);
+
+        foreach (Arrival a in without.Arrivals)
+        {
+            string key = without.Get(a.CharacterId).CastKey;
+            Assert.Equal(a.Tick, w.Arrivals.Single(b => w.Get(b.CharacterId).CastKey == key).Tick);
+        }
     }
 
     [Fact]

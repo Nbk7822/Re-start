@@ -124,6 +124,47 @@ public static class ViewText
         return string.Join("\n", lines);
     }
 
+    /// <summary>A need of someone's nature (ADR-0022), how it stands and what binds it: "Forest (met): Bound to the tree at (27, 26)".</summary>
+    public static string NatureLine(NatureNeedState n) => n.Bond.Length == 0
+        ? Ui.F("ui.inspector.nature_need", ("need", n.Label), ("standing", n.Standing))
+        : Ui.F("ui.inspector.nature_bond", ("need", n.Label), ("standing", n.Standing), ("bond", n.Bond));
+
+    /// <summary>
+    /// A bargain: who is bound and who struck it, the service and the price, and how it stands (while
+    /// open, until when). The patron is named mid-sentence, so the player reads as "you".
+    /// </summary>
+    public static string BargainLine(World w, ContractState k)
+    {
+        bool open = w.Contracts.Find(c => c.Id == k.Id) is { Status: ContractStatus.Open };
+        return Ui.F(open ? "ui.inspector.bargain_open" : "ui.inspector.bargain",
+            ("bound", EventText.Name(w, k.BoundId)), ("patron", EventText.ResolveMid(w, "c:" + Ui.N(k.PatronId))),
+            ("service", k.Service), ("price", k.Price), ("status", k.Status), ("when", EventText.When(w, k.EndsTick)));
+    }
+
+    /// <summary>
+    /// The bargains someone is party to, newest first, at most <paramref name="max"/>. The one a djinn is
+    /// bound by now is left out of its own list: its bond line already says it (StateApi.NatureNeeds).
+    /// </summary>
+    public static IReadOnlyList<string> BargainLines(World w, int id, int max = 4)
+    {
+        IReadOnlyList<ContractState> all = StateApi.Contracts(w, id);
+        var lines = new List<string>();
+        for (int i = all.Count - 1; i >= 0 && lines.Count < max; i--)
+        {
+            ContractState k = all[i];
+            if (k.BoundId == id && w.Contracts.Find(c => c.Id == k.Id) is { Status: ContractStatus.Open }) continue;
+            lines.Add(BargainLine(w, k));
+        }
+        return lines;
+    }
+
+    /// <summary>Work someone's nature will never do, whatever their priorities say (a dryad never fells a tree).</summary>
+    public static bool RefusesByNature(World w, Character c, string workId) =>
+        w.Content.SpeciesById(c.SpeciesId).RefusesWork.Contains(workId);
+
+    /// <summary>The work picker's label for such work.</summary>
+    public static string WorkRefusedLabel(string work) => Ui.F("ui.inspector.work_refused", ("work", work));
+
     /// <summary>Tooltip lines for a tile: terrain and coordinates, then contents, then who stands there.</summary>
     public static IReadOnlyList<string> TileLines(World w, LocationState s)
     {

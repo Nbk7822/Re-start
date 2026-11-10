@@ -144,7 +144,7 @@ public class CultureSeedTests
     {
         World w = WorldGen.Create(Db, 4);
         WorldGen.AddSyntheticCharacters(w, 30);
-        foreach (Character c in w.Characters.Skip(10))
+        foreach (Character c in w.Characters.Skip(Db.Cast.Count))
         {
             Character template = Cast(w, c.CastKey[..c.CastKey.LastIndexOf('_')]);
             Assert.Equal(template.CultureId, c.CultureId);

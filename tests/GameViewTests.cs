@@ -5,6 +5,7 @@ using Return.Game.Logic;
 using Return.Sim;
 using Return.Sim.Api;
 using Return.Sim.Content;
+using Return.Sim.Events;
 
 namespace Return.Tests;
 
@@ -572,6 +573,29 @@ public class GameViewTests
         Assert.Equal(gore.Decals.Select(Describe), again.Decals.Select(Describe));
     }
 
+    /// <summary>A tick 200 before the first thief fight in which a defender loses health, and where that defender stood (tile centre).</summary>
+    private static (long Start, float X, float Y) FirstBloodyFight(ulong seed)
+    {
+        Simulation sim = Simulation.Create(Content, seed);
+        World w = sim.World;
+        var health = new Dictionary<int, int>();
+        while (w.Tick < w.Content.World.TicksPerYear)
+        {
+            sim.Step();
+            foreach (Character c in w.Characters)
+            {
+                bool fighting = c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight };
+                if (fighting && health.TryGetValue(c.Id, out int before) && before - c.Health >= 40)
+                {
+                    SimEvent fight = w.Log.All.Last(e => e.Key == "event.combat.fight");
+                    return (Math.Max(0, fight.Tick - 200), c.Pos.X + 0.5f, c.Pos.Y + 0.5f);
+                }
+                health[c.Id] = c.Health;
+            }
+        }
+        throw new InvalidOperationException($"seed {seed} has no fight in which a defender is struck");
+    }
+
     [Fact]
     public void GoreDoesNotDependOnHowManyTicksAFrameRuns()
     {
@@ -718,6 +742,277 @@ public class GameViewTests
             "[]",
         })
             Assert.Throws<FormatException>(() => LookBook.Parse(wrong));
+    }
+
+    // ---- The four peoples' look (ADR-0022): kin, what wounds give, and the nature that shows ----
+
+    [Fact]
+    public void KinComesFromTheSpeciesNature()
+    {
+        var expected = new Dictionary<string, Kin>
+        {
+            ["human"] = Kin.None, ["vampire"] = Kin.Vampire, ["dryad"] = Kin.Dryad, ["djinn"] = Kin.Djinn, ["fae"] = Kin.Fae, ["undead"] = Kin.Undead,
+        };
+        Assert.Equal(expected.Keys.Order(), Content.Species.Select(s => s.Id).Order());
+        foreach (SpeciesDef species in Content.Species) Assert.Equal(expected[species.Id], Kinship.Of(species));
+
+        // Looks follow natures, not names: a hybrid that inherits two natures wears both.
+        var hybrid = new SpeciesDef { Id = "hamadryad_fae", FoodSource = "none", Needs = new() { Return.Sim.Systems.Forest.NeedId, Return.Sim.Systems.Courtesy.NeedId } };
+        Assert.Equal(Kin.Dryad | Kin.Fae, Kinship.Of(hybrid));
+
+        // What wounds give: the dead never bleed, whatever else they are.
+        Assert.Equal(Ichor.Blood, Kinship.IchorOf(Kin.None));
+        Assert.Equal(Ichor.Blood, Kinship.IchorOf(Kin.Vampire));
+        Assert.Equal(Ichor.Blood, Kinship.IchorOf(Kin.Fae));
+        Assert.Equal(Ichor.Sap, Kinship.IchorOf(Kin.Dryad));
+        Assert.Equal(Ichor.Ash, Kinship.IchorOf(Kin.Djinn));
+        Assert.Equal(Ichor.Dust, Kinship.IchorOf(Kin.Undead));
+        Assert.Equal(Ichor.Dust, Kinship.IchorOf(Kin.Undead | Kin.Dryad));
+
+        // Only blood stains red.
+        Rgb blood = Kinship.StainOf(Ichor.Blood);
+        Assert.True(blood.R > 4f * blood.G);
+        foreach (Ichor other in new[] { Ichor.Sap, Ichor.Dust, Ichor.Ash })
+        {
+            Rgb stain = Kinship.StainOf(other);
+            Assert.True(stain.G >= stain.R * 0.6f, other + " must not stain red");
+        }
+    }
+
+    /// <summary>Puts the named cast members in camp, side by side on known tiles near the hearth.</summary>
+    private static World InCamp(Simulation sim, params string[] keys)
+    {
+        World w = sim.World;
+        int i = 0;
+        foreach (string key in keys)
+        {
+            Character c = w.Characters.First(x => x.CastKey == key);
+            c.Status = CharStatus.Member;
+            c.Pos = new Return.Sim.Core.Point(w.Map.Hearth.X - 4 + 2 * i, w.Map.Hearth.Y + 3);
+            i++;
+        }
+        return w;
+    }
+
+    private static List<Decal> On(GoreLog gore, Character c) =>
+        gore.Decals.Where(d => (int)MathF.Floor(d.X) == c.Pos.X && (int)MathF.Floor(d.Y) == c.Pos.Y).ToList();
+
+    [Fact]
+    public void WoundsGiveWhatANatureGives()
+    {
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = InCamp(sim, "mira", "dryope", "qamar", "ketil");
+        Character mira = w.Characters.First(c => c.CastKey == "mira"), dryope = w.Characters.First(c => c.CastKey == "dryope");
+        Character qamar = w.Characters.First(c => c.CastKey == "qamar"), ketil = w.Characters.First(c => c.CastKey == "ketil");
+        var gore = new GoreLog();
+        gore.Observe(w);
+
+        // A blow in a fight, and the wounded walking on: blood, a dryad's sap, a djinn's ash, the undead's dust.
+        foreach (Character c in new[] { mira, dryope, qamar, ketil })
+        {
+            c.Job = new Job { Kind = JobKind.Fight };
+            c.Health -= 120;
+        }
+        gore.Observe(w);
+        Assert.Equal((DecalKind.Splatter, Ichor.Blood), On(gore, mira).Select(d => (d.Kind, d.Ichor)).Single());
+        Assert.Equal((DecalKind.Splatter, Ichor.Sap), On(gore, dryope).Select(d => (d.Kind, d.Ichor)).Single());
+        Assert.Equal((DecalKind.Dust, Ichor.Ash), On(gore, qamar).Select(d => (d.Kind, d.Ichor)).Single());
+        Assert.Equal((DecalKind.Dust, Ichor.Dust), On(gore, ketil).Select(d => (d.Kind, d.Ichor)).Single());
+
+        // Fallen to their wounds, the undead lie in a heap of dust that stays, never a pool of blood.
+        Return.Sim.Systems.CombatSystem.Hurt(w, ketil, 2000, 0, "event.combat.died_wounds", SystemTag.Combat);
+        sim.Step();
+        gore.Observe(w);
+        Assert.Equal(CharStatus.Dead, ketil.Status);
+        Assert.Equal(DeathKind.Wounds, gore.RemainsOf(w, ketil)!.Value.Kind);
+        List<Decal> under = On(gore, ketil);
+        Assert.Contains(under, d => d.Kind == DecalKind.Dust && d.Lasting);
+        Assert.All(under, d => Assert.Equal(DecalKind.Dust, d.Kind));
+        Assert.DoesNotContain(gore.Decals, d => d.Kind == DecalKind.Pool);
+    }
+
+    [Fact]
+    public void TheUndeadReturnToDustHoweverTheyComeToRest()
+    {
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = InCamp(sim, "ketil", "oren");
+        Character ketil = w.Characters.First(c => c.CastKey == "ketil"), oren = w.Characters.First(c => c.CastKey == "oren");
+        var gore = new GoreLog();
+        gore.Observe(w);
+        Return.Sim.Systems.Lifecycle.Die(w, ketil, SystemTag.Needs, "event.needs.died_purpose", 0);
+        Return.Sim.Systems.Lifecycle.Die(w, oren, SystemTag.Needs, "event.needs.died_starving", 0);
+        sim.Step();
+        gore.Observe(w);
+        Assert.Equal(DeathKind.Wasted, gore.RemainsOf(w, ketil)!.Value.Kind);
+        Decal heap = On(gore, ketil).Single();
+        Assert.Equal((DecalKind.Dust, Ichor.Dust, true), (heap.Kind, heap.Ichor, heap.Lasting));
+        Assert.Empty(On(gore, oren)); // hunger leaves no mark on the living dead's neighbours
+    }
+
+    /// <summary>The first blow a cast member takes in a fight in the first year of a seed: when, and where they stood; null if none.</summary>
+    private static (long Tick, Return.Sim.Core.Point At)? FirstBlowTo(ulong seed, string key)
+    {
+        Simulation sim = Simulation.Create(Content, seed);
+        World w = sim.World;
+        Character c = w.Characters.First(x => x.CastKey == key);
+        int before = c.Health;
+        while (w.Tick < w.Content.World.TicksPerYear)
+        {
+            sim.Step();
+            if (c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight } && before - c.Health >= GoreLog.BlowDamage) return (w.Tick, c.Pos);
+            before = c.Health;
+        }
+        return null;
+    }
+
+    /// <summary>The first seed from <paramref name="from"/> in which the cast member takes a blow in a fight, with that blow.</summary>
+    private static (ulong Seed, long Tick, Return.Sim.Core.Point At) FirstSeedWithBlowTo(string key, ulong from)
+    {
+        for (ulong seed = from; seed < from + 40; seed++)
+            if (FirstBlowTo(seed, key) is { } blow) return (seed, blow.Tick, blow.At);
+        throw new InvalidOperationException($"{key} takes no blow in a fight in the first year of seeds {from} to {from + 39}");
+    }
+
+    [Fact]
+    public void TheUndeadOnWatchGiveDustWhereTheThiefStrikesThem()
+    {
+        // Varrow meets the night thief and is struck (seed 10, Day 25 when this was written; the seed and the
+        // blow are found from the sim, so the test follows the history). The thief bleeds; Varrow gives dust.
+        (ulong seed, long blow, Return.Sim.Core.Point at) = FirstSeedWithBlowTo("ketil", 10);
+        Simulation watched = Simulation.Create(Content, seed), plain = Simulation.Create(Content, seed);
+        watched.Advance(blow - 200);
+        plain.Advance(blow - 200);
+        var gore = new GoreLog();
+        for (int t = 0; t < 400; t++)
+        {
+            watched.Step();
+            plain.Step();
+            gore.Observe(watched.World);
+        }
+        Assert.Equal(plain.StateHash(), watched.StateHash());
+
+        Character ketil = watched.World.Characters.First(c => c.CastKey == "ketil");
+        Decal struck = gore.Decals.Single(d => d.Key == (long)ArtHash.Of(ketil.Id, blow));
+        Assert.Equal((DecalKind.Dust, Ichor.Dust), (struck.Kind, struck.Ichor));
+        Assert.Equal(at.X, (int)MathF.Floor(struck.X));
+        Assert.Equal(at.Y, (int)MathF.Floor(struck.Y));
+        Assert.Contains(gore.Decals, d => d.Kind == DecalKind.Splatter && d.Ichor == Ichor.Blood);
+        Assert.DoesNotContain(gore.Decals, d => d.Kind is DecalKind.Splatter or DecalKind.Drops or DecalKind.Pool
+            && (int)MathF.Floor(d.X) == at.X && (int)MathF.Floor(d.Y) == at.Y && d.Tick == blow);
+    }
+
+    [Fact]
+    public void ADryadGlowsOnlyBesideHerLivingTreeAtNight()
+    {
+        World w = WorkTests.Only(1, "dryope", "mira");
+        Character dryope = w.Characters.First(c => c.CastKey == "dryope"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Tree tree = Return.Sim.Systems.Forest.TreeById(w, Return.Sim.Systems.NatureNeeds.Get(dryope, Return.Sim.Systems.Forest.NeedId)!.BondId)!;
+        int range = Content.NeedById(Return.Sim.Systems.Forest.NeedId).Param("treeRange");
+
+        dryope.Pos = tree.Pos with { X = tree.Pos.X + 1 };
+        Assert.Equal(1f, Kinship.GroveGlow(w, dryope, 1f));
+        Assert.Equal(0.5f, Kinship.GroveGlow(w, dryope, 0.5f));
+        Assert.Equal(0f, Kinship.GroveGlow(w, dryope, 0f));
+        mira.Pos = dryope.Pos;
+        Assert.Equal(0f, Kinship.GroveGlow(w, mira, 1f));
+
+        dryope.Pos = tree.Pos with { X = tree.Pos.X + range + 1 };
+        Assert.Equal(0.5f, Kinship.GroveGlow(w, dryope, 1f));
+        dryope.Pos = tree.Pos with { X = tree.Pos.X + range + 2 };
+        Assert.Equal(0f, Kinship.GroveGlow(w, dryope, 1f));
+
+        dryope.Pos = tree.Pos with { X = tree.Pos.X + 1 };
+        tree.Felled = true;
+        Assert.Equal(0f, Kinship.GroveGlow(w, dryope, 1f));
+    }
+
+    [Fact]
+    public void ADryadsLeavesKeepTheSeasonAndANatureShowsItsNeed()
+    {
+        WorldDef def = Content.World;
+        long Season(int s) => (long)s * def.TicksPerSeason + 5;
+        Assert.Equal(Leaves.Green, Kinship.LeavesAt(Season(0), def));
+        Assert.Equal(Leaves.Green, Kinship.LeavesAt(Season(1), def));
+        Assert.Equal(Leaves.Turning, Kinship.LeavesAt(Season(2), def));
+        Assert.Equal(Leaves.Bare, Kinship.LeavesAt(Season(3), def));
+        Assert.Equal(Leaves.Green, Kinship.LeavesAt(Season(4), def));
+
+        World w = WorkTests.Only(1, "qamar", "mira");
+        Character qamar = w.Characters.First(c => c.CastKey == "qamar"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Assert.Equal(0, Kinship.NatureStage(mira));
+        NatureNeed bargain = qamar.NatureNeeds.Single();
+        foreach (int stage in new[] { 0, 1, 2 })
+        {
+            bargain.Stage = stage;
+            Assert.Equal(stage, Kinship.NatureStage(qamar));
+        }
+    }
+
+    [Fact]
+    public void WatchingThePeoplesChangesNothing()
+    {
+        // Seed 3, Day 21: all four peoples in camp; the gore log and every Kinship read leave the world as it was.
+        Simulation watched = Simulation.Create(Content, 3), plain = Simulation.Create(Content, 3);
+        long start = 20L * Content.World.TicksPerDay;
+        watched.Advance(start);
+        plain.Advance(start);
+        var gore = new GoreLog();
+        for (int t = 0; t < 1_500; t++)
+        {
+            watched.Step();
+            plain.Step();
+            World w = watched.World;
+            gore.Observe(w);
+            foreach (Character c in w.Characters)
+            {
+                Kinship.Of(w, c);
+                Kinship.IchorOf(w, c);
+                Kinship.NatureStage(c);
+                Kinship.GroveGlow(w, c, 1f);
+            }
+        }
+        Assert.Equal(plain.StateHash(), watched.StateHash());
+        Assert.Contains(watched.World.Characters, c => c.Status == CharStatus.Member && Kinship.Of(watched.World, c) != Kin.None);
+    }
+
+    [Fact]
+    public void NatureAndBargainLinesReadAsSentences()
+    {
+        Assert.Equal("Forest (met): Bound to the tree at (12, 8)", ViewText.NatureLine(new NatureNeedState("forest", "Forest", 800, "met", "Bound to the tree at (12, 8)")));
+        Assert.Equal("Courtesy (low)", ViewText.NatureLine(new NatureNeedState("courtesy", "Courtesy", 400, "low", "")));
+
+        Simulation sim = Simulation.Create(Content, 1);
+        World w = InCamp(sim, "you", "mira", "qamar", "dryope");
+        Character you = w.Characters.First(c => c.CastKey == "you"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Character qamar = w.Characters.First(c => c.CastKey == "qamar"), dryope = w.Characters.First(c => c.CastKey == "dryope");
+        Assert.StartsWith("Forest (met): Bound to the tree at (", ViewText.NatureLine(StateApi.NatureNeeds(w, dryope.Id).Single()));
+
+        // Newest first; while a bargain is open it says until when; the player reads as "you".
+        long ends = Content.World.TicksPerDay * 9L + Content.World.TicksPerHour * 6L;
+        w.Contracts.Add(new Contract { Id = 1, BoundId = qamar.Id, PatronId = mira.Id, ServiceWork = "keep_watch", PriceItem = "timber", PriceAmount = 1, EndsTick = 100, Status = ContractStatus.Kept });
+        w.Contracts.Add(new Contract { Id = 2, BoundId = qamar.Id, PatronId = you.Id, ServiceWork = "forage", PriceItem = "berries", PriceAmount = 1, EndsTick = ends, Status = ContractStatus.Open });
+        Assert.Equal(new[] { "Cindral and you: to gather berries for the camp, for a share of the berries each dawn, until Day 10, 06:00" },
+            ViewText.BargainLines(w, you.Id));
+        Assert.Equal(new[] { "Cindral and Mira: to keep the night watch, for timber for the fire each dawn (kept)" }, ViewText.BargainLines(w, mira.Id));
+
+        // The djinn's own list leaves out the bargain it is bound by now: its bond line says it already.
+        Assert.Equal(new[] { "Cindral and Mira: to keep the night watch, for timber for the fire each dawn (kept)" }, ViewText.BargainLines(w, qamar.Id));
+        Assert.Contains("bound by a bargain with you until Day 10, 06:00", ViewText.NatureLine(StateApi.NatureNeeds(w, qamar.Id).Single()));
+        Assert.Empty(ViewText.BargainLines(w, dryope.Id));
+        w.Contracts.Add(new Contract { Id = 3, BoundId = qamar.Id, PatronId = mira.Id, ServiceWork = "forage", PriceItem = "timber", PriceAmount = 1, EndsTick = 200, Status = ContractStatus.Broken });
+        Assert.Equal(new[] { "Cindral and Mira: to gather berries for the camp, for timber for the fire each dawn (broken)" }, ViewText.BargainLines(w, qamar.Id, max: 1));
+    }
+
+    [Fact]
+    public void ADryadsNatureRefusesTheAxeInTheWorkPicker()
+    {
+        World w = WorkTests.Only(1, "dryope", "mira");
+        Character dryope = w.Characters.First(c => c.CastKey == "dryope"), mira = w.Characters.First(c => c.CastKey == "mira");
+        Assert.True(ViewText.RefusesByNature(w, dryope, "gather_timber"));
+        Assert.False(ViewText.RefusesByNature(w, dryope, "forage"));
+        Assert.False(ViewText.RefusesByNature(w, mira, "gather_timber"));
+        Assert.Contains(StateApi.WorkPriorities(w, dryope.Id), p => p.WorkId == "gather_timber");
+        Assert.Equal("Gather timber (never, by their nature)", ViewText.WorkRefusedLabel("Gather timber"));
     }
 
     [Fact]

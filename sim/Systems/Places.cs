@@ -32,9 +32,10 @@ public static class Places
         return Calendar.Season(w.Tick, def) != def.SeasonsPerYear - 1;
     }
 
-    /// <summary>Usual sleeping hours: night for humans, daylight for vampires.</summary>
+    /// <summary>Usual sleeping hours: night for humans, daylight for vampires, never for those who do not tire.</summary>
     public static bool SleepHours(World w, Character c)
     {
+        if (!Tires(w, c)) return false;
         if (BurnsInDaylight(w, c)) return Daylight(w);
         WorldDef def = w.Content.World;
         int h = Calendar.Hour(w.Tick, def);
@@ -71,7 +72,7 @@ public static class Places
         return best;
     }
 
-    /// <summary>The nearest standing tree to fell; a keeper of a sacred tree's people or faith never picks that tree (ADR-0023).</summary>
+    /// <summary>The nearest standing tree to fell, leaving out a sacred tree its keepers would spare (ADR-0023) and a dryad's tree this feller (if named) would spare (ADR-0022).</summary>
     public static Tree? StandingTree(World w, Point from, Character? feller = null)
     {
         Tree? best = null;
@@ -80,6 +81,7 @@ public static class Places
         {
             if (t.Felled || Targeted(w, JobKind.GatherTimber, t.Id)) continue;
             if (feller != null && Culture.SacredTrees.Spares(w, feller, t)) continue;
+            if (feller != null && Forest.Spares(w, feller, t)) continue;
             if (Adjacent(w, t.Pos, from) == Point.None) continue;
             int d = t.Pos.ChebyshevTo(from);
             if (d < bestDist) { best = t; bestDist = d; }
@@ -178,13 +180,17 @@ public static class Places
         return best?.Pos ?? Point.None;
     }
 
-    public static int HumanMembers(World w)
+    /// <summary>Members who eat this item from the stores (berries for humans; vampires, dryads, djinn and the undead do not).</summary>
+    public static int Eaters(World w, string itemId)
     {
         int n = 0;
         foreach (Character c in w.Members())
-            if (!w.Content.SpeciesById(c.SpeciesId).DrinksBlood) n++;
+            if (w.Content.SpeciesById(c.SpeciesId) is { EatsItem: true } sp && sp.FoodSource == itemId) n++;
         return n;
     }
+
+    /// <summary>False for those who never tire or sleep (the undead).</summary>
+    public static bool Tires(World w, Character c) => w.Content.SpeciesById(c.SpeciesId).Tires;
 
     public static int TimberNeeded(World w)
     {
@@ -195,7 +201,7 @@ public static class Places
         int carried = 0;
         foreach (Character c in w.Characters)
             if (c.IsActive && c.Carrying is { DefId: "timber" } carry) carried += carry.Count;
-        return unsound * perSection - Stock.Count(w, "timber") - carried;
+        return unsound * perSection + Bargains.Demand(w, "timber") - Stock.Count(w, "timber") - carried;
     }
 
     public static SpeciesDef Species(World w, Character c) => w.Content.SpeciesById(c.SpeciesId);

@@ -50,7 +50,36 @@ public sealed class SpeciesDef
     public int DonorHealthCost { get; init; }
     public int DonorRestCost { get; init; }
 
+    /// <summary>False for those who never tire or sleep (the undead): rest stays full (ADR-0022).</summary>
+    public bool Tires { get; init; } = true;
+
+    /// <summary>Needs from needs.json that this species' nature adds to food, rest and company (ADR-0022).</summary>
+    public List<string> Needs { get; init; } = new();
+
+    /// <summary>For this many days after they arrive, the living take less warmth from talking with them and feel uneasy (the undead).</summary>
+    public int UnsettlesForDays { get; init; }
+
+    /// <summary>How their arrival reads (a loc key with {a}); empty = the wanderer's "hungry and alone".</summary>
+    public string ArrivalKey { get; init; } = "";
+
+    /// <summary>Work their nature will not do, whatever their priorities say (a dryad never fells a tree).</summary>
+    public List<string> RefusesWork { get; init; } = new();
+
+    /// <summary>They cannot lie (the fae): they say hard truths where others insult, and what they owe they have sworn to repay, first.</summary>
+    public bool CannotLie { get; init; }
+
+    /// <summary>Grudges they hold fade a point only every this many days: slights are remembered long (the fae).</summary>
+    public int GrudgeDecayEveryDays { get; init; } = 1;
+
     public bool DrinksBlood => FoodSource == "blood";
+
+    /// <summary>foodSource "none": they eat nothing from the stores and never go hungry (ADR-0022).</summary>
+    public bool EatsNothing => FoodSource == NoFood;
+
+    /// <summary>They eat an item from the stockpile (berries in M0), so rationing, spoilage and theft touch them.</summary>
+    public bool EatsItem => !DrinksBlood && !EatsNothing;
+
+    public const string NoFood = "none";
 }
 
 public sealed class WorkBias
@@ -78,6 +107,9 @@ public sealed class TraitDef
     public int RiskyWorkHealthBelow { get; init; }
     public int PriorityRespectPct { get; init; } = 100;
     public List<WorkBias> WorkBias { get; init; } = new();
+
+    /// <summary>Will not strike a bargain the camp could not pay (Proud; ADR-0022).</summary>
+    public bool RefusesUnsafeBargain { get; init; }
 }
 
 public sealed class ItemDef
@@ -137,6 +169,46 @@ public sealed class IncidentDef
         Params.TryGetValue(name, out int v) ? v : throw new ContentException($"incidents.json: '{Id}' has no param '{name}'.");
 }
 
+/// <summary>
+/// A need that comes from a species' nature, beyond food, rest and company (ADR-0022). Thresholds,
+/// thoughts, threshold events, harm and departure are shared code driven by these fields; how the
+/// need is met or wounded is the behaviour named by its id (like incidents), tuned by params.
+/// </summary>
+public sealed class NeedDef
+{
+    public string Id { get; init; } = "";
+    public string NameKey { get; init; } = "";
+    public int Start { get; init; }
+    public int DecayPerHour { get; init; }
+    public int LowBelow { get; init; }
+    public int CriticalBelow { get; init; }
+    public int SatisfiedAt { get; init; }
+    public string LowThought { get; init; } = "";
+    public string CriticalThought { get; init; } = "";
+    public string LowEventKey { get; init; } = "";
+    public string CriticalEventKey { get; init; } = "";
+
+    /// <summary>Health lost each hour while the need is critical; 0 = it does not harm.</summary>
+    public int CriticalHealthPerHour { get; init; }
+
+    /// <summary>The death text when that harm kills.</summary>
+    public string DeathKey { get; init; } = "";
+
+    /// <summary>Hours critical (and still low) after which they leave the camp; 0 = it never drives them away.</summary>
+    public int LeavesAfterCriticalHours { get; init; }
+
+    /// <summary>Works the need can be bound to (one is chosen per person from Truths).</summary>
+    public List<string> BondWorks { get; init; } = new();
+
+    /// <summary>Items the need can ask for (one is chosen per person from Truths).</summary>
+    public List<string> BondItems { get; init; } = new();
+
+    public Dictionary<string, int> Params { get; init; } = new();
+
+    public int Param(string name) =>
+        Params.TryGetValue(name, out int v) ? v : throw new ContentException($"needs.json: '{Id}' has no param '{name}'.");
+}
+
 public sealed class CastDef
 {
     public string Key { get; init; } = "";
@@ -147,6 +219,12 @@ public sealed class CastDef
     public bool Otherworlder { get; init; }
     public bool StartsInCamp { get; init; }
     public string Color { get; init; } = "#888888";
+
+    /// <summary>
+    /// [first, last] day (as the log numbers them, Day 1 first) of the first year within which they
+    /// arrive, on a day drawn from Dice; empty = shuffled in with the other wanderers (ADR-0022).
+    /// </summary>
+    public int[] ArrivalDays { get; init; } = Array.Empty<int>();
 }
 
 /// <summary>

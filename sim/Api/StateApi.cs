@@ -43,6 +43,14 @@ public sealed record WorkPriorityState(string WorkId, string Work, int Priority,
 /// <summary>The camp's ration policy: what applies now, what will apply once pending orders land, and that policy in words.</summary>
 public sealed record PolicyState(RationPolicy Current, RationPolicy Effective, bool Pending, string Text);
 
+/// <summary>A need from a person's nature (ADR-0022): its value (0..1000), how it stands (met, low, critical) and what binds it, in words.</summary>
+public sealed record NatureNeedState(string Need, string Label, int Value, string Standing, string Bond);
+
+/// <summary>A bargain (ADR-0022): who is bound to serve, who struck it for the camp, the service and price, and how it stands.</summary>
+public sealed record ContractState(
+    int Id, int BoundId, string Bound, int PatronId, string Patron, string Service, string Price, int Amount, string Status,
+    long NextDueTick, long EndsTick, long FormedEvent);
+
 /// <summary>
 /// The text-state API: structured, localised reads of the world for the view, the headless runner,
 /// mods and AI agents. Reads never change state.
@@ -95,13 +103,14 @@ public static partial class StateApi
         LocTable loc = w.Content.Loc;
         SpeciesDef species = w.Content.SpeciesById(c.SpeciesId);
 
-        var needs = new List<NeedState>
-        {
-            species.DrinksBlood ? new("blood", loc.Get("need.blood"), c.Food) : new("food", loc.Get("need.food"), c.Food),
-            new("rest", loc.Get("need.rest"), c.Rest),
-            new("social", loc.Get("need.social"), c.Social),
-            new("health", loc.Get("need.health"), c.Health),
-        };
+        // Only the needs this person's nature has: no food bar for those who eat nothing, no rest bar for those who never tire.
+        var needs = new List<NeedState>();
+        if (species.DrinksBlood) needs.Add(new("blood", loc.Get("need.blood"), c.Food));
+        else if (!species.EatsNothing) needs.Add(new("food", loc.Get("need.food"), c.Food));
+        foreach (NatureNeed n in c.NatureNeeds) needs.Add(new(n.Id, loc.Get(w.Content.NeedById(n.Id).NameKey), n.Value));
+        if (species.Tires) needs.Add(new("rest", loc.Get("need.rest"), c.Rest));
+        needs.Add(new("social", loc.Get("need.social"), c.Social));
+        needs.Add(new("health", loc.Get("need.health"), c.Health));
 
         var traits = new List<string>();
         foreach (string t in c.Traits) traits.Add(loc.Get(w.Content.TraitById(t).NameKey));
@@ -187,6 +196,62 @@ public static partial class StateApi
         ArcState? arcState = arc == null ? null
             : new ArcState(arc.Stage, loc.Get("arc_stage." + Names.Snake(arc.Stage.ToString())), arc.StalledSinceTick, arc.LastEvent);
         return new GrowthState(traits, wantState, arcState);
+    }
+
+    /// <summary>
+    /// The needs a person's nature adds (ADR-0022), each with how it stands and what binds it: the tree a
+    /// dryad is bound to (or that it was cut down), the work an undead came back for, a djinn's terms.
+    /// </summary>
+    public static IReadOnlyList<NatureNeedState> NatureNeeds(World w, int id)
+    {
+        Character c = w.Get(id);
+        LocTable loc = w.Content.Loc;
+        var list = new List<NatureNeedState>();
+        foreach (NatureNeed n in c.NatureNeeds)
+        {
+            NeedDef def = w.Content.NeedById(n.Id);
+            string standing = loc.Get(n.Value < def.CriticalBelow ? "need_stage.critical" : n.Value < def.LowBelow ? "need_stage.low" : "need_stage.met");
+            list.Add(new NatureNeedState(n.Id, loc.Get(def.NameKey), n.Value, standing, Bond(w, c, n)));
+        }
+        return list;
+    }
+
+    /// <summary>The bargains a person is party to, bound or patron, oldest first.</summary>
+    public static IReadOnlyList<ContractState> Contracts(World w, int id)
+    {
+        LocTable loc = w.Content.Loc;
+        var list = new List<ContractState>();
+        foreach (Contract k in w.Contracts)
+        {
+            if (k.BoundId != id && k.PatronId != id) continue;
+            list.Add(new ContractState(k.Id, k.BoundId, EventText.Name(w, k.BoundId), k.PatronId, EventText.Name(w, k.PatronId),
+                loc.Get(Systems.Bargains.ServiceKey(k.ServiceWork)), loc.Get(Systems.Bargains.PriceKey(k.PriceItem)), k.PriceAmount,
+                loc.Get("contract_status." + Names.Snake(k.Status.ToString())), k.NextDueTick, k.EndsTick, k.FormedEvent));
+        }
+        return list;
+    }
+
+    private static string Bond(World w, Character c, NatureNeed n)
+    {
+        LocTable loc = w.Content.Loc;
+        string Say(string key, params (string Name, string Value)[] args)
+        {
+            var kv = new List<KeyValuePair<string, string>>(args.Length);
+            foreach ((string name, string value) in args) kv.Add(new KeyValuePair<string, string>(name, value));
+            return loc.Format(key, kv);
+        }
+        if (n.BondId != 0 && Systems.Forest.TreeById(w, n.BondId) is { } tree)
+            return tree.Felled ? loc.Get("bond.tree_felled")
+                : Say("bond.tree", ("x", tree.Pos.X.ToString(Inv)), ("y", tree.Pos.Y.ToString(Inv)));
+        if (n.BondItem.Length > 0)
+        {
+            string terms = Say("bond.bargain_terms", ("service", loc.Get(Systems.Bargains.ServiceKey(n.BondWork))), ("price", loc.Get(Systems.Bargains.PriceKey(n.BondItem))));
+            return Systems.Bargains.Binding(w, c.Id) is { } k
+                ? Say("bond.bargain_open", ("terms", terms), ("patron", EventText.ResolveMid(w, "c:" + k.PatronId.ToString(Inv))), ("when", EventText.When(w, k.EndsTick)))
+                : terms;
+        }
+        if (n.BondWork.Length > 0) return Say("bond.work", ("work", loc.Get(w.Content.WorkById(n.BondWork).NameKey)));
+        return "";
     }
 
     public static FactionState Faction(World w, string id = "camp")

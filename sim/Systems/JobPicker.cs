@@ -33,6 +33,12 @@ public static class JobPicker
             if (spot != Point.None) return new Job { Kind = JobKind.SeekCover, Target = spot, CauseEvent = c.LastHealthEvent };
         }
 
+        // One who cannot lie keeps their word before anything else, even their own hunger (ADR-0022).
+        if (sp.CannotLie)
+        {
+            Job? word = Courtesy.KeepWordJob(w, c, sunBlocked);
+            if (word != null) return word;
+        }
         // Guest-bread: a keeper of guest-right feeds a promised guest before their own hunger, unless starving (ADR-0023).
         Job? guest = Culture.Hospitality.GuestJob(w, c, sunBlocked);
         if (guest != null) return guest;
@@ -45,7 +51,7 @@ public static class JobPicker
                 if (donor != null && !(sunBlocked && !w.Map.Covered(donor.Pos)))
                     return new Job { Kind = JobKind.RequestBlood, TargetId = donor.Id, Target = donor.Pos, CauseEvent = c.LastFoodEvent };
             }
-            else
+            else if (!sp.EatsNothing) // a rebuffed vampire falls through to here too, and forages for the camp
             {
                 Job? eat = EatJob(w, c, allowTheft: true);
                 if (eat != null) return eat;
@@ -54,9 +60,18 @@ public static class JobPicker
             }
         }
 
-        if (c.Health < InjuredBelow) return SleepJob(w, c);
+        // A need of their nature at its critical mark comes before rest; one that is merely low, after it (ADR-0022).
+        bool nature = c.NatureNeeds.Count > 0;
+        Job? urgent = nature ? NatureNeeds.Job(w, c, critical: true, sunBlocked) : null;
+        if (urgent != null) return urgent;
+
+        // The injured lie down to sleep; those who never tire never sleep (the undead), and mend on their feet.
+        if (c.Health < InjuredBelow && sp.Tires) return SleepJob(w, c);
         int restAt = 200 + Traits.Sum(w, c, t => t.RestThresholdAdd);
-        if (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700)) return SleepJob(w, c);
+        if (sp.Tires && (c.Rest < restAt || (Places.SleepHours(w, c) && c.Rest < 700))) return SleepJob(w, c);
+
+        Job? natural = nature ? NatureNeeds.Job(w, c, critical: false, sunBlocked) : null;
+        if (natural != null) return natural;
 
         Job? promise = PromiseJob(w, c);
         if (promise != null) return promise;
@@ -78,7 +93,7 @@ public static class JobPicker
             if (vampire != null) return new Job { Kind = JobKind.GiveBlood, TargetId = vampire.Id, Target = vampire.Pos, CauseEvent = vampire.LastFoodEvent };
         }
 
-        if (!sp.DrinksBlood && c.Food < NeedsSystem.FedAt)
+        if (sp.EatsItem && c.Food < NeedsSystem.FedAt)
         {
             Job? eat = EatJob(w, c, allowTheft: false);
             if (eat != null) return eat;
@@ -146,7 +161,7 @@ public static class JobPicker
             if (roof != null) return roof;
         }
         string food = Places.Species(w, c).FoodSource;
-        if (Places.Species(w, c).DrinksBlood) food = "berries";
+        if (!Places.Species(w, c).EatsItem) food = "berries";
         Point tile = Places.FoodTile(w, food);
         if (tile == Point.None) return null;
         bool canTake = Rations.HasReservation(w, c.Id) || Rations.Unreserved(w, food) > 0;
@@ -224,15 +239,16 @@ public static class JobPicker
     {
         int respect = Traits.ScalePct(w, c, t => t.PriorityRespectPct);
         bool fragile = c.Health < Traits.Max(w, c, t => t.RiskyWorkHealthBelow);
+        List<string> refused = Places.Species(w, c).RefusesWork;
         Job? best = null;
         int bestScore = int.MaxValue;
         foreach (string workId in WorkOrder)
         {
             int priority = PriorityOf(c, workId);
-            if (priority <= 0) continue;
+            if (priority <= 0 || refused.Contains(workId)) continue; // a dryad never fells a tree, whatever the priorities say
             WorkDef def = w.Content.WorkById(workId);
             if (def.Risky && fragile) continue;
-            int score = priority * 100 - Traits.WorkBias(w, c, workId) * 60;
+            int score = priority * 100 - (Traits.WorkBias(w, c, workId) + NatureNeeds.WorkBias(w, c, workId)) * 60;
             score = 250 + (score - 250) * respect / 100;
             if (score >= bestScore) continue;
             Job? job = Candidate(w, c, workId, def, sunBlocked);
@@ -242,6 +258,10 @@ public static class JobPicker
         }
         return best;
     }
+
+    /// <summary>A job of this kind of work for c right now, if there is one (ignoring priorities).</summary>
+    public static Job? WorkCandidate(World w, Character c, string workId, bool sunBlocked) =>
+        Candidate(w, c, workId, w.Content.WorkById(workId), sunBlocked);
 
     private static Job? Candidate(World w, Character c, string workId, WorkDef def, bool sunBlocked)
     {
@@ -256,13 +276,21 @@ public static class JobPicker
             }
             case "gather_timber":
             {
-                if (sunBlocked || Places.TimberNeeded(w) <= 0) return null;
+                // A djinn does not fell trees for its own price: the camp pays it (ADR-0022).
+                if (sunBlocked || Places.TimberNeeded(w) - Bargains.OwnDemand(w, c, "timber") <= 0) return null;
                 Tree? tree = Places.StandingTree(w, c.Pos, c);
-                return tree == null ? null : new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos) };
+                if (tree == null) return null;
+                // The timber is wanted for a promised roof, else for a bargain's price (ADR-0022).
+                long why = RoofPromiseEvent(w, 0);
+                if (why == 0) why = Bargains.DemandCause(w, "timber");
+                return new Job { Kind = JobKind.GatherTimber, TargetId = tree.Id, Target = Places.Adjacent(w, tree.Pos, c.Pos), CauseEvent = why };
             }
             case "forage":
-                if (sunBlocked || Stock.Count(w, "berries") >= 2 * Places.HumanMembers(w)) return null;
+            {
+                int enough = 2 * Places.Eaters(w, "berries") + Bargains.Demand(w, "berries") - Bargains.OwnDemand(w, c, "berries");
+                if (sunBlocked || (Stock.Count(w, "berries") >= enough && !Purpose.Seeks(w, c, workId))) return null;
                 return ForageJob(w, c);
+            }
             case "haul":
             {
                 if (sunBlocked) return null;
@@ -273,7 +301,7 @@ public static class JobPicker
             }
             case "keep_watch":
             {
-                if (Places.Daylight(w) || sunBlocked || Places.SomeoneOnWatch(w, c.Id)) return null;
+                if (Places.Daylight(w) || sunBlocked || (Places.SomeoneOnWatch(w, c.Id) && !Purpose.Seeks(w, c, workId))) return null;
                 if (c.Health < Traits.Max(w, c, t => t.FleeHealthBelow)) return null;
                 Point post = w.Map.Passable(w.Map.WatchPost) ? w.Map.WatchPost : Places.Adjacent(w, w.Map.WatchPost, c.Pos);
                 return post == Point.None ? null : new Job { Kind = JobKind.KeepWatch, Target = post };

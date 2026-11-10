@@ -18,8 +18,13 @@ public sealed record CharacterNature(string SecondaryTrait, string WantType);
 public static class WorldGen
 {
     private const int TreeTarget = 24;
-    private const int BushClusters = 3;
-    private const int BushesPerCluster = 4;
+
+    /// <summary>
+    /// Bushes per cluster (ADR-0013's three clusters of four). The fourth, smaller cluster feeds the one
+    /// extra mouth the peoples brought (the fae eat berries; ADR-0022), keeping winter's half rations per
+    /// head. It is keyed after the first three, so none of their bushes moves.
+    /// </summary>
+    private static readonly int[] BushesInCluster = { 4, 4, 4, 2 };
     private const int StartBerriesOnBush = 4;
     private const int LateArrivals = 3;
 
@@ -28,6 +33,7 @@ public static class WorldGen
         var w = new World { Seed = seed, Rng = Rng.FromSeed(seed), Content = content };
         CreateCast(w);
         w.Map = BuildMap(w);
+        foreach (Character c in w.Characters) Systems.NatureNeeds.Init(w, c); // after the map: a dryad is bound to one of its trees
         PlaceStartItems(w);
         PositionStarters(w);
         ScheduleArrivals(w);
@@ -63,6 +69,7 @@ public static class WorldGen
             c.CultureId = template.CultureId;
             c.FaithId = template.FaithId;
             c.Devotion = template.Devotion;
+            Systems.NatureNeeds.Init(w, c);
             c.Pos = FindOpenNear(w.Map, w.Map.Hearth, i);
             w.Characters.Add(c);
             Growth.FormWant(w, c);
@@ -97,6 +104,7 @@ public static class WorldGen
         c.Growth.TraitOrigins = Growth.GeneratedOrigins(c.Traits);
         foreach (RolePriority p in w.Content.RoleById(cd.Role).Priorities)
             c.Priorities.Add(new WorkPriority { WorkId = p.Work, Priority = p.Priority });
+        if (w.Content.SpeciesById(cd.Species).EatsNothing) c.Food = 1000;
         return c;
     }
 
@@ -202,15 +210,15 @@ public static class WorldGen
         }
 
         // Berry bushes in small clusters; each cluster centre is itself rejection-sampled onto open ground.
-        for (uint c = 0; c < BushClusters; c++)
+        for (uint c = 0; c < BushesInCluster.Length; c++)
         {
-            int placed = 0;
-            for (uint attempt = 0; attempt < 40 && placed < BushesPerCluster; attempt++)
+            int placed = 0, wanted = BushesInCluster[c];
+            for (uint attempt = 0; attempt < 40 && placed < wanted; attempt++)
             {
                 ulong key = c * 64 + attempt;
                 var centre = new Point(t.Range(TruthId.BushPlacement, key, 0, 3, width - 12), t.Range(TruthId.BushPlacement, key, 1, 3, height - 3));
                 if (!Open(centre)) continue;
-                for (uint k = 0; k < 16 && placed < BushesPerCluster; k++)
+                for (uint k = 0; k < 16 && placed < wanted; k++)
                 {
                     var p = new Point(centre.X + t.Range(TruthId.BushPlacement, key, 2 + 2 * k, -2, 3), centre.Y + t.Range(TruthId.BushPlacement, key, 3 + 2 * k, -2, 3));
                     if (!Open(p)) continue;
@@ -265,8 +273,13 @@ public static class WorldGen
         WorldDef def = w.Content.World;
         DiceStream dice = w.Rng.Dice[DiceSystem.World];
         var waiting = new List<Character>();
+        var ownSeason = new List<Character>();
         foreach (Character c in w.Characters)
-            if (c.Status == CharStatus.OffMap) waiting.Add(c);
+        {
+            if (c.Status != CharStatus.OffMap) continue;
+            if (w.Content.CastByKey(c.CastKey).ArrivalDays.Length == 2) ownSeason.Add(c);
+            else waiting.Add(c);
+        }
         for (int k = waiting.Count - 1; k > 0; k--)
         {
             int j = dice.Range(DiceId.ArrivalOrder, 0, k + 1);
@@ -284,6 +297,19 @@ public static class WorldGen
             int hour = burns
                 ? (def.DuskHour + 1 + dice.Range(DiceId.ArrivalHour, 0, 6)) % def.HoursPerDay
                 : dice.Range(DiceId.ArrivalHour, 8, 18);
+            w.Arrivals.Add(new Arrival { CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour });
+        }
+
+        // Those who come in their own season (cast.json arrivalDays, ADR-0022) draw after the shuffled
+        // wanderers, so adding one never moves anyone else's arrival.
+        foreach (Character c in ownSeason)
+        {
+            int[] window = w.Content.CastByKey(c.CastKey).ArrivalDays;
+            int day = window[0] - 1 + dice.Range(DiceId.PeopleArrivalDay, 0, window[1] - window[0] + 1);
+            bool burns = w.Content.SpeciesById(c.SpeciesId).DaylightBurnPerHour > 0;
+            int hour = burns
+                ? (def.DuskHour + 1 + dice.Range(DiceId.PeopleArrivalHour, 0, 6)) % def.HoursPerDay
+                : dice.Range(DiceId.PeopleArrivalHour, 8, 18);
             w.Arrivals.Add(new Arrival { CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour });
         }
     }

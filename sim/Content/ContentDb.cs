@@ -26,6 +26,7 @@ public sealed partial class ContentDb
     private Dictionary<string, IncidentDef> _incidents = new();
     private Dictionary<string, CastDef> _cast = new();
     private Dictionary<string, WantDef> _wants = new();
+    private Dictionary<string, NeedDef> _needs = new();
 
     public WorldDef World { get; private set; } = new();
     public IReadOnlyList<SpeciesDef> Species { get; private set; } = Array.Empty<SpeciesDef>();
@@ -37,6 +38,7 @@ public sealed partial class ContentDb
     public IReadOnlyList<IncidentDef> Incidents { get; private set; } = Array.Empty<IncidentDef>();
     public IReadOnlyList<CastDef> Cast { get; private set; } = Array.Empty<CastDef>();
     public IReadOnlyList<WantDef> Wants { get; private set; } = Array.Empty<WantDef>();
+    public IReadOnlyList<NeedDef> Needs { get; private set; } = Array.Empty<NeedDef>();
     public LocTable Loc { get; private set; } = new(new Dictionary<string, string>());
 
     public SpeciesDef SpeciesById(string id) => Find(_species, id, "species.json");
@@ -50,6 +52,7 @@ public sealed partial class ContentDb
     public IncidentDef IncidentById(string id) => Find(_incidents, id, "incidents.json");
     public CastDef CastByKey(string key) => Find(_cast, key, "cast.json");
     public WantDef WantById(string id) => Find(_wants, id, "wants.json");
+    public NeedDef NeedById(string id) => Find(_needs, id, "needs.json");
 
     public static ContentDb Load(string contentDir, IReadOnlyList<string>? modDirs = null)
     {
@@ -68,6 +71,7 @@ public sealed partial class ContentDb
             Incidents = ReadMerged<IncidentDef>(dirs, "incidents.json", d => d.Id),
             Cast = ReadMerged<CastDef>(dirs, "cast.json", d => d.Key),
             Wants = ReadMerged<WantDef>(dirs, "wants.json", d => d.Id),
+            Needs = ReadMerged<NeedDef>(dirs, "needs.json", d => d.Id),
             Loc = new LocTable(ReadLoc(dirs)),
         };
         db._species = Index(db.Species, d => d.Id);
@@ -80,6 +84,7 @@ public sealed partial class ContentDb
         db._cast = Index(db.Cast, d => d.Key);
         db._wants = Index(db.Wants, d => d.Id);
         db.LoadCulture(dirs);
+        db._needs = Index(db.Needs, d => d.Id);
         db.Validate();
         return db;
     }
@@ -109,10 +114,15 @@ public sealed partial class ContentDb
         foreach (SpeciesDef s in Species)
         {
             RequireLoc("species.json", s.Id, s.NameKey);
-            if (!s.DrinksBlood && !_items.ContainsKey(s.FoodSource))
-                Fail("species.json", $"'{s.Id}' has foodSource '{s.FoodSource}', which is neither \"blood\" nor an item id");
-            if (!s.DrinksBlood && s.FoodSource != "berries")
+            if (s.EatsItem && !_items.ContainsKey(s.FoodSource))
+                Fail("species.json", $"'{s.Id}' has foodSource '{s.FoodSource}', which is neither \"blood\", \"none\" nor an item id");
+            if (s.EatsItem && s.FoodSource != "berries")
                 Fail("species.json", $"'{s.Id}' eats '{s.FoodSource}', but M0 only grows, rations, steals and spoils berries (ADR-0018)");
+            foreach (string need in s.Needs)
+                if (!_needs.ContainsKey(need)) Fail("species.json", $"'{s.Id}' has unknown need '{need}'");
+            if (s.ArrivalKey.Length > 0) RequireLoc("species.json", s.Id, s.ArrivalKey);
+            foreach (string work in s.RefusesWork)
+                if (!_work.ContainsKey(work)) Fail("species.json", $"'{s.Id}' refuses unknown work '{work}'");
         }
         foreach (TraitDef t in Traits)
         {
@@ -151,6 +161,7 @@ public sealed partial class ContentDb
             foreach ((string id, string[] _) in RequiredContent.Incidents) if (id == inc.Id) known = true;
             if (!known) Fail("incidents.json", $"'{inc.Id}' has no behaviour in this version of the simulation");
         }
+        ValidateNeeds();
 
         int otherworlders = 0;
         foreach (CastDef c in Cast)
@@ -160,6 +171,13 @@ public sealed partial class ContentDb
             if (!_traits.ContainsKey(c.SignatureTrait)) Fail("cast.json", $"'{c.Key}' references unknown trait '{c.SignatureTrait}'");
             if (!_roles.ContainsKey(c.Role)) Fail("cast.json", $"'{c.Key}' references unknown role '{c.Role}'");
             if (c.Otherworlder) otherworlders++;
+            if (c.ArrivalDays.Length > 0)
+            {
+                int days = w.DaysPerSeason * w.SeasonsPerYear;
+                if (c.StartsInCamp) Fail("cast.json", $"'{c.Key}' starts in the camp, so it cannot also have arrivalDays");
+                else if (c.ArrivalDays.Length != 2 || c.ArrivalDays[0] < 1 || c.ArrivalDays[0] > c.ArrivalDays[1] || c.ArrivalDays[1] > days)
+                    Fail("cast.json", $"'{c.Key}' needs arrivalDays [first, last] with 1 <= first <= last <= {days}");
+            }
         }
         if (otherworlders != 1) Fail("cast.json", $"needs exactly one otherworlder, found {otherworlders}");
 
@@ -223,6 +241,40 @@ public sealed partial class ContentDb
         foreach (int add in x.Species.Values) species = Math.Min(species, add);
         foreach (int add in x.Roles.Values) role = Math.Min(role, add);
         return low + species + role;
+    }
+
+    /// <summary>Needs work like incidents: each id names behaviour in code, which reads the params RequiredContent lists (ADR-0022).</summary>
+    private void ValidateNeeds()
+    {
+        foreach (NeedDef n in Needs)
+        {
+            RequireLoc("needs.json", n.Id, n.NameKey, n.LowEventKey, n.CriticalEventKey);
+            if (n.DeathKey.Length > 0) RequireLoc("needs.json", n.Id, n.DeathKey);
+            if (n.CriticalHealthPerHour > 0 && n.DeathKey.Length == 0) Fail("needs.json", $"'{n.Id}' harms when critical but has no deathKey");
+            if (!(n.CriticalBelow <= n.LowBelow && n.LowBelow <= n.SatisfiedAt))
+                Fail("needs.json", $"'{n.Id}' needs criticalBelow <= lowBelow <= satisfiedAt");
+            foreach (string t in new[] { n.LowThought, n.CriticalThought })
+                if (!_thoughts.ContainsKey(t)) Fail("needs.json", $"'{n.Id}' uses unknown thought '{t}'");
+            foreach (string work in n.BondWorks)
+                if (!_work.ContainsKey(work)) Fail("needs.json", $"'{n.Id}' can be bound to unknown work '{work}'");
+            foreach (string item in n.BondItems)
+                if (!_items.ContainsKey(item)) Fail("needs.json", $"'{n.Id}' can ask for unknown item '{item}'");
+            // A need that asks for items is a bargain: its offer reads "to {service}, for {price}", in text keyed by work and item.
+            if (n.BondItems.Count > 0)
+            {
+                foreach (string work in n.BondWorks) RequireLoc("needs.json", n.Id, Systems.Bargains.ServiceKey(work));
+                foreach (string item in n.BondItems) RequireLoc("needs.json", n.Id, Systems.Bargains.PriceKey(item));
+            }
+            bool known = false;
+            foreach ((string id, string[] _) in RequiredContent.Needs) if (id == n.Id) known = true;
+            if (!known) Fail("needs.json", $"'{n.Id}' has no behaviour in this version of the simulation");
+        }
+        foreach ((string id, string[] ps) in RequiredContent.Needs)
+        {
+            if (!_needs.TryGetValue(id, out NeedDef? need)) { Fail("needs.json", $"the simulation needs a need '{id}'"); continue; }
+            foreach (string param in ps)
+                if (!need.Params.ContainsKey(param)) Fail("needs.json", $"'{id}' needs the param '{param}'");
+        }
     }
 
     private void RequireLoc(string file, string id, params string[] keys)

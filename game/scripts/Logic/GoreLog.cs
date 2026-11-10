@@ -21,6 +21,9 @@ public enum DecalKind
 
     /// <summary>Ash and scorch where a vampire burned in the sun.</summary>
     Scorch,
+
+    /// <summary>What the bloodless leave where they are struck or fall: the undead's grave dust, a djinn's ash (Decal.Ichor says which).</summary>
+    Dust,
 }
 
 /// <summary>How someone died, as far as their body shows it.</summary>
@@ -59,6 +62,9 @@ public struct Decal
 
     /// <summary>The event id it came from, or the hash it was keyed by.</summary>
     public long Key;
+
+    /// <summary>Whose wound it was, as the mark shows it: blood or a dryad's sap (splatter, drops, pools), grave dust or ash (dust).</summary>
+    public Ichor Ichor;
 }
 
 /// <summary>A body: who, how they died, and when (the death event).</summary>
@@ -69,8 +75,10 @@ public readonly record struct Remains(int CharacterId, DeathKind Kind, long Tick
 /// in World.Log since it last looked (blows that downed or killed, work accidents, collapses,
 /// deaths, bites, sunburn) and watches health drop between looks for the blows the log does not
 /// record one by one (each exchange in a fight). It records where blood fell, keeps the cause of
-/// each death for drawing the body, and lets marks wear away over a few in-game days. It never
-/// writes to the world and never draws from its RNG streams.
+/// each death for drawing the body, and lets marks wear away over a few in-game days. Wounds give
+/// what the wounded's nature gives (Kinship.IchorOf): blood, a dryad's sap, and for those who do
+/// not bleed, the undead's grave dust or a djinn's ash; the undead return to dust however they
+/// come to rest. It never writes to the world and never draws from its RNG streams.
 /// </summary>
 public sealed class GoreLog
 {
@@ -78,6 +86,7 @@ public sealed class GoreLog
     public const int DropVariants = 2;
     public const int ScorchVariants = 1;
     public const int PoolVariants = 1;
+    public const int DustVariants = 3;
 
     /// <summary>Marks wear away over this many in-game days (three times faster in rain).</summary>
     public const int FadeDays = 3;
@@ -158,7 +167,8 @@ public sealed class GoreLog
 
     /// <summary>
     /// How bloodied someone's clothes are, 0 (clean) to 3 (soaked): only wounds bleed (members carry
-    /// a "wounded" thought after a blow or an accident; a thief is only ever hurt by blows).
+    /// a "wounded" thought after a blow or an accident; a thief is only ever hurt by blows). What soaks
+    /// them is the wounded's ichor (Kinship.StainOf): blood, sap, grave dust or ash.
     /// </summary>
     public static int WoundLevel(World w, Character c)
     {
@@ -255,13 +265,16 @@ public sealed class GoreLog
         // A body does not move, so its position is exact even when read late.
         if (kind == DeathKind.Wounds)
         {
-            Add(DecalKind.Splatter, c.Pos, 1.15f, ArtHash.Of(e.Id, 1), e.Tick, wear, lasting: false, e.Id);
-            Add(DecalKind.Pool, c.Pos, 1.3f, ArtHash.Of(e.Id, 2), e.Tick, Math.Min(0.5f, wear), lasting: true, e.Id);
+            Wound(w, c, DecalKind.Splatter, c.Pos, 1.15f, ArtHash.Of(e.Id, 1), e.Tick, wear, lasting: false, e.Id);
+            Wound(w, c, DecalKind.Pool, c.Pos, 1.3f, ArtHash.Of(e.Id, 2), e.Tick, Math.Min(0.5f, wear), lasting: true, e.Id);
         }
         else if (kind == DeathKind.Sun)
         {
             Add(DecalKind.Scorch, c.Pos, 1.1f, ArtHash.Of(e.Id, 3), e.Tick, Math.Min(0.5f, wear), lasting: true, e.Id);
         }
+        // The undead return to dust, however they come to rest.
+        if (kind != DeathKind.Wounds && Kinship.IchorOf(w, c) == Ichor.Dust)
+            Add(DecalKind.Dust, c.Pos, 1.25f, ArtHash.Of(e.Id, 10), e.Tick, Math.Min(0.5f, wear), lasting: true, e.Id, Ichor.Dust);
     }
 
     /// <summary>Someone falls to a wound: blood thrown, and a pool where they lie (once per fall).</summary>
@@ -272,8 +285,8 @@ public sealed class GoreLog
         if (stale && !c.Downed && c.Status != CharStatus.Dead) return; // moved on since; don't guess where
         if (_pooledAt.TryGetValue(id, out long at) && Math.Abs(at - e.Tick) <= 30) return;
         _pooledAt[id] = e.Tick;
-        Add(DecalKind.Splatter, c.Pos, 1f, ArtHash.Of(e.Id, 4), e.Tick, wear, lasting: false, e.Id);
-        Add(DecalKind.Pool, c.Pos, 0.9f, ArtHash.Of(e.Id, 5), e.Tick, wear, lasting: false, e.Id);
+        Wound(w, c, DecalKind.Splatter, c.Pos, 1f, ArtHash.Of(e.Id, 4), e.Tick, wear, lasting: false, e.Id);
+        Wound(w, c, DecalKind.Pool, c.Pos, 0.9f, ArtHash.Of(e.Id, 5), e.Tick, wear, lasting: false, e.Id);
     }
 
     private void Mark(World w, int id, DecalKind kind, float scale, long eventId, long tick, float wear, bool stale)
@@ -281,7 +294,8 @@ public sealed class GoreLog
         Character? c = w.Find(id);
         if (c == null || !w.Map.InBounds(c.Pos)) return;
         if (stale && !c.Downed && c.Status != CharStatus.Dead) return;
-        Add(kind, c.Pos, scale, ArtHash.Of(eventId, 6), tick, wear, lasting: false, eventId);
+        if (kind == DecalKind.Scorch) Add(kind, c.Pos, scale, ArtHash.Of(eventId, 6), tick, wear, lasting: false, eventId);
+        else Wound(w, c, kind, c.Pos, scale, ArtHash.Of(eventId, 6), tick, wear, lasting: false, eventId);
     }
 
     /// <summary>Blows (health dropping while fighting) and the wounded dripping as they walk.</summary>
@@ -297,10 +311,10 @@ public sealed class GoreLog
                 continue;
             }
             if (!first && _health.TryGetValue(c.Id, out int before) && before - c.Health >= BlowDamage && InFight(c))
-                Add(DecalKind.Splatter, c.Pos, 0.75f, ArtHash.Of(c.Id, w.Tick, 7), w.Tick, 0f, lasting: false, (long)ArtHash.Of(c.Id, w.Tick));
+                Wound(w, c, DecalKind.Splatter, c.Pos, 0.75f, ArtHash.Of(c.Id, w.Tick, 7), w.Tick, 0f, lasting: false, (long)ArtHash.Of(c.Id, w.Tick));
             if (!first && _lastPos.TryGetValue(c.Id, out SimPoint was) && was != c.Pos && c.IsActive && c.Health < BleedBelow
                 && WoundLevel(w, c) > 0 && ArtHash.Unit(c.Id, w.Tick, 8) < 0.7f)
-                Add(DecalKind.Drops, was, 0.55f, ArtHash.Of(c.Id, w.Tick, 9), w.Tick, 0f, lasting: false, (long)ArtHash.Of(c.Id, w.Tick, 9));
+                Wound(w, c, DecalKind.Drops, was, 0.55f, ArtHash.Of(c.Id, w.Tick, 9), w.Tick, 0f, lasting: false, (long)ArtHash.Of(c.Id, w.Tick, 9));
             _health[c.Id] = c.Health;
             _lastPos[c.Id] = c.Pos;
         }
@@ -313,7 +327,24 @@ public sealed class GoreLog
     /// </summary>
     private static bool InFight(Character c) => c.Status == CharStatus.Hostile || c.Job is { Kind: JobKind.Fight };
 
-    private void Add(DecalKind kind, SimPoint at, float scale, ulong h, long tick, float wear, bool lasting, long key)
+    /// <summary>
+    /// A wound's mark, as the wounded's nature gives it: blood (or a dryad's amber sap) splatters, drips
+    /// and pools; the undead and the djinn do not bleed, and leave grave dust or ash that settles (a
+    /// pool becomes a heap, drops a trickle).
+    /// </summary>
+    private void Wound(World w, Character c, DecalKind kind, SimPoint at, float scale, ulong h, long tick, float wear, bool lasting, long key)
+    {
+        Ichor ichor = Kinship.IchorOf(w, c);
+        if (ichor is Ichor.Dust or Ichor.Ash)
+        {
+            float settle = kind switch { DecalKind.Pool => 1.1f, DecalKind.Drops => 0.6f, _ => 0.9f };
+            Add(DecalKind.Dust, at, scale * settle, h, tick, wear, lasting, key, ichor);
+            return;
+        }
+        Add(kind, at, scale, h, tick, wear, lasting, key, ichor);
+    }
+
+    private void Add(DecalKind kind, SimPoint at, float scale, ulong h, long tick, float wear, bool lasting, long key, Ichor ichor = Ichor.Blood)
     {
         if (wear >= 1f) return;
         int variants = kind switch
@@ -321,6 +352,7 @@ public sealed class GoreLog
             DecalKind.Splatter => SplatterVariants,
             DecalKind.Drops => DropVariants,
             DecalKind.Scorch => ScorchVariants,
+            DecalKind.Dust => DustVariants,
             _ => PoolVariants,
         };
         float spread = kind == DecalKind.Pool ? 0.08f : 0.22f;
@@ -336,6 +368,7 @@ public sealed class GoreLog
             Wear = wear,
             Lasting = lasting,
             Key = key,
+            Ichor = ichor,
         });
     }
 

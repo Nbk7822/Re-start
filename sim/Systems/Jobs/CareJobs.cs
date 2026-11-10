@@ -64,6 +64,7 @@ public static class CareJobs
         {
             if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
             bool picked = host && w.Map.BushAt(j.Target) != null;
+            bool ownShare = false;
             if (picked)
             {
                 // No share to give: the host picks the guest's meal themselves (no accident roll; culture draws only its own stream).
@@ -74,13 +75,14 @@ public static class CareJobs
             }
             else
             {
-                if (!Rations.HasReservation(w, c.Id) && (host || Rations.Unreserved(w, "berries") == 0)) return true;
+                ownShare = Rations.HasReservation(w, c.Id);
+                if (!ownShare && (host || Rations.Unreserved(w, "berries") == 0)) return true;
                 if (Stock.Take(w, "berries", 1) == 0) return true;
                 Rations.Consume(w, c.Id);
             }
             c.Carrying = new Carry { DefId = "berries", Count = 1 };
             j.Stage = picked ? 2 : 1; // 2: carrying berries the host picked; 1: carrying a share of the stores
-            j.Progress = 0;
+            j.Progress = ownShare ? 1 : 0; // remembered: giving away their own share is why they will go hungry
             return false;
         }
         if (!JobRunner.Near(w, c, j, creditor)) return JobRunner.Failed(j);
@@ -96,6 +98,7 @@ public static class CareJobs
             EventArg.Char("a", c.Id), EventArg.Char("b", creditor.Id));
         MoodSystem.AddThought(w, creditor, "ate", 0, e.Id);
         NeedsSystem.AfterFed(creditor);
+        if (j.Progress == 1) c.LastFoodEvent = e.Id;
         Relations.Repay(w, debt, e.Id);
         Culture.Omens.RecordDeed(w, DeedKind.MealShared, e.Id, c.Id);
         return true;

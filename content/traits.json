@@ -20,7 +20,8 @@
     "descKey": "trait.proud.desc",
     "insultPermilleAdd": 15,
     "insultOpinionScalePct": 160,
-    "consentBias": -20
+    "consentBias": -20,
+    "refusesUnsafeBargain": true
   },
   {
     "id": "practical",
