@@ -45,4 +45,59 @@ public class YearInvariantTests
         }
         Assert.Equal(w.Content.World.TicksPerYear, w.Tick);
     }
+
+    /// <summary>
+    /// A year with the stand-in's camp plan (ADR-0027): nobody stands where they cannot pass, every wall or door tile
+    /// is the old camp's or a standing structure, no two plans overlap (but a roof over a bed), and no plan holds more
+    /// timber than it costs.
+    /// </summary>
+    [Theory]
+    [InlineData(4UL)]
+    [InlineData(5UL)]
+    public void AYearOfBuildingKeepsItsInvariants(ulong seed)
+    {
+        var s = Simulation.Create(TestContent.Db, seed);
+        World w = s.World;
+        Return.Runner.Autoplay.Begin(s);
+        var oldCamp = new HashSet<int>();
+        for (int i = 0; i < w.Map.Terrain.Length; i++)
+            if ((TerrainKind)w.Map.Terrain[i] is TerrainKind.Wall or TerrainKind.Door) oldCamp.Add(i);
+        int perHour = w.Content.World.TicksPerHour;
+        bool built = false;
+        for (long hour = 0; hour < w.Content.World.TicksPerYear / perHour; hour++)
+        {
+            Return.Runner.Autoplay.Run(s, perHour, "camp");
+            string when = $"seed {seed} at tick {w.Tick}";
+            foreach (Character c in w.Characters)
+                if (c.Status is CharStatus.Member or CharStatus.Hostile)
+                    Assert.True(w.Map.Passable(c.Pos), $"{when}: {c.CastKey} stands on impassable {c.Pos}");
+            for (int i = 0; i < w.Map.Terrain.Length; i++)
+            {
+                var kind = (TerrainKind)w.Map.Terrain[i];
+                if (kind is not (TerrainKind.Wall or TerrainKind.Door) || oldCamp.Contains(i)) continue;
+                var p = new Return.Sim.Core.Point(i % w.Map.Width, i / w.Map.Width);
+                Structure? st = Return.Sim.Systems.Building.StructureAt(w, p);
+                Assert.True(st != null && w.Content.BuildingById(st.DefId).Kind == (kind == TerrainKind.Wall ? "wall" : "door"), $"{when}: {kind} at {p} is neither old camp nor a standing structure");
+                built = true;
+            }
+            foreach (Structure st in w.Map.Structures)
+                if (!st.Removed) Assert.True(w.Map.At(st.Pos) is TerrainKind.Wall or TerrainKind.Door, $"{when}: structure {st.Id} at {st.Pos} stands on {w.Map.At(st.Pos)}");
+            for (int a = 0; a < w.Blueprints.Count; a++)
+            {
+                Blueprint x = w.Blueprints[a];
+                Assert.True(x.Delivered <= w.Content.BuildingById(x.DefId).Cost(x.Area), $"{when}: plan {x.Id} holds {x.Delivered} timber");
+                for (int b = a + 1; b < w.Blueprints.Count; b++)
+                {
+                    Blueprint y = w.Blueprints[b];
+                    string kx = w.Content.BuildingById(x.DefId).Kind, ky = w.Content.BuildingById(y.DefId).Kind;
+                    bool overhead = (kx, ky) is ("roof", "bed") or ("bed", "roof");
+                    Assert.True(overhead || !Overlap(x.Area, y.Area), $"{when}: plans {x.Id} and {y.Id} overlap");
+                }
+            }
+        }
+        Assert.True(built, $"seed {seed}: nothing was built in a year of the camp plan");
+    }
+
+    private static bool Overlap(Return.Sim.Core.Rect a, Return.Sim.Core.Rect b) =>
+        a.X < b.X + b.W && b.X < a.X + a.W && a.Y < b.Y + b.H && b.Y < a.Y + a.H;
 }
