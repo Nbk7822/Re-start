@@ -31,7 +31,9 @@ public readonly record struct PlannedPiece(string BuildingId, Rect Area);
 /// Placement rules (build design 4.4). One function answers for each tile with a reason key; the view's
 /// ghost (through StateApi.CanPlace), each command's Apply and the stand-in player all use it. Pieces in
 /// one call are checked in order, each against the world, the plans already placed (but those being called
-/// off: <c>exceptPlans</c>), any hypothetical <see cref="PlannedPiece"/>s, and the pieces before it that passed.
+/// off: <c>exceptPlans</c>), any hypothetical <see cref="PlannedPiece"/>s, and the pieces before it that passed;
+/// stockpiles are read from <c>zones</c> when given (what queued and drafted zone commands will make, the merge
+/// review), else from the world.
 /// </summary>
 public static partial class Building
 {
@@ -53,8 +55,9 @@ public static partial class Building
     public const string ReasonDoorFrame = "build.reason.door_frame";
 
     /// <param name="exceptPlans">Placed plans to treat as gone: ones asked to be called off but not yet (a view's drafts, or a call-off queued this tick), whose tiles a new plan may take.</param>
+    /// <param name="zones">The zones whose stockpiles keep plans off, as queued and drafted commands will leave them (<see cref="CampPreview"/>); the world's when null.</param>
     public static IReadOnlyList<PieceVerdict> Check(World w, string buildingId, IReadOnlyList<Rect> pieces, IReadOnlyList<PlannedPiece>? alsoPlanned = null,
-        IReadOnlyCollection<int>? exceptPlans = null)
+        IReadOnlyCollection<int>? exceptPlans = null, IReadOnlyList<Zone>? zones = null)
     {
         var verdicts = new List<PieceVerdict>(pieces.Count);
         BuildingDef? def = w.Content.TryBuilding(buildingId);
@@ -81,7 +84,7 @@ public static partial class Building
                 for (int x = area.X; x < area.X + Math.Max(1, area.W); x++)
                 {
                     var p = new Point(x, y);
-                    string reason = tooBig ? ReasonTooBig : TileReason(w, def, p, plans);
+                    string reason = tooBig ? ReasonTooBig : TileReason(w, def, p, plans, zones);
                     if (reason.Length > 0) ok = false;
                     tiles.Add(new TileVerdict(p, reason));
                 }
@@ -93,15 +96,15 @@ public static partial class Building
 
     /// <summary>The pieces of a plan that can be placed now, in order.</summary>
     public static List<Rect> Placeable(World w, string buildingId, IReadOnlyList<Rect> pieces, IReadOnlyList<PlannedPiece>? alsoPlanned = null,
-        IReadOnlyCollection<int>? exceptPlans = null)
+        IReadOnlyCollection<int>? exceptPlans = null, IReadOnlyList<Zone>? zones = null)
     {
         var ok = new List<Rect>();
-        foreach (PieceVerdict v in Check(w, buildingId, pieces, alsoPlanned, exceptPlans))
+        foreach (PieceVerdict v in Check(w, buildingId, pieces, alsoPlanned, exceptPlans, zones))
             if (v.Ok) ok.Add(v.Area);
         return ok;
     }
 
-    private static string TileReason(World w, BuildingDef def, Point p, List<(string Kind, Rect Area)> plans)
+    private static string TileReason(World w, BuildingDef def, Point p, List<(string Kind, Rect Area)> plans, IReadOnlyList<Zone>? zones)
     {
         Map m = w.Map;
         if (!m.InBounds(p)) return ReasonOffMap;
@@ -111,7 +114,7 @@ public static partial class Building
         if (p == m.Hearth || p == m.WatchPost || m.CoveredRuins.Contains(p)) return ReasonCamp;
         // A stockpile's tiles hold the camp's stores, wherever the player has put it (ADR-0028): nothing may stand on them,
         // though a roof, being overhead, may go over them and keep them dry (lead's call at the merge).
-        if (def.Kind != Roof && Zones.UseZoneAt(w, p) is { } used && Zones.IsStores(w, used)) return ReasonStockpile;
+        if (def.Kind != Roof && Zones.UseZoneAt(w, zones, p) is { } used && Zones.IsStores(w, used)) return ReasonStockpile;
         if (m.TreeAt(p) != null) return ReasonTree;
         if (m.BushAt(p) != null) return ReasonBush;
         if (BodyAt(w, p)) return ReasonBody;

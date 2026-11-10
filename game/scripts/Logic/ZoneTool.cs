@@ -12,7 +12,8 @@ namespace Return.Game.Logic;
 /// unmarking), the rectangle being dragged, the one change a release makes, and the facts the hint by
 /// the cursor gives. MapView feeds it tiles and draws it; SimHost sends what it returns through Order,
 /// so a choice made while paused is a draft like any other. The same checks as the commands
-/// (Zones.Check) decide which tiles a zone can take.
+/// (Zones.Check) decide which tiles a zone can take, read through the camp as the player sees it
+/// (<see cref="CampPreview"/>: queued and drafted plans keep a stockpile off their tiles, as they will).
 /// </summary>
 public sealed class ZoneTool
 {
@@ -72,16 +73,16 @@ public sealed class ZoneTool
 
     /// <summary>
     /// Ends the drag and returns the change it makes, as commands for <paramref name="tick"/>: one
-    /// marking, or for unmarking one command per zone it touches. <paramref name="zones"/> is what the
+    /// marking, or for unmarking one command per zone it touches. <paramref name="seen"/> is the camp the
     /// player sees (applied, queued and drafted); <paramref name="newZoneId"/> names a zone made now (0
     /// while time runs, a negative draft id while paused). Nothing when no tile could change.
     /// </summary>
-    public IReadOnlyList<Command> Release(World w, IReadOnlyList<Zone> zones, Func<int> newZoneId, long tick)
+    public IReadOnlyList<Command> Release(World w, CampPreview seen, Func<int> newZoneId, long tick)
     {
         if (!Dragging) return Array.Empty<Command>();
         Dragging = false;
-        if (Unmarking) return UnmarkCommands(w, zones, Box, tick);
-        return Kind == null ? Array.Empty<Command>() : MarkCommands(w, zones, Kind, Box, DragStart, newZoneId, tick);
+        if (Unmarking) return UnmarkCommands(w, seen.Zones, Box, tick);
+        return Kind == null ? Array.Empty<Command>() : MarkCommands(w, seen, Kind, Box, DragStart, newZoneId, tick);
     }
 
     public static Rect Span(Point a, Point b)
@@ -96,12 +97,12 @@ public sealed class ZoneTool
             for (int x = r.X; x < r.X + r.W; x++) yield return new Point(x, y);
     }
 
-    /// <summary>The tiles of the box a zone of this kind may lie on.</summary>
-    public static List<Point> Valid(World w, ZoneDef def, Rect box)
+    /// <summary>The tiles of the box a zone of this kind may lie on, in the camp as <paramref name="seen"/> shows it (the world's when null).</summary>
+    public static List<Point> Valid(World w, ZoneDef def, Rect box, CampPreview? seen = null)
     {
         var ok = new List<Point>();
         foreach (Point p in Tiles(box))
-            if (Zones.Check(w, def, p) == null) ok.Add(p);
+            if ((seen != null ? seen.ZoneCheck(def, p) : Zones.Check(w, def, p)) == null) ok.Add(p);
         return ok;
     }
 
@@ -109,13 +110,13 @@ public sealed class ZoneTool
     /// Marking a box: if the drag started on or next to a zone of the same kind, the tiles join that
     /// zone; otherwise they make a new one (a single kind always joins its one zone).
     /// </summary>
-    public static IReadOnlyList<Command> MarkCommands(World w, IReadOnlyList<Zone> zones, string kind, Rect box, Point start, Func<int> newZoneId, long tick)
+    public static IReadOnlyList<Command> MarkCommands(World w, CampPreview seen, string kind, Rect box, Point start, Func<int> newZoneId, long tick)
     {
         ZoneDef? def = w.Content.TryZone(kind);
         if (def == null) return Array.Empty<Command>();
-        List<Point> tiles = Valid(w, def, box);
+        List<Point> tiles = Valid(w, def, box, seen);
         if (tiles.Count == 0) return Array.Empty<Command>();
-        Zone? join = JoinTarget(zones, def, start);
+        Zone? join = JoinTarget(seen.Zones, def, start);
         if (join == null) return new Command[] { new MarkZone(tick, newZoneId(), kind, Zones.Canonical(tiles)) };
         var all = new List<Point>(Zones.Each(join.Tiles));
         all.AddRange(tiles);
@@ -165,15 +166,15 @@ public sealed class ZoneTool
     /// <summary>
     /// The facts for marking this box: the tiles a zone could take, the place they would lie, and for a
     /// stockpile whether it is dry (every tile under cover) and whether it lies out of the watch's sight
-    /// (every tile beyond what the post sees). For the home area, whose one area a drag joins, they are read
-    /// from the area it would make: the box with the home area as <paramref name="zones"/> shows it (applied,
-    /// queued and drafted), or the world's.
+    /// (every tile beyond what the post sees). The tiles are those a release would mark, in the camp as
+    /// <paramref name="seen"/> shows it (applied, queued and drafted), or the world's. For the home area,
+    /// whose one area a drag joins, they are read from the area it would make: the box with the home area.
     /// </summary>
-    public static Facts FactsFor(World w, string kind, Rect box, IReadOnlyList<Zone>? zones = null)
+    public static Facts FactsFor(World w, string kind, Rect box, CampPreview? seen = null)
     {
         ZoneDef? def = w.Content.TryZone(kind);
         if (def == null) return new Facts(0, "place_phrase.open", false, false);
-        List<Point> tiles = Valid(w, def, box);
+        List<Point> tiles = Valid(w, def, box, seen);
         bool dry = tiles.Count > 0, unseen = tiles.Count > 0;
         foreach (Point p in tiles)
         {
@@ -182,7 +183,7 @@ public sealed class ZoneTool
         }
         var facts = new Facts(tiles.Count, Zones.PlacePhraseKey(w, Zones.Canonical(tiles)), dry, unseen);
         if (def.Behaviour != Zones.HomeArea || tiles.Count == 0) return facts;
-        IReadOnlyList<Zone> shown = zones ?? w.Map.Zones;
+        IReadOnlyList<Zone> shown = seen?.Zones ?? w.Map.Zones;
         var area = new HashSet<Point>(tiles);
         foreach (Zone z in shown)
             if (z.Kind == def.Id) area.UnionWith(Zones.Each(z.Tiles));

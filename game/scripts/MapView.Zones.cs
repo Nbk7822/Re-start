@@ -64,12 +64,12 @@ public partial class MapView
     private void DrawZones(World w)
     {
         bool full = _host!.ZonesShown, dark = Zones.IsDark(w);
-        List<Zone> shown = Zones.Preview(w, _host.Drafts.All);
-        foreach (Zone z in shown)
+        CampPreview seen = CampPreview.Of(w, _host.Drafts.All); // queued and drafted plans and zones, in the order they will apply
+        foreach (Zone z in seen.Zones)
             if (w.Content.TryZone(z.Kind) is { } def && def.Layer != Zones.UseLayer) DrawZone(w, z, def, full, dark);
-        foreach (Zone z in shown)
+        foreach (Zone z in seen.Zones)
             if (w.Content.TryZone(z.Kind) is { Layer: Zones.UseLayer } def) DrawZone(w, z, def, full, dark);
-        DrawDrag(w);
+        DrawDrag(w, seen);
     }
 
     /// <summary>One zone: its faint fill while zones are shown, hatching while drafted, and its dashed edge.</summary>
@@ -106,8 +106,8 @@ public partial class MapView
         }
     }
 
-    /// <summary>The box being dragged: tiles a zone can take in its colour (unmarking: a dark wash), a ✕ on the rest.</summary>
-    private void DrawDrag(World w)
+    /// <summary>The box being dragged: tiles a zone can take in its colour (unmarking: a dark wash), a ✕ on the rest, by the check a release makes.</summary>
+    private void DrawDrag(World w, CampPreview seen)
     {
         const float T = TileSize;
         ZoneTool tool = _host!.Tool;
@@ -120,7 +120,7 @@ public partial class MapView
         {
             if (!w.Map.InBounds(p)) continue;
             float x = p.X * T, y = p.Y * T;
-            if (def == null || Zones.Check(w, def, p) == null)
+            if (def == null || seen.ZoneCheck(def, p) == null)
             {
                 _brush.Rect(x, y, T, T, fill);
                 continue;
@@ -135,13 +135,14 @@ public partial class MapView
     private void ZoneLabels(World w)
     {
         if (!_host!.ZonesShown) return;
-        foreach (Zone z in Zones.Preview(w, _host.Drafts.All))
+        CampPreview seen = CampPreview.Of(w, _host.Drafts.All);
+        foreach (Zone z in seen.Zones)
         {
             if (z.Tiles.Count == 0 || w.Content.TryZone(z.Kind) is not { } def) continue;
             var corner = new Vector2(z.Tiles[0].X * TileSize + 3f, z.Tiles[0].Y * TileSize + 2f);
             Text(_toScreen * corner, Ui.T(def.NameKey), CountFontSize, ZoneColor(def).Lightened(0.35f), Vector2.Zero, 3);
         }
-        string hint = ZoneText.Cursor(w, _host.Tool, Zones.Preview(w, _host.Drafts.All));
+        string hint = ZoneText.Cursor(w, _host.Tool, seen);
         if (hint.Length > 0) Text(GetViewport().GetMousePosition() + new Vector2(16f, 18f), hint, NameFontSize, Palette.Name, Vector2.Zero, 4);
     }
 

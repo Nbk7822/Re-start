@@ -315,7 +315,7 @@ public sealed class BuildTool
             case BuildMode.Place:
             {
                 if (pieces.Count == 0) return false;
-                CanPlaceState check = StateApi.CanPlace(w, BuildingId, pieces, OrderDrafts.Planned(w, drafts), OrderDrafts.CallingOff(w, drafts));
+                CanPlaceState check = Check(w, CampPreview.Of(w, drafts.All), BuildingId, pieces);
                 if (OkCount(check) == 0) return false; // nothing could go: the hint said why; no trace
                 order(new PlaceBlueprint(w.Tick, BuildingId, pieces));
                 return true;
@@ -389,7 +389,7 @@ public sealed class BuildTool
     {
         if (w.Content.TryBuilding(BuildingId) is not { } def) return;
         string name = w.Content.Loc.Get(def.NameKey);
-        CanPlaceState check = StateApi.CanPlace(w, BuildingId, Pieces(w), OrderDrafts.Planned(w, drafts), OrderDrafts.CallingOff(w, drafts));
+        CanPlaceState check = Check(w, CampPreview.Of(w, drafts.All), BuildingId, Pieces(w));
         int marked = OkCount(check);
         if (marked == 0) lines.Add(Ui.F("ui.build.hint_none", ("building", name)));
         else
@@ -402,6 +402,14 @@ public sealed class BuildTool
         if (reason.Length > 0) lines.Add(Ui.F("ui.build.cannot", ("reason", reason)));
         lines.Add(Ui.T(def.Spans ? "ui.build.usage_roof" : "ui.build.usage_tiles"));
     }
+
+    /// <summary>
+    /// The placement check for pieces placed after everything <paramref name="seen"/> has walked: against its plans not yet on
+    /// the map, the plans being called off, and the zones as they will be, so a stockpile drafted or queued keeps a plan off its
+    /// tiles as it will when the plan applies (the merge review).
+    /// </summary>
+    public static CanPlaceState Check(World w, CampPreview seen, string buildingId, IReadOnlyList<SimRect> pieces) =>
+        StateApi.CanPlace(w, buildingId, pieces, seen.Planned, seen.CallingOff, seen.Zones);
 
     /// <summary>How many pieces of a checked plan can go.</summary>
     public static int OkCount(CanPlaceState check)

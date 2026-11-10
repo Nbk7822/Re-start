@@ -31,15 +31,15 @@ public static class ZoneText
 
     /// <summary>
     /// The hint by the cursor while marking or unmarking: the zone, its tiles and place, and the facts that matter for its kind.
-    /// <paramref name="zones"/> is what the player sees (applied, queued and drafted); the world's zones if null.
+    /// <paramref name="seen"/> is the camp the player sees (applied, queued and drafted); the world as it is if null.
     /// </summary>
-    public static string Cursor(World w, ZoneTool tool, IReadOnlyList<Zone>? zones = null)
+    public static string Cursor(World w, ZoneTool tool, CampPreview? seen = null)
     {
         if (!tool.Active || (!tool.Dragging && tool.Hover == Point.None)) return "";
         Rect box = tool.Dragging ? tool.Box : new Rect(tool.Hover.X, tool.Hover.Y, 1, 1);
         if (tool.Unmarking)
         {
-            IReadOnlyList<Zone> shown = zones ?? w.Map.Zones;
+            IReadOnlyList<Zone> shown = seen?.Zones ?? w.Map.Zones;
             int n = 0;
             foreach (Point p in ZoneTool.Tiles(box))
             {
@@ -50,7 +50,7 @@ public static class ZoneText
             return Ui.F(n == 1 ? "ui.zones.cursor.unmark_one" : "ui.zones.cursor.unmark", ("n", Ui.N(n)));
         }
         ZoneDef def = w.Content.ZoneById(tool.Kind!);
-        ZoneTool.Facts facts = ZoneTool.FactsFor(w, def.Id, box, zones);
+        ZoneTool.Facts facts = ZoneTool.FactsFor(w, def.Id, box, seen);
         if (facts.Tiles == 0) return Ui.T("ui.zones.cursor.none");
         var parts = new List<string>
         {

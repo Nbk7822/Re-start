@@ -234,34 +234,36 @@ public partial class MapView
             }
         }
 
-        List<int> gone = OrderDrafts.CallingOff(w, drafts); // plans being called off make room for others
-        List<PlannedPiece> planned = OrderDrafts.Queued(w, gone);
+        IReadOnlyList<Command> drafted = drafts.All;
+        CampPreview ahead = CampPreview.Queued(w, drafted); // plans being called off make room for others
         foreach (Command c in w.PendingCommands)
             if (c is PlaceBlueprint queued && w.Content.TryBuilding(queued.BuildingId) != null)
                 foreach (SimRect piece in queued.Pieces) Dashes(ScreenRect(PieceRect(piece)), PlanInk.WithAlpha(0.9f));
 
         // Drafts, paler; one caption over the topmost of them says they wait for time to move. Then what the tool in
-        // hand would place. Each is checked against everything before it; runs of one-tile pieces share an outline.
+        // hand would place. Each is checked against everything before it, zones drafted before it included (they go out
+        // in that order); runs of one-tile pieces share an outline.
         _checks.Clear();
         Rect2? first = null;
-        foreach ((int _, PlaceBlueprint plan) in drafts.Placements)
+        foreach (Command d in drafted)
         {
-            if (w.Content.TryBuilding(plan.BuildingId) is not { } def) continue;
-            CanPlaceState check = StateApi.CanPlace(w, plan.BuildingId, plan.Pieces, planned, gone);
-            _checks.Add((def, check, RunKey(w, DraftRun, def.Id)));
-            foreach (PieceState p in check.Pieces)
+            if (d is PlaceBlueprint plan && w.Content.TryBuilding(plan.BuildingId) is { } def)
             {
-                if (!p.Ok) continue;
-                var area = new SimRect(p.X, p.Y, p.W, p.H);
-                planned.Add(new PlannedPiece(plan.BuildingId, area));
-                Rect2 r = ScreenRect(PieceRect(area));
-                if (first == null || r.Position.Y < first.Value.Position.Y || (r.Position.Y == first.Value.Position.Y && r.Position.X < first.Value.Position.X)) first = r;
+                CanPlaceState check = BuildTool.Check(w, ahead, plan.BuildingId, plan.Pieces);
+                _checks.Add((def, check, RunKey(w, DraftRun, def.Id)));
+                foreach (PieceState p in check.Pieces)
+                {
+                    if (!p.Ok) continue;
+                    Rect2 r = ScreenRect(PieceRect(new SimRect(p.X, p.Y, p.W, p.H)));
+                    if (first == null || r.Position.Y < first.Value.Position.Y || (r.Position.Y == first.Value.Position.Y && r.Position.X < first.Value.Position.X)) first = r;
+                }
             }
+            ahead.Take(d); // a plan's pieces that can go, or a zone's change, for the drafts after it
         }
         if (first is Rect2 at) _captions.Add((at.Position + new Vector2(0f, -3f), Ui.T("ui.build.pending")));
         bool cursor = tool.Active && tool.Cursor != SimPoint.None && !tool.Settled;
         if (cursor && tool.Mode == BuildMode.Place && w.Content.TryBuilding(tool.BuildingId) is { } placing)
-            _checks.Add((placing, StateApi.CanPlace(w, tool.BuildingId, tool.Pieces(w), planned, gone), RunKey(w, CursorRun, placing.Id)));
+            _checks.Add((placing, BuildTool.Check(w, ahead, tool.BuildingId, tool.Pieces(w)), RunKey(w, CursorRun, placing.Id)));
         foreach ((BuildingDef _, CanPlaceState check, int run) in _checks)
             foreach (PieceState p in check.Pieces)
                 if (p.Ok && p.W == 1 && p.H == 1 && m.InBounds(new SimPoint(p.X, p.Y))) _markRuns[m.Index(new SimPoint(p.X, p.Y))] = run;

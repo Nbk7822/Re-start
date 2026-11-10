@@ -25,7 +25,7 @@ public class ZoneViewTests
         tool.Move(from);
         tool.Press(from);
         tool.Move(to);
-        return tool.Release(w, Zones.Preview(w), () => newId, w.Tick);
+        return tool.Release(w, CampPreview.Of(w), () => newId, w.Tick);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class ZoneViewTests
         Assert.Equal(Zones.FromRect(ruins), mark.Tiles);
         Assert.True(tool.Active);
         Assert.False(tool.Dragging);
-        Assert.Empty(tool.Release(w, Zones.Preview(w), () => 0, w.Tick)); // nothing more until the next drag
+        Assert.Empty(tool.Release(w, CampPreview.Of(w), () => 0, w.Tick)); // nothing more until the next drag
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class ZoneViewTests
         tool.Press(new Point(ruins.X, ruins.Y));
         tool.Move(new Point(ruins.X + 2, ruins.Y + 2));
         Assert.Equal("Stockpile · 9 tiles · in the covered ruins · dry · out of the watch's sight", ZoneText.Cursor(w, tool));
-        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+        tool.Release(w, CampPreview.Of(w), () => 0, w.Tick);
         tool.Move(new Point(w.Map.WatchPost.X + 1, w.Map.WatchPost.Y));
         Assert.Equal("Stockpile · 1 tile · by the watch post · open to the damp", ZoneText.Cursor(w, tool));
         tool.Move(w.Map.Hearth);
@@ -159,21 +159,21 @@ public class ZoneViewTests
         }
         Box(clearing);
         Assert.Equal("Home area · 418 tiles · by the hearth", ZoneText.Cursor(w, tool));
-        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+        tool.Release(w, CampPreview.Of(w), () => 0, w.Tick);
         var shortBox = new Rect(clearing.X, clearing.Y, clearing.W, w.Map.WatchPost.Y - clearing.Y);
         Box(shortBox);
         Assert.EndsWith("· leaves the watch post outside", ZoneText.Cursor(w, tool));
-        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+        tool.Release(w, CampPreview.Of(w), () => 0, w.Tick);
         Point h = w.Map.Hearth;
         Box(new Rect(h.X - 2, h.Y - 2, 5, 5));
         Assert.Equal("Home area · 25 tiles · by the hearth · leaves the watch post outside", ZoneText.Cursor(w, tool)); // beds and stockpiles outside mattered only to the curfew (slice 2, ADR-0028)
-        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+        tool.Release(w, CampPreview.Of(w), () => 0, w.Tick);
 
         // With a home area already drawn round the camp, a small box joins it, so nothing is left outside.
         new MarkZone(w.Tick, 0, "home", Zones.FromRect(clearing)).Apply(w);
         Box(new Rect(h.X - 2, h.Y - 2, 5, 5));
         Assert.Equal("Home area · 25 tiles · by the hearth", ZoneText.Cursor(w, tool));
-        tool.Release(w, Zones.Preview(w), () => 0, w.Tick);
+        tool.Release(w, CampPreview.Of(w), () => 0, w.Tick);
 
         // Unmarking counts the home area's tiles too.
         tool.StartUnmark();

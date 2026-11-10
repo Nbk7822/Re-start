@@ -127,6 +127,18 @@ public static partial class Zones
     }
 
     /// <summary>
+    /// The use-layer zone on a tile among <paramref name="zones"/> (what queued and drafted commands will make, from
+    /// <see cref="CampPreview"/>), or among the world's when null. Use zones never overlap, in a preview as in the world.
+    /// </summary>
+    public static Zone? UseZoneAt(World w, IReadOnlyList<Zone>? zones, Point p)
+    {
+        if (zones == null) return UseZoneAt(w, p);
+        foreach (Zone z in zones)
+            if (Def(w, z) is { Layer: UseLayer } && Contains(z.Tiles, p)) return z;
+        return null;
+    }
+
+    /// <summary>
     /// The one question about goods: does a stockpile here keep this item? Stock.Add asks it to decide
     /// whether a stack put down is stores (ADR-0028); Build's stores will extend this same predicate.
     /// </summary>

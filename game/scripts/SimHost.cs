@@ -128,7 +128,7 @@ public partial class SimHost : Node
     /// <summary>Ends a drag: its one change goes out through <see cref="Order"/>, as a draft while paused.</summary>
     public void ReleaseZoneTool()
     {
-        foreach (Command c in Tool.Release(World, Return.Sim.Systems.Zones.Preview(World, Drafts.All), NewZoneId, World.Tick)) Order(c);
+        foreach (Command c in Tool.Release(World, Return.Sim.Systems.CampPreview.Of(World, Drafts.All), NewZoneId, World.Tick)) Order(c);
     }
 
     /// <summary>A zone made now: 0 (a new zone) while time runs, a draft's own negative id while paused.</summary>

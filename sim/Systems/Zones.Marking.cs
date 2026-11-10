@@ -27,9 +27,12 @@ public static partial class Zones
     /// Null if a zone of this kind may lie on the tile, else the loc key of why not. A use zone (a
     /// stockpile, a meeting place) needs open, passable ground: not the hearth, a bush, a bed, a wall or
     /// door built in this playthrough, or a plan for one of those (ADR-0027, at the merge). Roofs overhead,
-    /// standing or planned, are fine. The home area lies over anything.
+    /// standing or planned, are fine. The home area lies over anything. <paramref name="alsoPlanned"/>:
+    /// pieces asked for but not yet on the map (queued this tick, or a view's drafts), which refuse a use
+    /// zone as a placed plan does; <paramref name="exceptPlans"/>: placed plans asked to be called off,
+    /// whose tiles are free (the merge review: <see cref="CampPreview"/> gives both).
     /// </summary>
-    public static string? Check(World w, ZoneDef def, Point p)
+    public static string? Check(World w, ZoneDef def, Point p, IReadOnlyList<PlannedPiece>? alsoPlanned = null, IReadOnlyCollection<int>? exceptPlans = null)
     {
         Map m = w.Map;
         if (!m.InBounds(p)) return "zone_check.outside";
@@ -41,9 +44,15 @@ public static partial class Zones
             if (b.Pos == p) return "zone_check.bed";
         if (Building.StructureAt(w, p) != null) return "zone_check.built";
         foreach (Blueprint bp in w.Blueprints)
-            if (bp.Area.Contains(p) && w.Content.TryBuilding(bp.DefId) is { } planned && planned.Kind != Building.Roof) return "zone_check.planned";
+            if (bp.Area.Contains(p) && (exceptPlans == null || !exceptPlans.Contains(bp.Id)) && OnTheGround(w, bp.DefId)) return "zone_check.planned";
+        if (alsoPlanned != null)
+            foreach (PlannedPiece piece in alsoPlanned)
+                if (piece.Area.Contains(p) && OnTheGround(w, piece.BuildingId)) return "zone_check.planned";
         return null;
     }
+
+    /// <summary>A plan for something that stands on the ground (a wall, a door, a bed), not a roof overhead.</summary>
+    private static bool OnTheGround(World w, string buildingId) => w.Content.TryBuilding(buildingId) is { } planned && planned.Kind != Building.Roof;
 
     // ================= the rules, on a list of zones =================
 
@@ -63,13 +72,14 @@ public static partial class Zones
     /// default to every item for a new stockpile and to what it kept for an old one. Null if nothing
     /// would change.
     /// </summary>
-    internal static Outcome? Mark(World w, List<Zone> zones, int zoneId, string kind, IReadOnlyList<TileRun> tiles, IReadOnlyList<string>? items, Func<int> newId)
+    internal static Outcome? Mark(World w, List<Zone> zones, int zoneId, string kind, IReadOnlyList<TileRun> tiles, IReadOnlyList<string>? items, Func<int> newId,
+        IReadOnlyList<PlannedPiece>? alsoPlanned = null, IReadOnlyCollection<int>? exceptPlans = null)
     {
         ZoneDef? def = w.Content.TryZone(kind);
         if (def == null) return null;
         var valid = new List<Point>();
         foreach (Point p in Each(tiles))
-            if (Check(w, def, p) == null) valid.Add(p);
+            if (Check(w, def, p, alsoPlanned, exceptPlans) == null) valid.Add(p);
         List<TileRun> marked = Canonical(valid);
         if (marked.Count == 0) return null;
 
@@ -308,41 +318,9 @@ public static partial class Zones
     /// <summary>
     /// The zones as they will be once every pending command (and then the view's drafts, in order)
     /// has applied: a copy, with no events and no ids handed out. A drafted zone keeps its negative id.
+    /// Plans asked for before a marking keep it off their tiles, as they will when it applies (<see cref="CampPreview"/>).
     /// </summary>
-    public static List<Zone> Preview(World w, IEnumerable<Command>? drafts = null)
-    {
-        List<Zone> zones = Clone(w.Map.Zones);
-        int next = w.NextId;
-        void Run(Command c)
-        {
-            List<Zone> trial = Clone(zones);
-            bool ok;
-            switch (c)
-            {
-                case MarkZone m:
-                {
-                    int id = m.ZoneId < 0 ? m.ZoneId : next;
-                    Outcome? o = Mark(w, trial, m.ZoneId, m.Kind, m.Tiles, m.Items, () => id);
-                    ok = o?.Zone != null;
-                    if (ok && o!.Created && m.ZoneId >= 0) next++;
-                    break;
-                }
-                case RemoveZone r:
-                    ok = trial.RemoveAll(z => z.Id == r.ZoneId) > 0;
-                    break;
-                case SetZoneItems s:
-                    ok = SetItems(w, trial, s.ZoneId, s.Items) != null;
-                    break;
-                default:
-                    return;
-            }
-            if (ok && EveryItemKept(w, trial)) zones = trial;
-        }
-        foreach (Command c in w.PendingCommands) Run(c);
-        if (drafts != null)
-            foreach (Command c in drafts) Run(c);
-        return zones;
-    }
+    public static List<Zone> Preview(World w, IEnumerable<Command>? drafts = null) => CampPreview.Of(w, drafts).Zones;
 
     /// <summary>Would this zone command change anything once the queued commands have applied? A draft that changes nothing is not sent.</summary>
     public static bool Changes(World w, Command c)
