@@ -46,6 +46,9 @@ public static class CultureTuning
 
     public const int SacrilegeGrudge = 40;
 
+    /// <summary>Festival-goers sit one to a tile within this many tiles of the hearth (its neighbours first), so a festival is a ring, not a pile.</summary>
+    public const int FireRings = 2;
+
     /// <summary>How much a deed weighs when a sign is read against it, in percent.</summary>
     public static int DeedWeightPct(DeedKind kind) => kind switch
     {

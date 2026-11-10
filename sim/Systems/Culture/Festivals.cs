@@ -28,9 +28,9 @@ public static class Festivals
     }
 
     /// <summary>
-    /// A Feast job at the hearth while a festival is under way, for anyone not starving, downed or
-    /// kept in by the sun. The spot beside the hearth is chosen without randomness (culture never
-    /// draws from another system's stream).
+    /// A Feast job at the fire while a festival is under way, for anyone not starving, downed or
+    /// kept in by the sun. The place is chosen without randomness (culture never draws from another
+    /// system's stream): see <see cref="FireSpot"/>.
     /// </summary>
     public static Job? FeastJob(World w, Character c, bool sunBlocked)
     {
@@ -38,9 +38,44 @@ public static class Festivals
         bool attending = true;
         foreach (FestivalRun run in w.Culture.Festivals)
             if (run.Attendees.BinarySearch(c.Id) < 0) attending = false;
-        if (attending && c.Pos.ChebyshevTo(w.Map.Hearth) <= 1) return null;
-        Point spot = Places.Adjacent(w, w.Map.Hearth, c.Pos);
+        if (attending && c.Pos.ChebyshevTo(w.Map.Hearth) <= CultureTuning.FireRings) return null;
+        Point spot = FireSpot(w, c);
         return new Job { Kind = JobKind.Feast, Target = spot == Point.None ? c.Pos : spot, StartedTick = w.Tick, CauseEvent = w.Culture.Festivals[0].StartEvent };
+    }
+
+    /// <summary>
+    /// A place at the fire for c, one to a tile: the passable tile nearest c among the hearth's
+    /// neighbours that no other festival-goer is at or heading for, else the same in the next ring
+    /// out (to <see cref="CultureTuning.FireRings"/>), else the hearth's neighbour nearest c. Ties go
+    /// to the first tile in row order.
+    /// </summary>
+    private static Point FireSpot(World w, Character c)
+    {
+        Point hearth = w.Map.Hearth;
+        for (int ring = 1; ring <= CultureTuning.FireRings; ring++)
+        {
+            Point best = Point.None;
+            int bestDist = int.MaxValue;
+            for (int dy = -ring; dy <= ring; dy++)
+                for (int dx = -ring; dx <= ring; dx++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != ring) continue;
+                    var p = new Point(hearth.X + dx, hearth.Y + dy);
+                    if (!w.Map.Passable(p) || Taken(w, c, p)) continue;
+                    int d = p.ChebyshevTo(c.Pos);
+                    if (d < bestDist) { best = p; bestDist = d; }
+                }
+            if (best != Point.None) return best;
+        }
+        return Places.Adjacent(w, hearth, c.Pos);
+    }
+
+    /// <summary>Is another member at the fire, or on the way to it, at this tile?</summary>
+    private static bool Taken(World w, Character c, Point p)
+    {
+        foreach (Character o in w.Characters)
+            if (o.Id != c.Id && o.Status == CharStatus.Member && o.Job is { Kind: JobKind.Feast } j && j.Target == p) return true;
+        return false;
     }
 
     /// <summary>Someone reached the hearth: they are at every festival under way.</summary>

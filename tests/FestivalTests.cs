@@ -85,6 +85,44 @@ public class FestivalTests
         Assert.True(CultureJobs.Feast(w, you, you.Job!)); // the festival is over: the job ends
     }
 
+    /// <summary>
+    /// Festival-goers sit round the fire, one to a tile: the hearth's neighbours first, then the ring
+    /// beyond. (Each used to take the hearth's neighbour nearest to them, so most of the camp piled
+    /// onto one or two tiles and their names ran together on the map.)
+    /// </summary>
+    [Fact]
+    public void FestivalGoersSpreadRoundTheFire()
+    {
+        string[] everyone = { "you", "mira", "oren", "ilex", "bram", "nia", "sera", "vale", "wren", "hollis" };
+        World w = Camp(TestContent.Db, 1, everyone);
+        foreach (Character c in w.Characters.Where(c => c.Status == CharStatus.Member))
+            c.Pos = new Return.Sim.Core.Point(w.Map.Hearth.X, w.Map.Hearth.Y - 3); // all come from the same side
+        Belong(Cast(w, "mira"), "hearth");
+        Hold(w, "hearth", "clasp_greeting", "harvest_fire");
+        w.Culture.FestivalDates.Clear();
+        w.Culture.FestivalDates.Add(new FestivalDate { CustomId = "harvest_fire", HolderId = "hearth", Season = 2, Day = 3 });
+        WorldDef def = w.Content.World;
+        w.Tick = (2L * def.DaysPerSeason + 3) * def.TicksPerDay + (long)def.DuskHour * def.TicksPerHour;
+        Festivals.Hourly(w);
+        Assert.Single(w.Culture.Festivals);
+
+        var spots = new List<Return.Sim.Core.Point>();
+        foreach (Character c in w.Characters.Where(c => c.Status == CharStatus.Member).OrderBy(c => c.Id))
+        {
+            Job? job = Festivals.FeastJob(w, c, sunBlocked: false);
+            Assert.Equal(JobKind.Feast, job?.Kind);
+            c.Job = job;
+            spots.Add(job!.Target);
+        }
+        Assert.Equal(everyone.Length, spots.Distinct().Count());
+        Assert.All(spots, p => Assert.InRange(p.ChebyshevTo(w.Map.Hearth), 1, CultureTuning.FireRings));
+        int ringOne = 0;
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+                if ((dx != 0 || dy != 0) && w.Map.Passable(new Return.Sim.Core.Point(w.Map.Hearth.X + dx, w.Map.Hearth.Y + dy))) ringOne++;
+        Assert.Equal(Math.Min(ringOne, everyone.Length), spots.Count(p => p.ChebyshevTo(w.Map.Hearth) == 1));
+    }
+
     [Fact]
     public void WithNothingToSpareTheFireIsLean()
     {
