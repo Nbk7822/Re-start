@@ -59,6 +59,7 @@ public class ContentTests
         defs.AddRange(db.Domains); defs.AddRange(db.Customs);
         defs.AddRange(db.Needs);
         defs.AddRange(db.Zones);
+        defs.AddRange(db.Rhythms);
         foreach (object def in defs)
             foreach (PropertyInfo p in def.GetType().GetProperties())
                 if (p.PropertyType == typeof(string) && p.Name.EndsWith("Key", StringComparison.Ordinal) && p.Name != "Key")
@@ -194,7 +195,7 @@ public class ContentTests
             ("item", db.Items.Select(i => i.Id).ToHashSet(), RequiredContent.Items),
             ("species", db.Species.Select(s => s.Id).ToHashSet(), RequiredContent.Species),
             ("work", db.Work.Select(x => x.Id).ToHashSet(), RequiredContent.Work),
-            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).Concat(RequiredContent.ZoneThoughts).ToList()),
+            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).Concat(RequiredContent.ZoneThoughts).Concat(RequiredContent.ScheduleThoughts).ToList()),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
             ("need", db.Needs.Select(n => n.Id).ToHashSet(), RequiredContent.Needs.Select(n => n.Id).ToList()),
             ("zone", db.Zones.Select(z => z.Id).ToHashSet(), RequiredContent.Zones),

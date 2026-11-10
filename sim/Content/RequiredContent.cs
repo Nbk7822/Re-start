@@ -101,6 +101,36 @@ public static class RequiredContent
         ("gather", "use"),
     };
 
+    /// <summary>The kinds of day the code falls back to: diurnal for a species that tires, sleepless for one that does not (ADR-0029).</summary>
+    public static readonly IReadOnlyList<string> Rhythms = new[] { "diurnal", "sleepless" };
+
+    /// <summary>The thoughts the Schedule gives (ADR-0029), checked like <see cref="Thoughts"/>.</summary>
+    public static readonly IReadOnlyList<string> ScheduleThoughts = new[]
+    {
+        "overworked", "no_time_to_myself", "evening_by_the_fire", "woken", "watch_refused", "covered_for", "watch_taken_for_me",
+    };
+
+    /// <summary>
+    /// Every line the Schedule writes, and the words it shows, checked at load (ADR-0029). The refusals and
+    /// declines go their own way for each of Compliance's reasons, so each reason has its own line.
+    /// </summary>
+    public static readonly IReadOnlyList<string> ScheduleText = new[]
+    {
+        "block.sleep", "block.work", "block.free", "block.sleep_hint", "block.work_hint", "block.free_hint",
+        "time.hour", "job.wake_for_watch", "debt.watch",
+        "event.world.camp_day", "event.world.watch_hours", "event.world.watch_hours_zero",
+        "event.world.person_day", "event.world.person_day_you_a", "event.world.person_day_reset", "event.world.person_day_reset_you_a",
+        "event.social.declined_day_own_way", "event.social.declined_day_dislike", "event.social.declined_day_mood", "event.social.declined_day_ways",
+        "event.social.kept_old_hours_own_way", "event.social.kept_old_hours_dislike", "event.social.kept_old_hours_mood", "event.social.kept_old_hours_ways",
+        "event.work.took_watch", "event.work.went_to_wake", "event.work.covered_watch", "event.work.stayed_on_watch",
+        "event.work.left_watch_unrelieved", "event.work.left_watch_hungry", "event.work.watch_unkept", "event.work.worked_late",
+        "event.social.watch_refused_hurt", "event.social.watch_refused_tired", "event.social.watch_refused_hungry", "event.social.watch_refused_grudge",
+        "event.social.watch_refused_own_way", "event.social.watch_refused_dislike", "event.social.watch_refused_mood", "event.social.watch_refused_ways",
+        "event.social.owes_watch", "event.social.owes_watch_sworn", "event.social.blood_refused_woken",
+        "event.needs.fell_asleep_on_watch", "event.needs.worn_out", "event.incident.work_accident_tired", "event.incident.stolen_unwatched",
+        "place.watch_post_kept", "place.watch_post_empty",
+    };
+
     /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>
     public static readonly IReadOnlyList<(string Id, string[] Params)> Needs = new (string, string[])[]
     {

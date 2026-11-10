@@ -35,6 +35,9 @@ public enum JobKind
     TendTree,
     /// <summary>A djinn going to someone to offer the camp a bargain.</summary>
     OfferBargain,
+
+    /// <summary>A watcher walking to wake the next sleeper for their turn on watch (ADR-0029).</summary>
+    WakeForWatch,
 }
 
 /// <summary>What a character is doing right now. Stage and Progress are job-specific counters.</summary>

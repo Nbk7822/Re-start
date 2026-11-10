@@ -72,5 +72,13 @@
   { "id": "told_hard_truth", "textKey": "thought.told_hard_truth", "mood": -5, "opinion": -4, "durationHours": 48, "emote": "anger", "stackLimit": 2 },
   { "id": "heard_hard_truth", "textKey": "thought.heard_hard_truth", "mood": 0, "opinion": -12, "durationHours": 72, "emote": "question", "stackLimit": 2 },
   { "id": "saw_rule_broken", "textKey": "thought.saw_rule_broken", "mood": -2, "opinion": -4, "durationHours": 48, "emote": "anger", "stackLimit": 3 },
-  { "id": "sat_apart", "textKey": "thought.sat_apart", "mood": -3, "durationHours": 12, "emote": "gloom" }
+  { "id": "sat_apart", "textKey": "thought.sat_apart", "mood": -3, "durationHours": 12, "emote": "gloom" },
+
+  { "id": "overworked", "textKey": "thought.overworked", "mood": -6, "durationHours": 1, "emote": "sweat" },
+  { "id": "no_time_to_myself", "textKey": "thought.no_time_to_myself", "mood": -4, "durationHours": 1 },
+  { "id": "evening_by_the_fire", "textKey": "thought.evening_by_the_fire", "mood": 4, "durationHours": 12, "emote": "music" },
+  { "id": "woken", "textKey": "thought.woken", "mood": -3, "durationHours": 8 },
+  { "id": "watch_refused", "textKey": "thought.watch_refused", "mood": -4, "opinion": -8, "durationHours": 24, "emote": "anger", "stackLimit": 2 },
+  { "id": "covered_for", "textKey": "thought.covered_for", "mood": -2, "opinion": -8, "durationHours": 48, "emote": "anger", "stackLimit": 2 },
+  { "id": "watch_taken_for_me", "textKey": "thought.watch_taken_for_me", "mood": 4, "opinion": 8, "durationHours": 48, "emote": "hearts" }
 ]

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kinds of day (ADR-0029): the camp day each species keeps, as hours of sleep, work and free time. Who sleeps at all is the species' tires.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKey", "campDayKey", "day"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKey": { "description": "The day's title in the Schedule list (\"The camp's day\")", "$ref": "#/$defs/locKey" },
+      "campDayKey": { "description": "The day named mid-sentence (\"the camp's day\")", "$ref": "#/$defs/locKey" },
+      "day": {
+        "description": "Ranges of hours, each covering every hour exactly once. When to is less than from the range wraps past midnight; to never equals from.",
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to", "block"],
+          "properties": {
+            "from": { "type": "integer", "minimum": 0, "maximum": 23 },
+            "to": { "type": "integer", "minimum": 0, "maximum": 23 },
+            "block": { "enum": ["sleep", "work", "free"] }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" }
+  }
+}

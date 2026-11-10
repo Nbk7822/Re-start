@@ -18,5 +18,16 @@
     "pressurePerHour": 1,
     "majorCost": 30,
     "minHoursBetweenMajors": 6
+  },
+  "schedule": {
+    "watch": { "from": 19, "to": 6 },
+    "watchTurnHours": 4,
+    "wakeTries": 2,
+    "overworkHours": 12,
+    "wornOutDutyHours": 8,
+    "noFreeTimeAwakeHours": 14,
+    "tiredAccidentPct": 200,
+    "asleepOnWatchRestBelow": 60,
+    "freeTimeNapBelow": 400
   }
 }

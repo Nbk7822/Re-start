@@ -24,6 +24,7 @@ public static class SnapshotSerializer
         World w = JsonSerializer.Deserialize<World>(data, Options)
             ?? throw new InvalidOperationException("Snapshot is empty.");
         w.Content = content;
+        Systems.ScheduleSystem.EnsureDefaults(w); // a snapshot from before the Schedule gets its days from content (ADR-0029); a no-op otherwise
         return w;
     }
 

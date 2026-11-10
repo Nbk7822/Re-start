@@ -40,6 +40,7 @@ public enum TruthId : ushort
     PersonBelonging = 43,
     SacredTree = 44,
     FestivalDate = 45,
+    // 70–79: the Schedule (ADR-0029). None drawn yet; a fixed body clock would take 70.
 }
 
 /// <summary>Tags for Dice draws, used for diffing divergent runs. Append only.</summary>
@@ -83,6 +84,12 @@ public enum DiceId : ushort
     // 180–199: zones (ADR-0028). Compliance rolls draw from DiceSystem.Work, each with its rule's own tag.
     /// <summary>Whether someone goes their own way tonight under the home area (zones step 3), through Compliance.Defies. Nothing draws it yet.</summary>
     ZoneDefy = 180,
+
+    // 200–219: the Schedule (ADR-0029). Compliance rolls on DiceSystem.Work, each with its own tag.
+    /// <summary>Whether someone goes their own way over a change to their day (Compliance.Defies), once per applied command; never the player.</summary>
+    DayChangeDefy = 200,
+    /// <summary>Whether someone woken for the watch goes their own way (Compliance.Defies), only when no reason of body or grudge applies.</summary>
+    WatchDefy = 201,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>

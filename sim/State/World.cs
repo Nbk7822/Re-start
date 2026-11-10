@@ -43,6 +43,14 @@ public sealed class World
     /// <summary>This world's peoples, faiths and gods, and the running state of their customs (ADR-0023).</summary>
     public CultureBook Culture { get; set; } = new();
 
+    // The Schedule (ADR-0029): one camp day per kind of day, the watch hours and the decision that set them, and the watch as kept now.
+    public List<CampDay> CampDays { get; set; } = new();
+    /// <summary>The watch hours: from inclusive, to exclusive, wrapping past midnight; equal means the camp keeps no watch.</summary>
+    public int WatchFrom { get; set; }
+    public int WatchTo { get; set; }
+    public long WatchEvent { get; set; }
+    public WatchState Watch { get; set; } = new();
+
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;
 

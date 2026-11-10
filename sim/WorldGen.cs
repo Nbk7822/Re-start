@@ -39,6 +39,7 @@ public static class WorldGen
         ScheduleArrivals(w);
         FormStartersWants(w);
         Systems.Culture.CultureGen.Seed(w);
+        ScheduleSystem.EnsureDefaults(w); // the camp days, the watch hours and everyone's lived strip, from content (ADR-0029); takes no ids
         Zones.CreateStart(w); // last, so no id handed out before it moves (ADR-0028)
         return w;
     }
@@ -73,6 +74,7 @@ public static class WorldGen
             Systems.NatureNeeds.Init(w, c);
             c.Pos = FindOpenNear(w.Map, w.Map.Hearth, i);
             w.Characters.Add(c);
+            ScheduleSystem.ResetLived(w, c);
             Growth.FormWant(w, c);
             i++;
         }

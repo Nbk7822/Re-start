@@ -81,6 +81,22 @@ public sealed class Character
     /// <summary>The calendar day they last said they kept away from a meeting place (once a day at most; ADR-0028); −1 for never.</summary>
     public int LastKeptAwayDay { get; set; } = -1;
 
+    // The Schedule (ADR-0029).
+    /// <summary>Hours this person keeps instead of their kind's camp day, in hour order; empty means the camp's day.</summary>
+    public List<HourBlock> OwnHours { get; set; } = new();
+    /// <summary>The event that last set their own hours (0 if never).</summary>
+    public long OwnHoursEvent { get; set; }
+    /// <summary>What they mostly did in the most recent occurrence of each clock hour (24 entries, by hour).</summary>
+    public List<LivedKind> Lived { get; set; } = new();
+    /// <summary>Samples of the hour under way.</summary>
+    public HourTally HourTally { get; set; } = new();
+    /// <summary>When they last came off the watch (for turns kept fairly); 0 if never.</summary>
+    public long LastWatchEndTick { get; set; }
+    /// <summary>The event that began the duty that tires them now (a watch kept, work late, a longer working day); 0 if none.</summary>
+    public long LastDutyEvent { get; set; }
+    /// <summary>Their "worn out from long hours" event while they are worn out; 0 once rested again.</summary>
+    public long WornOutEvent { get; set; }
+
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;
 }

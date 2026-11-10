@@ -29,6 +29,9 @@ public sealed class WorldDef
     public int PromiseDueHours { get; init; }
     public DirectorDef Director { get; init; } = new();
 
+    /// <summary>The camp's watch and the tuning of hours and overwork (ADR-0029).</summary>
+    public ScheduleDef Schedule { get; init; } = new();
+
     public int TicksPerDay => TicksPerHour * HoursPerDay;
     public int TicksPerSeason => TicksPerDay * DaysPerSeason;
     public long TicksPerYear => (long)TicksPerSeason * SeasonsPerYear;
@@ -71,6 +74,9 @@ public sealed class SpeciesDef
     /// <summary>Grudges they hold fade a point only every this many days: slights are remembered long (the fae).</summary>
     public int GrudgeDecayEveryDays { get; init; } = 1;
 
+    /// <summary>The kind of day they keep (rhythms.json); "" for the default: diurnal if they tire, sleepless if not (ADR-0029).</summary>
+    public string Rhythm { get; init; } = "";
+
     public bool DrinksBlood => FoodSource == "blood";
 
     /// <summary>foodSource "none": they eat nothing from the stores and never go hungry (ADR-0022).</summary>
@@ -105,6 +111,9 @@ public sealed class TraitDef
     public bool SharesFood { get; init; }
     public int RestThresholdAdd { get; init; }
     public int RiskyWorkHealthBelow { get; init; }
+
+    /// <summary>Skips risky work (the watch among it) below this rest: the Anxious (ADR-0029).</summary>
+    public int RiskyWorkRestBelow { get; init; }
     public int PriorityRespectPct { get; init; } = 100;
     public List<WorkBias> WorkBias { get; init; } = new();
 
@@ -269,4 +278,52 @@ public sealed class WantDef
     public string Item { get; init; } = "";
 
     public WantWeights Weights { get; init; } = new();
+}
+
+/// <summary>A range of hours of one kind in a kind of day: from inclusive, to exclusive, wrapping past midnight when to is less than from.</summary>
+public sealed class RhythmRange
+{
+    public int From { get; init; }
+    public int To { get; init; }
+
+    /// <summary>sleep, work or free (a DayBlock by its content id).</summary>
+    public string Block { get; init; } = "";
+}
+
+/// <summary>
+/// A kind of day (ADR-0029): the camp day a species keeps by default, as ranges of sleep, work and free time
+/// that cover every hour once. Whether someone sleeps at all is their species' tires, never the kind of day.
+/// </summary>
+public sealed class RhythmDef
+{
+    public string Id { get; init; } = "";
+
+    /// <summary>The day's title in the Schedule list ("The camp's day").</summary>
+    public string NameKey { get; init; } = "";
+
+    /// <summary>The day named mid-sentence ("the camp's day"), for the Chronicle.</summary>
+    public string CampDayKey { get; init; } = "";
+
+    public List<RhythmRange> Day { get; init; } = new();
+}
+
+/// <summary>Hours of a watch: from inclusive, to exclusive, wrapping past midnight; equal means no watch.</summary>
+public sealed class WatchRangeDef
+{
+    public int From { get; init; }
+    public int To { get; init; }
+}
+
+/// <summary>world.json's schedule block (ADR-0029): the default watch, the turn and wake rules, and the tuning of overwork.</summary>
+public sealed class ScheduleDef
+{
+    public WatchRangeDef Watch { get; init; } = new();
+    public int WatchTurnHours { get; init; } = 4;
+    public int WakeTries { get; init; } = 2;
+    public int OverworkHours { get; init; } = 12;
+    public int WornOutDutyHours { get; init; } = 8;
+    public int NoFreeTimeAwakeHours { get; init; } = 14;
+    public int TiredAccidentPct { get; init; } = 200;
+    public int AsleepOnWatchRestBelow { get; init; } = 60;
+    public int FreeTimeNapBelow { get; init; } = 400;
 }

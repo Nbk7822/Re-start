@@ -105,10 +105,11 @@ public static class Relations
             DebtKind.Rescue => "event.social.owes_rescue",
             DebtKind.Meal => "event.social.owes_meal",
             DebtKind.Welcome => "event.social.swore_welcome",
+            DebtKind.Watch => "event.social.owes_watch", // a watch kept in their place (ADR-0029)
             _ => "event.social.owes_care",
         };
         // One who cannot lie has sworn to repay what they owe (ADR-0022).
-        if ((kind is DebtKind.Blood or DebtKind.Rescue or DebtKind.Meal or DebtKind.Care) && Courtesy.Sworn(w, debtor.Id)) key += "_sworn";
+        if ((kind is DebtKind.Blood or DebtKind.Rescue or DebtKind.Meal or DebtKind.Care or DebtKind.Watch) && Courtesy.Sworn(w, debtor.Id)) key += "_sworn";
         SimEvent e = w.Log.Emit(w, SystemTag.Social, key, new[] { debtor.Id, creditor.Id }, new[] { cause },
             new[] { new Effect { Kind = EffectKind.DebtFormed, A = debtor.Id, B = creditor.Id, RefId = d.Id } },
             EventArg.Char("a", debtor.Id), EventArg.Char("b", creditor.Id));
