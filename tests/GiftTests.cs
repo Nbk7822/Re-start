@@ -355,9 +355,15 @@ public class GiftTests
     public void FamiliarFacesGrowsByFriendshipsItMakesAndKindnesses()
     {
         Simulation sim = Camp(Gifts.FamiliarId, 15, "mira", "oren", "bram");
+        sim.Advance(2 * Hour);
         World w = sim.World;
         Character you = You(w), mira = Cast(w, "mira"), oren = Cast(w, "oren"), bram = Cast(w, "bram");
         Return.Sim.Content.GiftDef g = Gifts.Held(w)!;
+        // A kindness from before the return is not one that follows it: only debts formed since count.
+        SimEvent before = w.Log.Emit(w, SystemTag.Work, "event.work.cared_for", new[] { mira.Id, you.Id }, Array.Empty<long>(), null,
+            EventArg.Char("a", mira.Id), EventArg.Char("b", you.Id));
+        Relations.FormDebt(w, you, mira, DebtKind.Care, 1, before.Id);
+        sim.Advance(Hour);
         w.Fate.Returns = 1;
         foreach (Character x in new[] { mira, oren, bram }) w.Fate.Echoes.Add(new Echo { PersonId = x.Id, Opinion = 60 }); // a quarter is 15
         void Regard(Character from, Character to, int value) => Relations.ChangeOpinion(w, from, to.Id, value - Relations.Opinion(w, from.Id, to.Id), 0);
@@ -374,7 +380,7 @@ public class GiftTests
         Assert.Equal(new[] { mira.Id, oren.Id, bram.Id }.OrderBy(x => x), w.Gift.Familiar.OrderBy(x => x)); // all three knew you
         Assert.Equal(new[] { mira.Id }, w.Gift.FamiliarFriends); // only Mira was your friend before
         FamiliarFaces.Hourly(w, you, g);
-        Assert.Equal(1, w.Gift.Progress); // Bram became your friend as he knew you; Mira's friendship is not new
+        Assert.Equal(1, w.Gift.Progress); // Bram became your friend as he knew you; Mira's friendship is not new, nor her old kindness
 
         Regard(oren, you, 35); // Oren comes to be your friend
         FamiliarFaces.Hourly(w, you, g);
