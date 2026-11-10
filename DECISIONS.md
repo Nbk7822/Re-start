@@ -272,3 +272,14 @@ ADR style. Newest at the bottom. Status is one of: proposed, accepted, supersede
   - The peoples design is being revised so that batch 2 onward are derivatives with original names.
   - Cast names should come from the world's invented cultures, not real-language name lists (peoples design, question 6), so batch 1's names are reviewed when that branch merges.
   - Build, Zones and Schedule slice 1 start after the peoples and culture branches merge, in the order the designs set.
+
+## ADR-0026 — Founder sign-off of the World, Player and Loot-and-economy designs
+- **Status:** accepted (2026-11-09), the founder's answers. The documents' other recommended answers stand unless the founder objects.
+- **Context:** The three designs in docs/superpowers/specs asked 11 founder questions between them. The four that shape the game went to the founder; every other question carries a recommended answer at the end of its document.
+- **Decision:**
+  1. **Domination is held or sworn.** Every standing realm either has its seat held by you or its ruler sworn to you, at one moment while you live. Alliances, a shared faith and trade ties make swearing easier but don't count on their own. Once won, the victory is kept and no return undoes it; you may rule on until old age.
+  2. **You die every few years.** About once every three in-game years, through the world's own dangers, which is roughly once per two hours of play at the fastest speed and 12-20 returns in a life. Slice 1 gets there with wounds that bleed until someone tends them, which adds no new draw.
+  3. **A life is a soul's span of 40-50 years from arrival**, whatever the body. Ageless peoples keep the same clock. A full life is about 27-30 hours of play at the fastest speed.
+  4. **You may direct your own moves**: go to, stay at, seek out. These are intentions for your own character only, and needs can still interrupt them. Everyone else is only ever asked.
+  5. **Every other question in the three documents** takes the document's recommended answer. These include the schema and determinism changes of each first slice; war that plunders and burns and kills named people but has no massacres and no slavery; money as goods (silver or salt per world, coin only when a civilization mints one); storied things with a will of their own, kept to blades and a few authored relics; and no food sold to the camp before the food milestone.
+- **Consequences:** ADR-0024's two open points are closed: domination is measurable, and the ageless run on the soul's span. The player design's slice 1 becomes the next big piece after Build, Zones and Schedule slice 1, because it makes Return by Death real.
