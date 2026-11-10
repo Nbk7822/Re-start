@@ -64,7 +64,7 @@ public class WorkTests
     public void BuilderRepairsRoofWithTimber()
     {
         World w = Only(2, "oren");
-        Stock.Add(w, "timber", 4, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 4, w.Map.StartStockpile.Center);
         int timber = Stock.Count(w, "timber");
         Run(w, 6_000, () => w.Map.Roof.Any(r => r.Sound));
         Assert.Contains(w.Map.Roof, r => r.Sound);
@@ -78,7 +78,7 @@ public class WorkTests
     {
         World w = Only(1, "ilex");
         Character ilex = Cast(w, "ilex");
-        ilex.Pos = w.Map.Stockpile.Center;
+        ilex.Pos = w.Map.StartStockpile.Center;
         w.Tick = 6 * w.Content.World.TicksPerHour;
         Assert.Equal(JobKind.SeekCover, JobPicker.Choose(w, ilex)?.Kind);
         Run(w, 600, () => w.Map.Covered(ilex.Pos));
@@ -139,8 +139,8 @@ public class WorkTests
         World w = Only(1, "nia", "mira");
         Character nia = Cast(w, "nia"), mira = Cast(w, "mira");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
-        nia.Pos = w.Map.Stockpile.Center;
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
+        nia.Pos = w.Map.StartStockpile.Center;
         mira.Pos = w.Map.WatchPost;
         SimEvent spoiled = w.Log.Emit(w, SystemTag.Incident, "event.test.spoiled", Array.Empty<int>(), Array.Empty<long>());
         nia.LastFoodEvent = spoiled.Id;

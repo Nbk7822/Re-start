@@ -13,7 +13,7 @@ namespace Return.Sim;
 public sealed class World
 {
     /// <summary>Bump when the snapshot shape changes incompatibly.</summary>
-    public int SchemaVersion { get; set; } = 2;
+    public int SchemaVersion { get; set; } = 3;
     public long Tick { get; set; }
     public ulong Seed { get; set; }
     public int NextId { get; set; } = 1;

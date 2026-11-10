@@ -294,9 +294,11 @@ public static class JobPicker
             case "haul":
             {
                 if (sunBlocked) return null;
+                // Stores left where no stockpile keeps them now are carried first, then loose goods a stockpile would take (ADR-0028).
                 foreach (ItemStack s in w.Items)
-                    if (!w.Map.Stockpile.Contains(s.Pos) && w.Map.Passable(s.Pos) && !Places.Targeted(w, JobKind.Haul, s.Id, c.Id))
-                        return new Job { Kind = JobKind.Haul, TargetId = s.Id, Target = s.Pos };
+                    if (s.Stored && Haulable(w, c, s)) return new Job { Kind = JobKind.Haul, TargetId = s.Id, Target = s.Pos };
+                foreach (ItemStack s in w.Items)
+                    if (!s.Stored && Haulable(w, c, s)) return new Job { Kind = JobKind.Haul, TargetId = s.Id, Target = s.Pos };
                 return null;
             }
             case "keep_watch":
@@ -310,6 +312,10 @@ public static class JobPicker
                 return null;
         }
     }
+
+    /// <summary>A stack worth carrying to a stockpile: not on a tile whose stockpile keeps it, some stockpile does, reachable, and nobody else on it.</summary>
+    private static bool Haulable(World w, Character c, ItemStack s) =>
+        !Zones.Accepts(w, s.Pos, s.DefId) && Zones.Keeps(w, s.DefId) && w.Map.Passable(s.Pos) && !Places.Targeted(w, JobKind.Haul, s.Id, c.Id);
 
     private static Job? SocializeJob(World w, Character c, bool sunBlocked)
     {

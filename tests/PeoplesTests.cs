@@ -424,7 +424,7 @@ public class PeoplesTests
         Relations.ChangeOpinion(w, hollis, qamar.Id, 50, 0);
         Stock.Take(w, "timber", 99);
         Assert.Equal("event.social.bargain_refused_unsafe", Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
-        Stock.Add(w, "timber", 2, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 2, w.Map.StartStockpile.Center);
         Assert.Null(Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
         Relations.ChangeOpinion(w, hollis, qamar.Id, -50, 0);
         Assert.Equal("event.social.bargain_refused", Bargains.RefusalKey(w, hollis, qamar, "timber", 1));
@@ -456,7 +456,7 @@ public class PeoplesTests
         Character you = Cast(w, "you");
         need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow + 1;
         w.Tick = (long)w.Content.World.TicksPerSeason * 3 - Hours(w, 4); // the eve of winter
-        Stock.Add(w, "berries", 4, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 4, w.Map.StartStockpile.Center);
         s.Advance(Hours(w, 8));
         Contract k = Bargains.Binding(w, qamar.Id) ?? w.Contracts.Single();
         Character patron = w.Get(k.PatronId);
@@ -493,7 +493,7 @@ public class PeoplesTests
         need.Value = w.Content.NeedById(Bargains.NeedId).LowBelow - 1;
         w.Tick = Hours(w, 10);
         Contract k = Struck(w, qamar);
-        Stock.Add(w, "timber", 30, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 30, w.Map.StartStockpile.Center);
         long paidBefore = w.Log.All.Count(e => e.Key == "event.social.bargain_paid");
         s.Advance(k.EndsTick - w.Tick + Hours(w, 1));
         Assert.Equal(ContractStatus.Kept, k.Status);
@@ -573,7 +573,7 @@ public class PeoplesTests
         Relations.ChangeOpinion(w, mira, qamar.Id, -60, 0);
         Relations.ChangeOpinion(w, you, qamar.Id, -60, 0);
         foreach (RoofSection r in w.Map.Roof) r.Sound = true; // nobody else takes timber from the stockpile meanwhile
-        Stock.Add(w, "timber", 5, w.Map.Stockpile.Center);
+        Stock.Add(w, "timber", 5, w.Map.StartStockpile.Center);
         int timber = Stock.Count(w, "timber");
         need.Value = 100;
         w.Tick = Hours(w, 10);
@@ -598,7 +598,7 @@ public class PeoplesTests
         World w = WorkTests.Only(1, "you", "mira", "wren", "fionn");
         Character you = Cast(w, "you"), mira = Cast(w, "mira"), wren = Cast(w, "wren"), fionn = Cast(w, "fionn");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         you.Food = 900; fionn.Food = 900; mira.Food = 100; wren.Food = 250; wren.HungerStage = 1;
         var promise = new Debt
         {
@@ -718,7 +718,7 @@ public class PeoplesTests
         World w = WorkTests.Only(1, "you");
         Character you = Cast(w, "you"), fionn = Cast(w, "fionn");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 5, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 5, w.Map.StartStockpile.Center);
         SimEvent arrived = IncidentSystem.Fire(w, "wanderer_arrives", targetId: fionn.Id)!;
         Assert.Equal("event.incident.fae_arrives", arrived.Key);
         SimEvent joined = IncidentSystem.Join(w, fionn, arrived.Id);
@@ -731,7 +731,7 @@ public class PeoplesTests
 
         // Both hungry, one berry set aside for Sennet: Sennet carries it to you instead of eating it.
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
         fionn.Job = null;
         fionn.Pos = w.Map.Hearth with { Y = w.Map.Hearth.Y + 2 };
         you.Food = 120; fionn.Food = 200; fionn.HungerStage = 1; you.HungerStage = 2;

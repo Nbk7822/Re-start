@@ -1,0 +1,3 @@
+[
+  { "id": "stockpile", "nameKey": "zone.stockpile.name", "hintKey": "zone.stockpile.hint", "behaviour": "stores", "layer": "use", "color": "#c8b07a" }
+]

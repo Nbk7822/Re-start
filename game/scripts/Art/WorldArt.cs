@@ -119,7 +119,7 @@ public sealed class WorldArt
                 var p = new SimPoint(x, y);
                 TerrainKind k = m.At(p);
                 if (k is not (TerrainKind.Grass or TerrainKind.Soil)) continue;
-                if (_wear[m.Index(p)] > 0.3f || m.TreeAt(p) != null || m.BushAt(p) != null || p.ChebyshevTo(m.Hearth) <= 1 || m.Stockpile.Contains(p)) continue;
+                if (_wear[m.Index(p)] > 0.3f || m.TreeAt(p) != null || m.BushAt(p) != null || p.ChebyshevTo(m.Hearth) <= 1 || m.StartStockpile.Contains(p)) continue;
                 int n = k == TerrainKind.Grass ? 1 + ArtHash.Pick(3, x, y, 31) : ArtHash.Unit(x, y, 32) < 0.3f ? 1 : 0;
                 for (int i = 0; i < n; i++)
                     tufts.Add((new Vector2((x + 0.15f + 0.7f * ArtHash.Unit(x, y, 40 + i)) * T, (y + 0.2f + 0.75f * ArtHash.Unit(x, y, 50 + i)) * T),
@@ -232,7 +232,7 @@ public sealed class WorldArt
         for (int y = 0; y < _m.Height; y++)
             for (int x = 0; x < _m.Width; x++)
                 if (KindAt(x, y) == TerrainKind.Rock) Boulder(b, x, y);
-        DashedRect(b, TilesRect(_m.Stockpile).Grow(-2f), new Color(0.78f, 0.7f, 0.5f, 0.45f), 1.2f, 5f);
+        DashedRect(b, TilesRect(_m.StartStockpile).Grow(-2f), new Color(0.78f, 0.7f, 0.5f, 0.45f), 1.2f, 5f);
         foreach (Bed bed in _m.Beds) Bedroll(b, bed.Pos);
     }
 

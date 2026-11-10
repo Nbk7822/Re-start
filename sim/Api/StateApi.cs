@@ -261,7 +261,7 @@ public static partial class StateApi
         int berries = 0, timber = 0;
         foreach (ItemStack s in w.Items)
         {
-            if (!w.Map.Stockpile.Contains(s.Pos)) continue;
+            if (!s.Stored) continue; // the camp's stores, wherever they lie (ADR-0028)
             if (s.DefId == "berries") berries += s.Count;
             else if (s.DefId == "timber") timber += s.Count;
         }
@@ -287,7 +287,7 @@ public static partial class StateApi
         foreach (Bed b in m.Beds)
             if (b.Pos == p) contents.Add(loc.Get("place.bed"));
         if (m.Hearth == p) contents.Add(FestivalHearthLine(w) ?? loc.Get("place.hearth"));
-        if (m.Stockpile.Contains(p)) contents.Add(loc.Get("place.stockpile"));
+        if (Systems.Zones.UseZoneAt(w, p) is { } zone && Systems.Zones.IsStores(w, zone)) contents.Add(loc.Get("place.stockpile"));
         if (m.WatchPost == p) contents.Add(loc.Get("place.watch_post"));
         if (m.CoveredRuins.Contains(p)) contents.Add(loc.Get("place.covered_ruins"));
         foreach (RoofSection r in m.Roof)

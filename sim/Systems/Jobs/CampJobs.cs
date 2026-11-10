@@ -82,7 +82,7 @@ public static class CampJobs
             if (!JobRunner.At(w, c, j)) return JobRunner.Failed(j);
             ItemStack? stack = w.Items.Find(s => s.Id == j.TargetId);
             if (stack == null || stack.Pos != c.Pos) return true;
-            c.Carrying = new Carry { DefId = stack.DefId, Count = stack.Count };
+            c.Carrying = new Carry { DefId = stack.DefId, Count = stack.Count, Stored = stack.Stored };
             w.Items.Remove(stack);
             JobRunner.Next(w, c, j, Stock.DropTile(w, c.Carrying.DefId));
             return JobRunner.Failed(j);

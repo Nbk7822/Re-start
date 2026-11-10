@@ -64,7 +64,7 @@ public class CausalityTests
         s.Step();
         Character you = Cast(w, "you"), mira = Cast(w, "mira"), oren = Cast(w, "oren");
         Stock.Take(w, "berries", 99);
-        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        Stock.Add(w, "berries", 1, w.Map.StartStockpile.Center);
 
         // You are the hungriest anyway: "you eat first" changed nothing for Mira.
         you.Food = 100; mira.Food = 200; oren.Food = 900;
@@ -88,7 +88,7 @@ public class CausalityTests
         SimEvent old = Mark(w, "event.test.accident", ilex.Id);
         ilex.LastHealthEvent = old.Id;
         w.Tick = 3L * w.Content.World.TicksPerDay + 12L * w.Content.World.TicksPerHour;
-        ilex.Pos = w.Map.Stockpile.Center;
+        ilex.Pos = w.Map.StartStockpile.Center;
         NeedsSystem.Hourly(w);
         SimEvent burn = w.Log.All.Single(e => e.Key == "event.needs.sun_burn");
         Assert.Empty(burn.Causes);

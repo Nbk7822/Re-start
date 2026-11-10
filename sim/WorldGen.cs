@@ -39,6 +39,7 @@ public static class WorldGen
         ScheduleArrivals(w);
         FormStartersWants(w);
         Systems.Culture.CultureGen.Seed(w);
+        Zones.CreateStart(w); // last, so no id handed out before it moves (ADR-0028)
         return w;
     }
 
@@ -193,11 +194,11 @@ public static class WorldGen
         for (int x = sx + 9; x < sx + 12; x++) m.Set(new Point(x, sy), TerrainKind.Wall);
 
         m.Hearth = new Point(sx + 4, sy + 7);
-        m.Stockpile = new Rect(sx - 5, sy + 6, 4, 3);
+        m.StartStockpile = new Rect(sx - 5, sy + 6, 4, 3);
         m.WatchPost = new Point(sx + 4, Math.Min(height - 3, sy + 15));
 
         bool Reserved(Point p) =>
-            m.Shelter.Contains(p) || m.CoveredRuins.Contains(p) || m.Stockpile.Contains(p) ||
+            m.Shelter.Contains(p) || m.CoveredRuins.Contains(p) || m.StartStockpile.Contains(p) ||
             p.ChebyshevTo(m.Hearth) <= 2 || p == m.WatchPost ||
             (p.X >= sx - 2 && p.X <= sx + 13 && p.Y >= sy - 1 && p.Y <= sy + 9);
         bool Open(Point p) => m.InBounds(p) && m.At(p) is TerrainKind.Grass or TerrainKind.Soil && !Reserved(p) && m.TreeAt(p) == null && m.BushAt(p) == null;
@@ -235,12 +236,12 @@ public static class WorldGen
     private static void PlaceStartItems(World w)
     {
         WorldDef def = w.Content.World;
-        Rect s = w.Map.Stockpile;
+        Rect s = w.Map.StartStockpile;
         ItemDef berries = w.Content.ItemById("berries");
         if (def.StartBerries > 0)
-            w.Items.Add(new ItemStack { Id = w.NewId(), DefId = berries.Id, Count = def.StartBerries, Pos = new Point(s.X, s.Y), SpoilTick = (long)berries.SpoilDays * def.TicksPerDay });
+            w.Items.Add(new ItemStack { Id = w.NewId(), DefId = berries.Id, Count = def.StartBerries, Pos = new Point(s.X, s.Y), SpoilTick = (long)berries.SpoilDays * def.TicksPerDay, Stored = true });
         if (def.StartTimber > 0)
-            w.Items.Add(new ItemStack { Id = w.NewId(), DefId = "timber", Count = def.StartTimber, Pos = new Point(s.X + 1, s.Y) });
+            w.Items.Add(new ItemStack { Id = w.NewId(), DefId = "timber", Count = def.StartTimber, Pos = new Point(s.X + 1, s.Y), Stored = true });
     }
 
     private static void PositionStarters(World w)

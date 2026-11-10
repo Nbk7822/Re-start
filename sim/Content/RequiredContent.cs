@@ -88,6 +88,15 @@ public static class RequiredContent
         return moments;
     }
 
+    /// <summary>The zone kinds WorldGen lays out in every camp (ADR-0028).</summary>
+    public static readonly IReadOnlyList<string> Zones = new[] { "stockpile" };
+
+    /// <summary>Every zone behaviour the simulation implements, with the layer it belongs on (ADR-0028).</summary>
+    public static readonly IReadOnlyList<(string Behaviour, string Layer)> ZoneBehaviours = new (string, string)[]
+    {
+        ("stores", "use"),
+    };
+
     /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>
     public static readonly IReadOnlyList<(string Id, string[] Params)> Needs = new (string, string[])[]
     {

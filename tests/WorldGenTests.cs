@@ -126,7 +126,7 @@ public class WorldGenTests
             Assert.Equal(32, m.Height);
             Assert.All(w.Members(), c => Assert.True(m.Passable(c.Pos), $"seed {seed}: {c.CastKey} starts on a blocked tile {c.Pos}"));
             bool[] reach = Flood(m, w.Get(1).Pos);
-            Assert.True(reach[Idx(m, m.Stockpile.Center)], $"seed {seed}: stockpile unreachable");
+            Assert.True(reach[Idx(m, m.StartStockpile.Center)], $"seed {seed}: stockpile unreachable");
             Assert.True(reach[Idx(m, m.Hearth with { Y = m.Hearth.Y + 1 })], $"seed {seed}: hearth unreachable");
             foreach (RoofSection s in m.Roof)
                 Assert.True(reach[Idx(m, s.Area.Center)], $"seed {seed}: roof section {s.Index} interior unreachable");

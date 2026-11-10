@@ -58,9 +58,9 @@ public static class WorkSystem
     {
         if (c.Carrying is { } carry)
         {
-            Stock.Add(w, carry.DefId, carry.Count, c.Pos);
+            ItemStack put = Stock.Add(w, carry.DefId, carry.Count, c.Pos, carry.Stored);
             c.Carrying = null;
-            Rations.AfterDeposit(w, carry.DefId, c.Pos);
+            Rations.AfterDeposit(w, put);
         }
         c.Job = null;
         c.Path.Clear();

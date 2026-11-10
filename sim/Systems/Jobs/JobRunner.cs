@@ -86,9 +86,9 @@ public static class JobRunner
     public static void Deliver(World w, Character c)
     {
         if (c.Carrying is not { } carry) return;
-        Stock.Add(w, carry.DefId, carry.Count, c.Pos);
+        ItemStack put = Stock.Add(w, carry.DefId, carry.Count, c.Pos, carry.Stored);
         c.Carrying = null;
-        Rations.AfterDeposit(w, carry.DefId, c.Pos);
+        Rations.AfterDeposit(w, put);
     }
 
     public static void RollAccident(World w, Character c, WorkDef def, long cause)

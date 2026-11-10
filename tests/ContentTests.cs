@@ -58,6 +58,7 @@ public class ContentTests
         defs.AddRange(db.Wants);
         defs.AddRange(db.Domains); defs.AddRange(db.Customs);
         defs.AddRange(db.Needs);
+        defs.AddRange(db.Zones);
         foreach (object def in defs)
             foreach (PropertyInfo p in def.GetType().GetProperties())
                 if (p.PropertyType == typeof(string) && p.Name.EndsWith("Key", StringComparison.Ordinal) && p.Name != "Key")
@@ -137,6 +138,33 @@ public class ContentTests
         Assert.Contains("bread", ex.Message);
     }
 
+    /// <summary>A zone kind whose behaviour this build does not implement fails at load, naming the file and the kind (ADR-0028).</summary>
+    [Fact]
+    public void AZoneWithAnUnknownBehaviourFailsAtLoad()
+    {
+        string mod = Path.Combine(Path.GetTempPath(), "return-mod-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(mod);
+        File.WriteAllText(Path.Combine(mod, "zones.json"),
+            "[{ \"id\": \"orchard\", \"nameKey\": \"zone.stockpile.name\", \"hintKey\": \"zone.stockpile.hint\", \"behaviour\": \"grow\", \"layer\": \"use\" }]");
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(ContentDir, new[] { mod }));
+        Assert.Contains("zones.json", ex.Message);
+        Assert.Contains("orchard", ex.Message);
+    }
+
+    /// <summary>A mod may add a kind with a behaviour that exists (a granary that stores), but not on the wrong layer.</summary>
+    [Fact]
+    public void AModMayAddAStoresKindButOnlyOnTheUseLayer()
+    {
+        string mod = Path.Combine(Path.GetTempPath(), "return-mod-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(mod);
+        string granary = "[{ \"id\": \"granary\", \"nameKey\": \"zone.stockpile.name\", \"hintKey\": \"zone.stockpile.hint\", \"behaviour\": \"stores\", \"layer\": \"LAYER\" }]";
+        File.WriteAllText(Path.Combine(mod, "zones.json"), granary.Replace("LAYER", "use", StringComparison.Ordinal));
+        Assert.Equal("stores", ContentDb.Load(ContentDir, new[] { mod }).ZoneById("granary").Behaviour);
+        File.WriteAllText(Path.Combine(mod, "zones.json"), granary.Replace("LAYER", "area", StringComparison.Ordinal));
+        var ex = Assert.Throws<ContentException>(() => ContentDb.Load(ContentDir, new[] { mod }));
+        Assert.Contains("granary", ex.Message);
+    }
+
     /// <summary>A bargain's offer reads from text keyed by its service and price; a service with no words for it fails at load, not in play.</summary>
     [Fact]
     public void ABargainServiceWithoutWordsIsRejected()
@@ -167,6 +195,7 @@ public class ContentTests
             ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).ToList()),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
             ("need", db.Needs.Select(n => n.Id).ToHashSet(), RequiredContent.Needs.Select(n => n.Id).ToList()),
+            ("zone", db.Zones.Select(z => z.Id).ToHashSet(), RequiredContent.Zones),
         };
         var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).Concat(RequiredContent.Needs.SelectMany(n => n.Params)).ToHashSet();
         var customArg = new System.Text.RegularExpressions.Regex("Arg\\(\"([A-Za-z]+)\"\\)");

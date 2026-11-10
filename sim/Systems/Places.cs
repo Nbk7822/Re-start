@@ -168,13 +168,13 @@ public static class Places
         return false;
     }
 
-    /// <summary>Oldest-food stack position in the stockpile, or Point.None.</summary>
+    /// <summary>Where the oldest stored stack of this item lies (in a stockpile, or waiting to be carried to one), or Point.None.</summary>
     public static Point FoodTile(World w, string defId)
     {
         ItemStack? best = null;
         foreach (ItemStack s in w.Items)
         {
-            if (s.DefId != defId || s.Count <= 0 || !w.Map.Stockpile.Contains(s.Pos)) continue;
+            if (s.DefId != defId || s.Count <= 0 || !s.Stored) continue;
             if (best == null || (s.SpoilTick != 0 && (best.SpoilTick == 0 || s.SpoilTick < best.SpoilTick))) best = s;
         }
         return best?.Pos ?? Point.None;

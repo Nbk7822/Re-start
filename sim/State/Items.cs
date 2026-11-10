@@ -10,6 +10,13 @@ public sealed class ItemStack
     public int Count { get; set; }
     public Point Pos { get; set; }
     public long SpoilTick { get; set; }
+
+    /// <summary>
+    /// Put away in a stockpile: the camp's stores, wherever it lies now. Moving a stockpile leaves its
+    /// goods stored where they are, waiting to be carried, so they can still be eaten, shared out and
+    /// stolen (ADR-0028). Loose stacks (a windfall, a load dropped on the way) are not stores.
+    /// </summary>
+    public bool Stored { get; set; }
 }
 
 /// <summary>A claim on stockpile food set aside for one person while food is short (the ration policy).</summary>
@@ -24,4 +31,7 @@ public sealed class Carry
 {
     public string DefId { get; set; } = "";
     public int Count { get; set; }
+
+    /// <summary>A hauler carrying stores keeps them stores, even if the load is dropped on the way (ADR-0028).</summary>
+    public bool Stored { get; set; }
 }

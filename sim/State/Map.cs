@@ -53,6 +53,12 @@ public sealed class Map : IJsonOnDeserialized
     private byte[] _blocked = Array.Empty<byte>();
     private byte[] _bush = Array.Empty<byte>();
 
+    /// <summary>The use-layer zone id on each tile (0 for none), rebuilt by Systems.Zones when <see cref="ZonesDirty"/>.</summary>
+    internal int[] UseZone = Array.Empty<int>();
+
+    /// <summary>Set whenever the zones or the caches change, so the zone cache is rebuilt before its next read.</summary>
+    internal bool ZonesDirty = true;
+
     public int Width { get; set; }
     public int Height { get; set; }
     public byte[] Terrain { get; set; } = Array.Empty<byte>();
@@ -62,9 +68,20 @@ public sealed class Map : IJsonOnDeserialized
     public List<Bed> Beds { get; set; } = new();
     public Rect Shelter { get; set; }
     public Rect CoveredRuins { get; set; }
-    public Rect Stockpile { get; set; }
+
+    /// <summary>
+    /// The rectangle WorldGen laid the first stockpile out on. Only a landmark (the generator's reserved
+    /// ground, worn ground, tests); what the camp keeps where is <see cref="Zones"/> (ADR-0028).
+    /// </summary>
+    public Rect StartStockpile { get; set; }
     public Point Hearth { get; set; }
     public Point WatchPost { get; set; }
+
+    /// <summary>Painted areas (stockpiles, meeting places), in id order (ADR-0028). Change them only through Systems.Zones.</summary>
+    public List<Zone> Zones { get; set; } = new();
+
+    /// <summary>Bumped by every change the view may need to redraw for (a zone marked, moved or removed).</summary>
+    public long Revision { get; set; }
 
     public bool InBounds(Point p) => p.X >= 0 && p.Y >= 0 && p.X < Width && p.Y < Height;
 
@@ -114,6 +131,7 @@ public sealed class Map : IJsonOnDeserialized
             if (!t.Felled) _blocked[Index(t.Pos)] = 1;
         foreach (Bush b in Bushes) _bush[Index(b.Pos)] = 1;
         if (InBounds(Hearth)) _blocked[Index(Hearth)] = 1;
+        ZonesDirty = true;
     }
 
     public void OnDeserialized() => RebuildCaches();
