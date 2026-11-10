@@ -451,6 +451,61 @@ public class CultureHookTests
         Assert.Equal(DebtStatus.Broken, promise.Status);
     }
 
+    // ---- F1, F2: a leader eats last ----
+
+    private static (Simulation Sim, Character You, Character Mira, Character Oren) LeaderCamp(RationPolicy policy)
+    {
+        var sim = Simulation.Create(TestContent.Db, 1);
+        World w = sim.World;
+        foreach (Character c in w.Characters) if (c.CastKey is not ("you" or "mira" or "oren")) c.Status = CharStatus.OffMap;
+        sim.Enqueue(new SetRationPolicy(0, policy));
+        sim.Step();
+        Character you = Cast(w, "you"), mira = Cast(w, "mira"), oren = Cast(w, "oren");
+        Belong(mira, "hearth"); Belong(oren, "reed");
+        Hold(w, "hearth", "clasp_greeting", "leader_last");
+        Hold(w, "reed", "no_touch_greeting");
+        Stock.Take(w, "berries", 99);
+        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        return (sim, you, mira, oren);
+    }
+
+    [Fact]
+    public void ALeaderWhoEatsFirstOffends()
+    {
+        (Simulation sim, Character you, Character mira, Character oren) = LeaderCamp(RationPolicy.SelfFirst);
+        World w = sim.World;
+        you.Food = 300; mira.Food = 200; oren.Food = 250;
+        Rations.Assign(w);
+        Assert.True(Rations.HasReservation(w, you.Id));
+        SimEvent went = w.Log.All.Single(e => e.Key == "event.needs.went_without" && e.Actors[0] == mira.Id);
+        SimEvent offended = w.Log.All.Single(e => e.Key == "event.culture.leader_last.offended");
+        Assert.Equal(SystemTag.Culture, offended.System);
+        Assert.Equal(new[] { mira.Id, you.Id }, offended.Actors);
+        Assert.Equal(new[] { went.Id, w.PolicyEvent }, offended.Causes);
+        Assert.Contains(mira.Thoughts, t => t.DefId == "leader_ate_first" && t.AboutId == you.Id && t.CauseEvent == offended.Id);
+        Assert.Equal("Mira went without while you ate; among " + w.Content.Loc.Get(Ways.CultureById(w, "hearth")!.NameKey) + ", a leader eats last.",
+            Return.Sim.Api.EventText.Describe(w, offended));
+        // Oren keeps no such custom; and a second share-out in the same hunger is no new offence.
+        Assert.DoesNotContain(oren.Thoughts, t => t.DefId == "leader_ate_first");
+        Rations.Assign(w);
+        Assert.Single(w.Log.All, e => e.Key == "event.culture.leader_last.offended");
+    }
+
+    [Fact]
+    public void ALeaderWhoGoesWithoutIsHonoured()
+    {
+        (Simulation sim, Character you, Character mira, _) = LeaderCamp(RationPolicy.Hungriest);
+        World w = sim.World;
+        you.Food = 400; mira.Food = 200;
+        Rations.Assign(w);
+        Assert.True(Rations.HasReservation(w, mira.Id));
+        SimEvent went = w.Log.All.Single(e => e.Key == "event.needs.went_without" && e.Actors[0] == you.Id);
+        SimEvent honoured = w.Log.All.Single(e => e.Key == "event.culture.leader_last.honoured");
+        Assert.Equal(new[] { went.Id }, honoured.Causes);
+        Assert.Contains(mira.Thoughts, t => t.DefId == "leader_ate_last" && t.AboutId == you.Id);
+        Assert.DoesNotContain(w.Log.All, e => e.Key == "event.culture.leader_last.offended");
+    }
+
     [Fact]
     public void StancesShiftWarmthInsultAndConsent()
     {

@@ -29,6 +29,7 @@ public static class Rations
         var byNeed = new List<Character>(eaters);
         byNeed.Sort(ByNeed);
         eaters.Sort((a, b) => Compare(w, a, b));
+        var wentWithout = new List<(Character, long)>();
         for (int i = 0; i < eaters.Count; i++)
         {
             Character c = eaters[i];
@@ -45,9 +46,11 @@ public static class Rations
                     new[] { policy, c.LastFoodEvent }, null, EventArg.Char("a", c.Id));
                 c.SkippedRation = true;
                 c.LastFoodEvent = e.Id;
+                wentWithout.Add((c, e.Id));
             }
             if (!BreakMealPromisesTo(w, c)) TakeSomeoneElsesShare(w, c, food);
         }
+        Culture.LeaderLast.AfterShareOut(w, wentWithout); // who ate first, the leader or the led (ADR-0023)
     }
 
     /// <summary>
