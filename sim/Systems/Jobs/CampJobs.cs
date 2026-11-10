@@ -26,6 +26,7 @@ public static class CampJobs
                 c.Carrying = new Carry { DefId = "berries", Count = n };
                 SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.foraged", new[] { c.Id }, Array.Empty<long>(),
                     EventArg.Char("a", c.Id), EventArg.Num("n", n), EventArg.Item("item", "berries"));
+                Gifts.Foraged(w, c, e); // your satchel fills as you forage (ADR-0030)
                 JobRunner.RollAccident(w, c, def, e.Id);
                 JobRunner.Next(w, c, j, Stock.DropTile(w, "berries"));
                 return JobRunner.Failed(j);

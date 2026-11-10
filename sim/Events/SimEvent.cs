@@ -17,6 +17,10 @@ public enum SystemTag
     Growth,
     /// <summary>Customs, faith and omens: a culture event sits between its cause and its consequence (ADR-0023).</summary>
     Culture,
+    /// <summary>Who you are and Return by Death: waking here, coming back, the end of a lifetime (ADR-0030).</summary>
+    Fate,
+    /// <summary>Your one gift acting in the world: awakening, turning harm, a hidden store, a familiar face (ADR-0030).</summary>
+    Gift,
 }
 
 /// <summary>Persistent state changes. An event that carries one can end a story (ADR-0006).</summary>
@@ -38,6 +42,10 @@ public enum EffectKind
     ContractFormed,
     ContractKept,
     ContractBroken,
+
+    // The player (ADR-0030).
+    /// <summary>Your gift reached a new stage through what you did with it. A is you, RefId the stage reached.</summary>
+    GiftGrew,
 }
 
 /// <summary>A persistent effect. A is the primary character (holder, debtor, the dead), B the other, RefId the grudge or debt id.</summary>

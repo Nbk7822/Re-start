@@ -31,6 +31,12 @@ public partial class InspectorPanel : PanelContainer
     private Label _name = null!;
     private Label _subtitle = null!;
     private Label _belonging = null!;
+    // Your own lines (ADR-0030): your clock, your gift, the lives you lost and what you remember.
+    private Label _life = null!;
+    private GridContainer _fate = null!;
+    private Label _gift = null!;
+    private Label _livesLost = null!;
+    private Label _remembers = null!;
     private Label _job = null!;
     private Label _traits = null!;
     private Label _wants = null!;
@@ -108,6 +114,18 @@ public partial class InspectorPanel : PanelContainer
         _belonging.CustomMinimumSize = new Vector2(ContentWidth, 0);
         _belonging.MouseFilter = MouseFilterEnum.Stop;
         outer.AddChild(_belonging);
+        _life = Ui.MakeLabel("", Ui.SmallFontSize, Ui.Dim);
+        _life.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _life.CustomMinimumSize = new Vector2(ContentWidth, 0);
+        outer.AddChild(_life);
+        _fate = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _fate.AddThemeConstantOverride("h_separation", 8);
+        _fate.AddThemeConstantOverride("v_separation", 2);
+        _gift = FateRow(Ui.T("life.gift"));
+        _gift.MouseFilter = MouseFilterEnum.Stop;
+        _livesLost = FateRow(Ui.T("life.lives_lost"));
+        _remembers = FateRow(Ui.T("life.remembers"));
+        outer.AddChild(_fate);
         _job = Ui.MakeLabel("");
         outer.AddChild(_job);
         outer.AddChild(new HSeparator());
@@ -158,6 +176,16 @@ public partial class InspectorPanel : PanelContainer
         _thoughts = AddList(Ui.T("ui.inspector.thoughts"));
     }
 
+    private Label FateRow(string title)
+    {
+        _fate.AddChild(Ui.MakeLabel(title, Ui.SmallFontSize, Ui.Accent));
+        Label value = Ui.MakeLabel("", Ui.SmallFontSize);
+        value.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        value.CustomMinimumSize = new Vector2(ContentWidth - 80f, 0);
+        _fate.AddChild(value);
+        return value;
+    }
+
     private void AddTitle(string text)
     {
         Label title = Ui.MakeLabel(text, Ui.SmallFontSize, Ui.Accent);
@@ -192,6 +220,21 @@ public partial class InspectorPanel : PanelContainer
         _subtitle.Text = Ui.F("ui.inspector.subtitle", ("species", s.Species), ("status", s.Status));
         _belonging.Text = s.Belonging.Line;
         _belonging.TooltipText = ViewText.BelongingTooltip(s.Belonging);
+        bool you = s.Id == _host.World.PlayerId && _host.World.Fate.PeopleId.Length > 0;
+        _life.Visible = you;
+        _fate.Visible = you;
+        if (you)
+        {
+            FateText.PlayerLines p = FateText.Player(_host.World);
+            _subtitle.Text = p.Subtitle;
+            _subtitle.TooltipText = FateText.Opening(_host.World) is { Count: > 1 } opening ? opening[1] : "";
+            _life.Text = p.Life;
+            _gift.Text = p.Gift.Length == 0 ? Ui.T("ui.inspector.none") : p.Gift;
+            _gift.TooltipText = p.GiftTooltip;
+            _livesLost.Text = p.LivesLost;
+            _remembers.Text = p.Remembers.Count == 0 ? Ui.T("life.remembers_none") : string.Join("\n", p.Remembers);
+        }
+        else _subtitle.TooltipText = "";
         _job.Text = Ui.F("ui.inspector.job", ("job", s.Job));
 
         for (int i = 0; i < s.Needs.Count; i++) SetBar(i, s.Needs[i].Label, s.Needs[i].Value, 1000);

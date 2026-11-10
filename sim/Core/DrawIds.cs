@@ -40,6 +40,17 @@ public enum TruthId : ushort
     PersonBelonging = 43,
     SacredTree = 44,
     FestivalDate = 45,
+    // 80–89: who you are (the player design, ADR-0030). 85–89 stay reserved for later gift details (which god favours you).
+    /// <summary>The people you are reborn as, drawn by weight from rebirth.json (keyed by your cast key).</summary>
+    PlayerPeople = 80,
+    /// <summary>Your one gift, drawn by weight from gifts.json (keyed by your cast key).</summary>
+    PlayerGift = 81,
+    /// <summary>How old someone is when the world begins, within their people's adultAtYears (keyed by cast key).</summary>
+    AdultAge = 82,
+    /// <summary>How many years someone's body lasts, within their people's lifespanYears (keyed by cast key).</summary>
+    Lifespan = 83,
+    /// <summary>The lifetime your soul came with, in days from arrival, within rebirth.json's soulSpanYears (keyed by your cast key).</summary>
+    SoulSpan = 84,
 }
 
 /// <summary>Tags for Dice draws, used for diffing divergent runs. Append only.</summary>
@@ -79,6 +90,14 @@ public enum DiceId : ushort
     FauxPas = 140,
     GuestOffer = 141,
     OmenRead = 142,
+    // 220–239: fate and gifts (the player design, ADR-0030). All draw from DiceSystem.Fate; 223–229 stay
+    // reserved for anomalies (slice 2) and 230–239 for later gifts.
+    /// <summary>Whether a return reaches into the deep past (an old knot) rather than the last three days.</summary>
+    FateKnotTail = 220,
+    /// <summary>Which knot a return goes back to, by weight.</summary>
+    FateKnotPick = 221,
+    /// <summary>Breaks a tie between people equally near when Fortune's favourite turns harm from you.</summary>
+    LuckVictim = 222,
 }
 
 /// <summary>One Dice substream per system. Values must stay contiguous from 0 (they index the stream list).</summary>
@@ -95,4 +114,9 @@ public enum DiceSystem : byte
     /// <summary>Trait mutation and evolution rolls (fixed decision 12). Reserved now so the values stay contiguous; M0 draws nothing from it.</summary>
     Growth = 8,
     Culture = 9,
+    /// <summary>
+    /// Returns and gifts (ADR-0030): which knot a death goes back to, and a gift's own ties. It draws only at a
+    /// return or when a gift acts, so no other system's sequence moves. The one new stream of this wave.
+    /// </summary>
+    Fate = 10,
 }

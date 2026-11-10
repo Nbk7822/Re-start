@@ -164,10 +164,13 @@ public class ContentTests
             ("item", db.Items.Select(i => i.Id).ToHashSet(), RequiredContent.Items),
             ("species", db.Species.Select(s => s.Id).ToHashSet(), RequiredContent.Species),
             ("work", db.Work.Select(x => x.Id).ToHashSet(), RequiredContent.Work),
-            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).ToList()),
+            ("thought", db.Thoughts.Select(t => t.Id).ToHashSet(), RequiredContent.Thoughts.Concat(RequiredContent.CultureThoughts).Concat(RequiredContent.FateThoughts).ToList()),
             ("incident", db.Incidents.Select(i => i.Id).ToHashSet(), RequiredContent.Incidents.Select(i => i.Id).ToList()),
             ("need", db.Needs.Select(n => n.Id).ToHashSet(), RequiredContent.Needs.Select(n => n.Id).ToList()),
+            ("gift", db.Gifts.Select(g => g.Id).ToHashSet(), RequiredContent.Gifts.Select(g => g.Id).ToList()),
         };
+        var giftNum = new System.Text.RegularExpressions.Regex("(?<!EventArg)\\.Num\\(\"([A-Za-z]+)\"");
+        var giftParams = RequiredContent.Gifts.SelectMany(g => g.Params).ToHashSet();
         var allParams = RequiredContent.Incidents.SelectMany(i => i.Params).Concat(RequiredContent.Needs.SelectMany(n => n.Params)).ToHashSet();
         var customArg = new System.Text.RegularExpressions.Regex("Arg\\(\"([A-Za-z]+)\"\\)");
         var customParams = RequiredContent.CustomKinds.SelectMany(k => k.Params).ToHashSet();
@@ -184,6 +187,8 @@ public class ContentTests
                 if (!allParams.Contains(m.Groups[1].Value)) missing.Add($"{Path.GetFileName(file)} reads incident param '{m.Groups[1].Value}'");
             foreach (System.Text.RegularExpressions.Match m in customArg.Matches(text))
                 if (!customParams.Contains(m.Groups[1].Value)) missing.Add($"{Path.GetFileName(file)} reads custom param '{m.Groups[1].Value}'");
+            foreach (System.Text.RegularExpressions.Match m in giftNum.Matches(text))
+                if (!giftParams.Contains(m.Groups[1].Value)) missing.Add($"{Path.GetFileName(file)} reads gift param '{m.Groups[1].Value}'");
         }
         Assert.True(missing.Count == 0, "Not in RequiredContent: " + string.Join("; ", missing.Distinct()));
     }

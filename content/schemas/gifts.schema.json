@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gifts: the one unique ability you are reborn with, drawn once per world (a Truth). Each id names behaviour in code; params tune it (ADR-0030).",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "nameKey", "summaryKey", "growsKey", "weight", "seen", "awakening", "tiers", "params"],
+    "properties": {
+      "id": { "$ref": "#/$defs/id" },
+      "nameKey": { "$ref": "#/$defs/locKey" },
+      "summaryKey": { "description": "What it does, in plain words", "$ref": "#/$defs/locKey" },
+      "growsKey": { "description": "How it grows, in plain words", "$ref": "#/$defs/locKey" },
+      "weight": { "type": "integer", "minimum": 0 },
+      "peoples": {
+        "description": "A weight for a people in place of the base weight (0 for a people it cannot serve)",
+        "type": "object",
+        "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+        "additionalProperties": { "type": "integer", "minimum": 0 }
+      },
+      "seen": { "description": "How others see it: hidden, seen or loud", "enum": ["hidden", "seen", "loud"] },
+      "awakening": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["byDay", "textKey", "dreamKey"],
+        "properties": {
+          "byDay": { "description": "If its trigger has not come by this day (Day 1 first), it arrives in a dream", "type": "integer", "minimum": 1 },
+          "textKey": { "description": "The event line when its trigger wakes it", "$ref": "#/$defs/locKey" },
+          "dreamKey": { "description": "The event line when it arrives in a dream", "$ref": "#/$defs/locKey" }
+        }
+      },
+      "tiers": {
+        "description": "Stages it reaches at counts of the events that make it grow, ascending from 0",
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "stageKey", "params"],
+          "properties": {
+            "at": { "type": "integer", "minimum": 0 },
+            "stageKey": { "description": "The stage in plain words", "$ref": "#/$defs/locKey" },
+            "params": { "$ref": "#/$defs/params" }
+          }
+        }
+      },
+      "order": {
+        "description": "A standing order only you can give while you hold it",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "choices", "default"],
+        "properties": {
+          "id": { "$ref": "#/$defs/locKey" },
+          "choices": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/id" } },
+          "default": { "$ref": "#/$defs/id" }
+        }
+      },
+      "params": { "$ref": "#/$defs/params" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "locKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+    "params": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
+      "additionalProperties": { "type": "integer" }
+    }
+  }
+}

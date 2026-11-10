@@ -18,6 +18,12 @@ public static class CombatSystem
     public const int DamageMin = 60;
     public const int DamageMax = 140;
 
+    /// <summary>
+    /// A wound bleeds this share of its damage, in health an hour, until someone tends it (the player design §8.5,
+    /// ADR-0030). A code constant (ADR-0013), tuned so you die by the world's own dangers about once every three years.
+    /// </summary>
+    public const int BleedSharePct = 225;
+
     public static void Step(World w)
     {
         for (int i = 0; i < w.Characters.Count; i++)
@@ -38,11 +44,20 @@ public static class CombatSystem
         }
     }
 
-    /// <summary>Damages a member; downs them below 150 health and kills them at 0.</summary>
-    public static void Hurt(World w, Character c, int damage, long cause, string deathKey, SystemTag system)
+    /// <summary>
+    /// Damages a member; downs them below 150 health and kills them at 0. A wound that <paramref name="bleeds"/> (an
+    /// accident, a blow) goes on costing health each hour until someone tends it; it adds no draw (ADR-0030).
+    /// </summary>
+    public static void Hurt(World w, Character c, int damage, long cause, string deathKey, SystemTag system, bool bleeds = false)
     {
         c.Health -= damage;
         c.LastHealthEvent = cause;
+        if (bleeds && c.Health > 0)
+        {
+            c.Bleed += Math.Max(1, damage * BleedSharePct / 100);
+            c.BleedCause = cause;
+            c.BleedDeath = deathKey;
+        }
         MoodSystem.AddThought(w, c, "wounded", 0, cause);
         if (c.Health <= 0)
         {
@@ -106,10 +121,12 @@ public static class CombatSystem
         Character target = defenders[0];
         if (dice.Chance(DiceId.CombatHit, HitPermille))
         {
-            Hurt(w, target, dice.Range(DiceId.CombatDamage, DamageMin, DamageMax + 1), tj.CauseEvent, "event.combat.died_wounds", SystemTag.Combat);
-            if (target.Status == CharStatus.Member && target.Downed)
-                w.Log.Emit(w, SystemTag.Combat, "event.combat.downed", new[] { target.Id, thief.Id }, new[] { target.LastHealthEvent }, null,
-                    EventArg.Char("a", target.Id), EventArg.Char("b", thief.Id));
+            int damage = dice.Range(DiceId.CombatDamage, DamageMin, DamageMax + 1);
+            (Character hit, long why) = Gifts.TurnHarm(w, target, damage, tj.CauseEvent, blow: true); // Fortune's favourite (ADR-0030)
+            Hurt(w, hit, damage, why, "event.combat.died_wounds", SystemTag.Combat, bleeds: true);
+            if (hit.Status == CharStatus.Member && hit.Downed)
+                w.Log.Emit(w, SystemTag.Combat, "event.combat.downed", new[] { hit.Id, thief.Id }, new[] { hit.LastHealthEvent }, null,
+                    EventArg.Char("a", hit.Id), EventArg.Char("b", thief.Id));
         }
         foreach (Character d in defenders)
         {

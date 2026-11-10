@@ -8,9 +8,11 @@ namespace Return.Sim;
 
 /// <summary>
 /// The facade every consumer uses (runner, tests, the game view). One <see cref="Step"/> is one tick,
-/// run in a fixed system order. Same seed + same commands = same world.
+/// run in a fixed system order. Same seed + same commands = same world. When you die, the end of the step
+/// sends the world back to a fate knot and <see cref="World"/> becomes the restored world (ADR-0030); read it
+/// afresh after every step.
 /// </summary>
-public sealed class Simulation
+public sealed partial class Simulation
 {
     private Simulation(World world)
     {
@@ -21,11 +23,10 @@ public sealed class Simulation
     /// <summary>How many log events hooks have been shown; hooks see only events from after they could be added.</summary>
     private int _delivered;
 
-    public World World { get; }
+    public World World { get; private set; }
 
-    public static Simulation Create(ContentDb content, ulong seed) => new(WorldGen.Create(content, seed));
-
-    public static Simulation Restore(ContentDb content, byte[] snapshot) => new(SnapshotSerializer.Load(snapshot, content));
+    /// <summary>A new world for a seed; your people and gift are rolled unless <paramref name="choice"/> chooses them for testing.</summary>
+    public static Simulation Create(ContentDb content, ulong seed, RebirthChoice? choice = null) => new(WorldGen.Create(content, seed, choice));
 
     public void AddHook(IModHook hook)
     {
@@ -38,6 +39,7 @@ public sealed class Simulation
         if (command.Tick < World.Tick)
             throw new ArgumentException($"Command for tick {command.Tick} is in the past (now {World.Tick}).", nameof(command));
         Command stamped = command with { Seq = World.NextCommandSeq++ };
+        World.Fate.Commands.Add(new TimedCommand { EnqueuedAt = World.Tick, Command = stamped }); // for Replay (ADR-0030)
         List<Command> pending = World.PendingCommands;
         int at = pending.Count;
         while (at > 0 && pending[at - 1].Tick > stamped.Tick) at--;
@@ -47,6 +49,9 @@ public sealed class Simulation
     public void Step()
     {
         World w = World;
+        if (w.Fate.Ended) return; // old age or the soul's end: there is no return from this (ADR-0030)
+        _stepLogStart = w.Log.All.Count;
+        if (w.Tick == 0) Fate.Wake(w);
         WorldDef def = w.Content.World;
         ApplyDueCommands(w);
         TravelSystem.Step(w);
@@ -57,6 +62,7 @@ public sealed class Simulation
         {
             NeedsSystem.Hourly(w);
             Bargains.Hourly(w); // a bargain's price is paid at dawn, before food is shared out (ADR-0022)
+            Gifts.Hourly(w); // you eat from your satchel before food is shared out (ADR-0030)
             Rations.Assign(w);
             MoodSystem.Hourly(w);
             SocialSystem.Hourly(w);
@@ -66,6 +72,7 @@ public sealed class Simulation
         }
         DeliverToHooks();
         w.Tick++;
+        EndOfTick(); // the end of your lifetime, a return, or a fate knot (ADR-0030)
     }
 
     /// <summary>
@@ -88,8 +95,6 @@ public sealed class Simulation
     {
         for (long i = 0; i < ticks; i++) Step();
     }
-
-    public byte[] Snapshot() => SnapshotSerializer.Save(World);
 
     public string StateHash() => SnapshotSerializer.Hash(World);
 

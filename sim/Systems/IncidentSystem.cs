@@ -48,6 +48,7 @@ public static class IncidentSystem
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, key, new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
         c.LastFoodEvent = e.Id;
         Growth.EnterWorld(w, c, e.Id);
+        Gifts.OnArrival(w, c, e.Id); // someone you were close to in a lost future may know you (ADR-0030)
         Point near = Places.Adjacent(w, w.Map.Hearth, c.Pos);
         c.Job = new Job { Kind = JobKind.Arrive, Target = near, StartedTick = w.Tick, CauseEvent = e.Id };
         TravelSystem.Start(w, c, near);
@@ -168,9 +169,17 @@ public static class IncidentSystem
         if (c == null || c.Status != CharStatus.Member) return null;
         IncidentDef def = w.Content.IncidentById("work_accident");
         int damage = w.Rng.Dice[DiceSystem.Incident].Range(DiceId.AccidentDamage, def.Param("damageMin"), def.Param("damageMax") + 1);
+        (Character hurt, long turned) = Gifts.TurnHarm(w, c, damage, cause, blow: false); // Fortune's favourite (ADR-0030)
+        if (hurt != c)
+        {
+            SimEvent turn = w.Log.Get(turned)!;
+            Culture.Omens.OnSign(w, "work_accident", turn);
+            CombatSystem.Hurt(w, hurt, damage, turn.Id, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
+            return turn;
+        }
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
         Culture.Omens.OnSign(w, "work_accident", e);
-        CombatSystem.Hurt(w, c, damage, e.Id, "event.incident.died_accident", SystemTag.Incident);
+        CombatSystem.Hurt(w, c, damage, e.Id, "event.incident.died_accident", SystemTag.Incident, bleeds: true);
         return e;
     }
 

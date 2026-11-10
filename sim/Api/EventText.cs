@@ -17,11 +17,17 @@ public static class EventText
     /// A character placeholder that does not open the sentence uses the name's "_mid" variant when the
     /// table has one, so the player reads "You asked…" but "…asked you".
     /// </summary>
-    public static string Describe(World w, SimEvent e)
+    public static string Describe(World w, SimEvent e) => Describe(w, e.Key, e.Args);
+
+    /// <summary>A line of a lost future (ADR-0030), frozen as a key and arguments, read in the world as it is now.</summary>
+    public static string Describe(World w, LostLine line) => Describe(w, line.Key, line.Args);
+
+    /// <summary>An event's text from its key and arguments (a live event's, or a frozen line's).</summary>
+    public static string Describe(World w, string eventKey, IReadOnlyList<EventArg> eventArgs)
     {
         LocTable loc = w.Content.Loc;
-        string key = SecondPersonKey(w, e) ?? e.Key;
-        foreach (EventArg a in e.Args)
+        string key = SecondPersonKey(w, eventKey, eventArgs) ?? eventKey;
+        foreach (EventArg a in eventArgs)
         {
             if (a.Name != "n") continue;
             if (a.Value == "n:1" && loc.Has(key + "_one")) key += "_one";
@@ -29,11 +35,11 @@ public static class EventText
             break;
         }
         string template = loc.Get(key);
-        var args = new List<KeyValuePair<string, string>>(e.Args.Count);
+        var args = new List<KeyValuePair<string, string>>(eventArgs.Count);
         bool single = false;
-        foreach (EventArg a in e.Args)
+        foreach (EventArg a in eventArgs)
             if (a.Name == "n" && a.Value == "n:1") single = true;
-        foreach (EventArg a in e.Args)
+        foreach (EventArg a in eventArgs)
         {
             string value = Resolve(w, a.Value);
             if (single && a.Value.StartsWith("i:", StringComparison.Ordinal) && w.Content.TryItem(a.Value.Substring(2)) is { } item && loc.Has(item.NameKey + "_one"))
@@ -46,14 +52,14 @@ public static class EventText
         return loc.Format(key, args);
     }
 
-    private static string? SecondPersonKey(World w, SimEvent e)
+    private static string? SecondPersonKey(World w, string key, IReadOnlyList<EventArg> args)
     {
         if (w.PlayerId == 0) return null;
         string player = "c:" + w.PlayerId.ToString(Inv);
-        foreach (EventArg a in e.Args)
+        foreach (EventArg a in args)
         {
             if (a.Value != player) continue;
-            string variant = e.Key + "_you_" + a.Name;
+            string variant = key + "_you_" + a.Name;
             if (w.Content.Loc.Has(variant)) return variant;
         }
         return null;
@@ -83,9 +89,31 @@ public static class EventText
                 return loc.Get(body);
             case 'n':
                 return body;
+            case 'e':
+                return Quote(w, body) ?? value;
             default:
                 return value;
         }
+    }
+
+    /// <summary>
+    /// An <c>e:&lt;future&gt;:&lt;line&gt;</c> argument (ADR-0030): one line quoting another, here a memory quoting the
+    /// lost future it came from, without composing English. Null if the run memory holds no such line.
+    /// </summary>
+    private static string? Quote(World w, string body)
+    {
+        int colon = body.IndexOf(':');
+        if (colon <= 0 || !int.TryParse(body.AsSpan(0, colon), NumberStyles.Integer, Inv, out int future)
+            || !int.TryParse(body.AsSpan(colon + 1), NumberStyles.Integer, Inv, out int line)) return null;
+        List<LostFuture> futures = w.Fate.LostFutures;
+        if (future < 0 || future >= futures.Count || line < 0 || line >= futures[future].Lines.Count) return null;
+        LostLine quoted = futures[future].Lines[line];
+        // A memory of a memory (a return to before an earlier one, where the remembered grudge was the wrong) quotes what
+        // was first remembered, not the remembering. A line quotes only futures lost before its own, so this ends.
+        if (Systems.Memories.IsRememberedKey(quoted.Key))
+            foreach (EventArg a in quoted.Args)
+                if (a.Value.StartsWith("e:", StringComparison.Ordinal) && Quote(w, a.Value.Substring(2)) is { } first) return first;
+        return Describe(w, quoted);
     }
 
     public static string Name(World w, int id)

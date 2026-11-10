@@ -268,7 +268,7 @@ public class CultureSeedTests
         string log = text.ToString();
         Assert.Contains("Peoples and faiths\n------------------\n  Among the ", log);
         Assert.Matches("\n  Followers of the [A-Za-z ]+ honour [A-Z][a-z]+, [^\n]+ \\((stern|kindly|fickle|distant)\\)", log);
-        Assert.Contains("  You (Human, from another world): ", log);
+        Assert.Contains("  You (Human, reborn here): ", log); // the otherworlder's line says where you came from (ADR-0030)
         Assert.DoesNotContain("⟦", log);
     }
 }

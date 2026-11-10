@@ -25,7 +25,9 @@ public class RunnerTests
         // Where someone belongs varies by seed (ADR-0023), so only the start of the cast line is pinned.
         Assert.Contains(lines, l => l.StartsWith("  Mira (Human, of ", StringComparison.Ordinal) && l.Contains("): Protective, ", StringComparison.Ordinal));
         Assert.Contains(lines, l => l.StartsWith("  Ilex (Vampire, of ", StringComparison.Ordinal) && l.Contains("): Proud, ", StringComparison.Ordinal));
-        Assert.Contains(lines, l => l.StartsWith("  You (Human, from another world): Practical, ", StringComparison.Ordinal));
+        // You are reborn as a rolled people with a rolled gift (ADR-0030): both Truths, so seed 1 is always a human with a gift.
+        Assert.Contains(lines, l => l.StartsWith("  You (Human, reborn here; gift: ", StringComparison.Ordinal) && l.Contains("): Practical, ", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.StartsWith("You were reborn here as a human, with a gift: ", StringComparison.Ordinal));
         Assert.Contains("Peoples and faiths", lines);
         Assert.Contains("The camp at the end", lines);
         Assert.DoesNotContain("⟦", log);

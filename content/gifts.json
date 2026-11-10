@@ -1,0 +1,51 @@
+[
+  {
+    "id": "satchel",
+    "nameKey": "gift.satchel.name",
+    "summaryKey": "gift.satchel.summary",
+    "growsKey": "gift.satchel.grows",
+    "weight": 10,
+    "peoples": {},
+    "seen": "seen",
+    "awakening": { "byDay": 2, "textKey": "event.gift.satchel.awakened", "dreamKey": "event.gift.satchel.dreamed" },
+    "tiers": [
+      { "at": 0, "stageKey": "gift.satchel.stage1", "params": { "capacity": 3 } },
+      { "at": 3, "stageKey": "gift.satchel.stage2", "params": { "capacity": 6 } },
+      { "at": 8, "stageKey": "gift.satchel.stage3", "params": { "capacity": 10 } }
+    ],
+    "order": { "id": "gift.satchel", "choices": ["keep", "share", "empty"], "default": "keep" },
+    "params": { "sight": 8, "grudgeIntensity": 30 }
+  },
+  {
+    "id": "fortunes_favourite",
+    "nameKey": "gift.fortunes_favourite.name",
+    "summaryKey": "gift.fortunes_favourite.summary",
+    "growsKey": "gift.fortunes_favourite.grows",
+    "weight": 10,
+    "peoples": {},
+    "seen": "loud",
+    "awakening": { "byDay": 10, "textKey": "event.gift.luck.awakened", "dreamKey": "event.gift.luck.dreamed" },
+    "tiers": [
+      { "at": 0, "stageKey": "gift.fortunes_favourite.stage1", "params": { "reach": 1, "deathPasses": 0 } },
+      { "at": 3, "stageKey": "gift.fortunes_favourite.stage2", "params": { "reach": 2, "deathPasses": 0 } },
+      { "at": 7, "stageKey": "gift.fortunes_favourite.stage3", "params": { "reach": 2, "deathPasses": 1 } }
+    ],
+    "params": { "sight": 8, "witnessPct": 50 }
+  },
+  {
+    "id": "familiar_faces",
+    "nameKey": "gift.familiar_faces.name",
+    "summaryKey": "gift.familiar_faces.summary",
+    "growsKey": "gift.familiar_faces.grows",
+    "weight": 10,
+    "peoples": {},
+    "seen": "hidden",
+    "awakening": { "byDay": 10, "textKey": "event.gift.familiar.awakened", "dreamKey": "event.gift.familiar.dreamed" },
+    "tiers": [
+      { "at": 0, "stageKey": "gift.familiar_faces.stage1", "params": { "echoPct": 25 } },
+      { "at": 2, "stageKey": "gift.familiar_faces.stage2", "params": { "echoPct": 40 } },
+      { "at": 5, "stageKey": "gift.familiar_faces.stage3", "params": { "echoPct": 60 } }
+    ],
+    "params": { "echoAtLeast": 30, "withinDays": 10 }
+  }
+]

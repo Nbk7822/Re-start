@@ -13,7 +13,7 @@ namespace Return.Sim;
 public sealed class World
 {
     /// <summary>Bump when the snapshot shape changes incompatibly.</summary>
-    public int SchemaVersion { get; set; } = 2;
+    public int SchemaVersion { get; set; } = 3; // 3: run memory, gift state, wounds and the Fate stream (ADR-0030)
     public long Tick { get; set; }
     public ulong Seed { get; set; }
     public int NextId { get; set; } = 1;
@@ -42,6 +42,18 @@ public sealed class World
 
     /// <summary>This world's peoples, faiths and gods, and the running state of their customs (ADR-0023).</summary>
     public CultureBook Culture { get; set; } = new();
+
+    /// <summary>Run memory: who you are, your timelines and what you carry across a death. A return does not restore it (ADR-0030).</summary>
+    public FateBook Fate { get; set; } = new();
+
+    /// <summary>Your gift's state in this timeline; it goes back with the world (ADR-0030).</summary>
+    public GiftState Gift { get; set; } = new();
+
+    /// <summary>Memories from lost futures applied in this world's history (ADR-0030).</summary>
+    public List<AppliedMemory> Remembered { get; set; } = new();
+
+    /// <summary>Standing orders you have given, ordinal by order id (ADR-0030).</summary>
+    public List<StandingOrder> StandingOrders { get; set; } = new();
 
     [JsonIgnore]
     public ContentDb Content { get; set; } = null!;

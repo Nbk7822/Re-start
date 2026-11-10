@@ -28,10 +28,14 @@ public static class WorldGen
     private const int StartBerriesOnBush = 4;
     private const int LateArrivals = 3;
 
-    public static World Create(ContentDb content, ulong seed)
+    /// <summary>
+    /// A new world for a seed. Your people and gift are rolled from Truths (ADR-0030) unless <paramref name="choice"/>
+    /// chooses them for testing.
+    /// </summary>
+    public static World Create(ContentDb content, ulong seed, RebirthChoice? choice = null)
     {
         var w = new World { Seed = seed, Rng = Rng.FromSeed(seed), Content = content };
-        CreateCast(w);
+        CreateCast(w, choice);
         w.Map = BuildMap(w);
         foreach (Character c in w.Characters) Systems.NatureNeeds.Init(w, c); // after the map: a dryad is bound to one of its trees
         PlaceStartItems(w);
@@ -42,16 +46,22 @@ public static class WorldGen
         return w;
     }
 
-    public static CharacterNature NatureOf(ContentDb content, ulong seed, string castKey)
+    /// <summary>
+    /// What a cast member is by nature. For you, the otherworlder, that follows the people you are reborn as (a Truth,
+    /// ADR-0030), so your natural want matches your people (a vampire can want daylight); <paramref name="species"/>
+    /// names a people chosen for testing instead.
+    /// </summary>
+    public static CharacterNature NatureOf(ContentDb content, ulong seed, string castKey, string? species = null)
     {
         CastDef cast = content.CastByKey(castKey);
+        species ??= Rebirth.IsYou(cast) ? Rebirth.PeopleOf(content, seed, castKey) : cast.Species;
         var pool = new List<string>();
         foreach (TraitDef t in content.Traits)
             if (t.Id != cast.SignatureTrait) pool.Add(t.Id);
         var truths = new TruthRng { WorldSeed = seed };
         int pick = truths.Range(TruthId.SecondaryTrait, Fnv1a.Hash64(castKey), 0, 0, pool.Count);
         WantDef? want = Growth.NaturalWant(content, truths, Fnv1a.Hash64(castKey), new[] { cast.SignatureTrait, pool[pick] },
-            cast.Species, cast.Role, cast.Otherworlder, someoneElse: true);
+            species, cast.Role, cast.Otherworlder, someoneElse: true);
         return new CharacterNature(pool[pick], want?.Id ?? "");
     }
 
@@ -62,7 +72,8 @@ public static class WorldGen
         while (w.Characters.Count < total)
         {
             Character template = w.Characters[i % 10];
-            var c = NewCharacter(w, w.Content.CastByKey(template.CastKey), template.Traits[1]);
+            CastDef td = w.Content.CastByKey(template.CastKey);
+            var c = NewCharacter(w, td, template.Traits[1], td.Species);
             c.CastKey = template.CastKey + "_" + w.Characters.Count;
             c.Otherworlder = false;
             c.Status = CharStatus.Member;
@@ -77,25 +88,34 @@ public static class WorldGen
         }
     }
 
-    private static void CreateCast(World w)
+    /// <summary>
+    /// The cast, in file order (so cast ids are stable across timelines). You, the otherworlder who starts in camp,
+    /// are reborn as the people rolled for this world, or chosen for testing (ADR-0030); cast.json's species for you
+    /// is only the fallback a mod sees.
+    /// </summary>
+    private static void CreateCast(World w, RebirthChoice? choice)
     {
         foreach (CastDef cd in w.Content.Cast)
         {
-            Character c = NewCharacter(w, cd, NatureOf(w.Content, w.Seed, cd.Key).SecondaryTrait);
+            bool you = w.PlayerId == 0 && Rebirth.IsYou(cd);
+            string species = you ? Rebirth.PeopleFor(w.Content, w.Seed, cd.Key, choice) : cd.Species;
+            Character c = NewCharacter(w, cd, NatureOf(w.Content, w.Seed, cd.Key, species).SecondaryTrait, species);
             c.Status = cd.StartsInCamp ? CharStatus.Member : CharStatus.OffMap;
-            if (w.PlayerId == 0 && cd.Otherworlder && cd.StartsInCamp) w.PlayerId = c.Id;
             w.Characters.Add(c);
+            if (!you) continue;
+            w.PlayerId = c.Id;
+            Rebirth.Begin(w, c, choice);
         }
     }
 
-    private static Character NewCharacter(World w, CastDef cd, string secondaryTrait)
+    private static Character NewCharacter(World w, CastDef cd, string secondaryTrait, string species)
     {
         var c = new Character
         {
             Id = w.NewId(),
             CastKey = cd.Key,
             NameKey = cd.NameKey,
-            SpeciesId = cd.Species,
+            SpeciesId = species,
             RoleId = cd.Role,
             Otherworlder = cd.Otherworlder,
             Named = true,
@@ -104,7 +124,8 @@ public static class WorldGen
         c.Growth.TraitOrigins = Growth.GeneratedOrigins(c.Traits);
         foreach (RolePriority p in w.Content.RoleById(cd.Role).Priorities)
             c.Priorities.Add(new WorkPriority { WorkId = p.Work, Priority = p.Priority });
-        if (w.Content.SpeciesById(cd.Species).EatsNothing) c.Food = 1000;
+        if (w.Content.SpeciesById(species).EatsNothing) c.Food = 1000;
+        Rebirth.SetAges(w, c, species, cd.Key);
         return c;
     }
 
@@ -287,6 +308,8 @@ public static class WorldGen
         }
         int early = Math.Max(0, waiting.Count - LateArrivals);
         int lateFrom = (def.SeasonsPerYear - 1) * def.DaysPerSeason - 1; // the eve of winter
+        // Each slot keeps its window (ADR-0015's first week, the eve of winter) so a return can re-draw within it (ADR-0030).
+        (int First, int Last) firstWeek = (1, 1 + (early - 1) * 3 / 2 + 1), eveOfWinter = (lateFrom, lateFrom + (waiting.Count - early - 1) * 3 + 2);
         for (int i = 0; i < waiting.Count; i++)
         {
             Character c = waiting[i];
@@ -297,7 +320,12 @@ public static class WorldGen
             int hour = burns
                 ? (def.DuskHour + 1 + dice.Range(DiceId.ArrivalHour, 0, 6)) % def.HoursPerDay
                 : dice.Range(DiceId.ArrivalHour, 8, 18);
-            w.Arrivals.Add(new Arrival { CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour });
+            (int first, int last) = i < early ? firstWeek : eveOfWinter;
+            w.Arrivals.Add(new Arrival
+            {
+                CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour,
+                FirstDay = first, LastDay = last, Shuffled = true,
+            });
         }
 
         // Those who come in their own season (cast.json arrivalDays, ADR-0022) draw after the shuffled
@@ -310,7 +338,78 @@ public static class WorldGen
             int hour = burns
                 ? (def.DuskHour + 1 + dice.Range(DiceId.PeopleArrivalHour, 0, 6)) % def.HoursPerDay
                 : dice.Range(DiceId.PeopleArrivalHour, 8, 18);
-            w.Arrivals.Add(new Arrival { CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour });
+            w.Arrivals.Add(new Arrival
+            {
+                CharacterId = c.Id, Tick = (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour,
+                FirstDay = window[0] - 1, LastDay = window[1] - 1,
+            });
         }
+    }
+
+    /// <summary>
+    /// After a return (ADR-0030): ScheduleArrivals fixed every arrival's tick when the world was made, so a reseed
+    /// alone would bring the same people at the same hours. For every arrival still to come, re-draw who fills each
+    /// remaining wanderer slot (shuffled among those slots) and when, from the reseeded World stream with the same
+    /// tags, within each slot's window (or the person's own season) and never before now. The hours keep to each
+    /// person's kind: night for those the sun burns. Only if a window has no hour left for someone (a burner moved
+    /// onto a day slot on its last day) do they come at the first such hour after it.
+    /// </summary>
+    public static void RedrawArrivals(World w)
+    {
+        WorldDef def = w.Content.World;
+        DiceStream dice = w.Rng.Dice[DiceSystem.World];
+        var slots = new List<Arrival>();
+        var people = new List<int>();
+        foreach (Arrival a in w.Arrivals)
+            if (!a.Done && a.Shuffled) { slots.Add(a); people.Add(a.CharacterId); }
+        for (int k = people.Count - 1; k > 0; k--)
+        {
+            int j = dice.Range(DiceId.ArrivalOrder, 0, k + 1);
+            (people[k], people[j]) = (people[j], people[k]);
+        }
+        for (int i = 0; i < slots.Count; i++)
+        {
+            slots[i].CharacterId = people[i];
+            slots[i].Tick = RedrawTick(w, slots[i], DiceId.ArrivalDay, DiceId.ArrivalHour);
+        }
+        foreach (Arrival a in w.Arrivals)
+            if (!a.Done && !a.Shuffled) a.Tick = RedrawTick(w, a, DiceId.PeopleArrivalDay, DiceId.PeopleArrivalHour);
+    }
+
+    /// <summary>The hours of the day someone may walk in: from dusk into the small hours for those the sun burns, else 08:00 to 17:00.</summary>
+    public static IReadOnlyList<int> ArrivalHours(World w, Character c)
+    {
+        WorldDef def = w.Content.World;
+        var hours = new List<int>();
+        if (w.Content.SpeciesById(c.SpeciesId).DaylightBurnPerHour > 0)
+            for (int r = 0; r < 6; r++) hours.Add((def.DuskHour + 1 + r) % def.HoursPerDay);
+        else
+            for (int h = 8; h < 18; h++) hours.Add(h);
+        return hours;
+    }
+
+    private static long RedrawTick(World w, Arrival a, DiceId dayDraw, DiceId hourDraw)
+    {
+        WorldDef def = w.Content.World;
+        DiceStream dice = w.Rng.Dice[DiceSystem.World];
+        Character c = w.Get(a.CharacterId);
+        IReadOnlyList<int> hours = ArrivalHours(w, c);
+        long At(int day, int hour) => (long)day * def.TicksPerDay + (long)hour * def.TicksPerHour;
+        var days = new List<int>();
+        for (int d = Math.Max(a.FirstDay, Calendar.Day(w.Tick, def)); d <= a.LastDay; d++)
+            foreach (int h in hours)
+                if (At(d, h) > w.Tick) { days.Add(d); break; }
+        if (days.Count == 0)
+        {
+            // Nothing left in the window for them: the first hour of theirs after now.
+            for (int d = Calendar.Day(w.Tick, def); ; d++)
+                foreach (int h in hours)
+                    if (At(d, h) > w.Tick) return At(d, h);
+        }
+        int day = days[dice.Range(dayDraw, 0, days.Count)];
+        var open = new List<int>();
+        foreach (int h in hours)
+            if (At(day, h) > w.Tick) open.Add(h);
+        return At(day, open[dice.Range(hourDraw, 0, open.Count)]);
     }
 }

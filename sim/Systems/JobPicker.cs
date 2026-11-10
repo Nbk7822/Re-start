@@ -33,6 +33,9 @@ public static class JobPicker
             if (spot != Point.None) return new Job { Kind = JobKind.SeekCover, Target = spot, CauseEvent = c.LastHealthEvent };
         }
 
+        // Bleeding, with a carer on the way: wait for them where you are (ADR-0030).
+        if (WorkSystem.AwaitsTending(w, c)) return new Job { Kind = JobKind.Wander, Target = c.Pos, TargetId = 60, CauseEvent = c.BleedCause };
+
         // One who cannot lie keeps their word before anything else, even their own hunger (ADR-0022).
         if (sp.CannotLie)
         {
@@ -75,6 +78,9 @@ public static class JobPicker
 
         Job? promise = PromiseJob(w, c);
         if (promise != null) return promise;
+
+        Job? gift = Gifts.Job(w, c, sunBlocked); // your satchel, shared with the starving if that is your order (ADR-0030)
+        if (gift != null) return gift;
 
         if (Traits.Sum(w, c, t => t.CareUrgency) > 0 || PriorityOf(c, "care") == 1)
         {
@@ -185,7 +191,7 @@ public static class JobPicker
         foreach (Character p in w.Characters)
         {
             if (p.Id == c.Id || p.Status != CharStatus.Member) continue;
-            if (!p.Downed && p.Health >= InjuredBelow) continue;
+            if (!p.Downed && p.Health >= InjuredBelow && p.Bleed == 0) continue; // anyone bleeding counts as injured (ADR-0030)
             if (Places.Targeted(w, JobKind.Care, p.Id, c.Id)) continue;
             if (sunBlocked && !w.Map.Covered(p.Pos)) continue;
             int d = c.Pos.ChebyshevTo(p.Pos);

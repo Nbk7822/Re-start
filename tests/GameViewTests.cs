@@ -16,7 +16,7 @@ namespace Return.Tests;
 public class GameViewTests
 {
     private static readonly string ContentDir = Path.Combine(TestPaths.Root, "content");
-    private static readonly ContentDb Content = ContentDb.Load(ContentDir);
+    private static readonly ContentDb Content = TestContent.Db; // you as a human with no gift, as these seeded views were written (ADR-0030)
 
     public GameViewTests()
     {
@@ -514,24 +514,25 @@ public class GameViewTests
     }
 
     /// <summary>
-    /// The first blow in a thief fight, in seed 34 or the first seed after it that has one: the tick a
-    /// member fighting a thief loses 40 or more health at once, and where they stand. Found by running
-    /// the sim rather than pinned (it was seed 34, tick 188,700), because culture (ADR-0023) and other
-    /// content change who fights when and where.
+    /// The first blow in a thief fight, in seed 34 or the first seed after it that has one: how many steps in a
+    /// member fighting a thief loses 40 or more health at once, and where they stand. Found by running the sim
+    /// rather than pinned (it was seed 34, tick 188,700), because culture (ADR-0023) and other content change who
+    /// fights when and where. Steps, not ticks: a return (ADR-0030) sends the clock back, so a world reaches a
+    /// moment by stepping as often as the probe did.
     /// </summary>
-    private static readonly Lazy<(ulong Seed, long Tick, Return.Sim.Core.Point At)> FirstBlow = new(() =>
+    private static readonly Lazy<(ulong Seed, long Step, Return.Sim.Core.Point At)> FirstBlow = new(() =>
     {
         for (ulong seed = 34; seed < 64; seed++)
         {
             Simulation probe = Simulation.Create(Content, seed);
             var health = new Dictionary<int, int>();
-            while (probe.World.Tick < probe.World.Content.World.TicksPerYear)
+            for (long steps = 1; probe.World.Tick < probe.World.Content.World.TicksPerYear; steps++)
             {
                 probe.Step();
                 foreach (Character c in probe.World.Characters)
                 {
                     bool fighting = c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight };
-                    if (fighting && health.TryGetValue(c.Id, out int was) && was - c.Health >= 40) return (seed, probe.World.Tick, c.Pos);
+                    if (fighting && health.TryGetValue(c.Id, out int was) && was - c.Health >= 40) return (seed, steps, c.Pos);
                     health[c.Id] = c.Health;
                 }
             }
@@ -849,27 +850,32 @@ public class GameViewTests
         Assert.Empty(On(gore, oren)); // hunger leaves no mark on the living dead's neighbours
     }
 
-    /// <summary>The first blow a cast member takes in a fight in the first year of a seed: when, and where they stood; null if none.</summary>
-    private static (long Tick, Return.Sim.Core.Point At)? FirstBlowTo(ulong seed, string key)
+    /// <summary>
+    /// The first blow a cast member takes in a fight in the first year of a seed: how many steps in, the tick, and where
+    /// they stood; null if none. (A return sends the clock back, so steps and ticks can differ; ADR-0030.)
+    /// </summary>
+    private static (long Step, long Tick, Return.Sim.Core.Point At)? FirstBlowTo(ulong seed, string key)
     {
         Simulation sim = Simulation.Create(Content, seed);
-        World w = sim.World;
-        Character c = w.Characters.First(x => x.CastKey == key);
-        int before = c.Health;
-        while (w.Tick < w.Content.World.TicksPerYear)
+        int id = sim.World.Characters.First(x => x.CastKey == key).Id;
+        int before = sim.World.Get(id).Health;
+        for (long steps = 1; sim.World.Tick < sim.World.Content.World.TicksPerYear; steps++)
         {
+            int timeline = sim.World.Fate.Timeline;
             sim.Step();
-            if (c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight } && before - c.Health >= GoreLog.BlowDamage) return (w.Tick, c.Pos);
+            Character c = sim.World.Get(id);
+            if (sim.World.Fate.Timeline == timeline && c.Status == CharStatus.Member && c.Job is { Kind: JobKind.Fight } && before - c.Health >= GoreLog.BlowDamage)
+                return (steps, sim.World.Tick, c.Pos);
             before = c.Health;
         }
         return null;
     }
 
     /// <summary>The first seed from <paramref name="from"/> in which the cast member takes a blow in a fight, with that blow.</summary>
-    private static (ulong Seed, long Tick, Return.Sim.Core.Point At) FirstSeedWithBlowTo(string key, ulong from)
+    private static (ulong Seed, long Step, long Tick, Return.Sim.Core.Point At) FirstSeedWithBlowTo(string key, ulong from)
     {
         for (ulong seed = from; seed < from + 40; seed++)
-            if (FirstBlowTo(seed, key) is { } blow) return (seed, blow.Tick, blow.At);
+            if (FirstBlowTo(seed, key) is { } blow) return (seed, blow.Step, blow.Tick, blow.At);
         throw new InvalidOperationException($"{key} takes no blow in a fight in the first year of seeds {from} to {from + 39}");
     }
 
@@ -878,10 +884,10 @@ public class GameViewTests
     {
         // Varrow meets the night thief and is struck (seed 10, Day 25 when this was written; the seed and the
         // blow are found from the sim, so the test follows the history). The thief bleeds; Varrow gives dust.
-        (ulong seed, long blow, Return.Sim.Core.Point at) = FirstSeedWithBlowTo("ketil", 10);
+        (ulong seed, long step, long blow, Return.Sim.Core.Point at) = FirstSeedWithBlowTo("ketil", 10);
         Simulation watched = Simulation.Create(Content, seed), plain = Simulation.Create(Content, seed);
-        watched.Advance(blow - 200);
-        plain.Advance(blow - 200);
+        watched.Advance(step - 200);
+        plain.Advance(step - 200);
         var gore = new GoreLog();
         for (int t = 0; t < 400; t++)
         {

@@ -59,7 +59,7 @@ public partial class MapView : Node2D
     private DrawLayer _water = null!;
     private DrawLayer _world = null!;
     private DrawLayer _overlay = null!;
-    private readonly GoreLog _gore = new();
+    private GoreLog _gore = new();
     private readonly Brush _brush = new();
     private readonly Dictionary<int, Shown> _shown = new();
     private readonly List<Drawable> _drawables = new();
@@ -200,6 +200,18 @@ public partial class MapView : Node2D
 
     /// <summary>Lets the gore log see every tick the view runs (ViewStepper), drawn or not, so blood lands where it fell.</summary>
     public void Witness(World w) => _gore.Observe(w);
+
+    /// <summary>
+    /// After a return (ADR-0030): the map shows the world gone back to. Its blood and bodies, its trees and stumps, and
+    /// where everyone stands are that world's; the season's ground re-bakes on its own if the season differs.
+    /// </summary>
+    public void ResetFor(World w)
+    {
+        _gore = new GoreLog();
+        _gore.Observe(w);
+        _shown.Clear();
+        if (_host != null) _art = new WorldArt(w.Map, _tex); // before Bind (a warm-up), Bind builds it from the world shown
+    }
 
     /// <summary>Centre of a tile in map pixels.</summary>
     public static Vector2 TileCenter(SimPoint p) => new((p.X + 0.5f) * TileSize, (p.Y + 0.5f) * TileSize);

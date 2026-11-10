@@ -10,7 +10,7 @@ public static class CareJobs
     {
         Character? patient = w.Find(j.TargetId);
         if (patient == null || patient.Status != CharStatus.Member) return true;
-        if (!patient.Downed && patient.Health >= JobPicker.InjuredBelow) return true;
+        if (!patient.Downed && patient.Health >= JobPicker.InjuredBelow && patient.Bleed == 0) return true;
         WorkDef def = w.Content.WorkById("care");
         if (j.Stage == 0)
         {
@@ -30,6 +30,7 @@ public static class CareJobs
         bool supplied = def.BerryCost > 0 && Stock.Take(w, "berries", def.BerryCost) == def.BerryCost;
         int heal = supplied ? def.Yield : def.Yield / 2;
         patient.Health = Math.Min(1000, patient.Health + heal);
+        patient.Bleed = 0; // tending stops the bleeding (ADR-0030)
         if (patient.Downed && patient.Health >= NeedsSystem.RecoverAt) patient.Downed = false;
         SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.cared_for", new[] { c.Id, patient.Id }, new[] { patient.LastHealthEvent },
             EventArg.Char("a", c.Id), EventArg.Char("b", patient.Id));

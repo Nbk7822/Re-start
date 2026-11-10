@@ -85,16 +85,17 @@ public class SnapshotTests
     [Fact]
     public void PendingCommandsSurviveSnapshot()
     {
+        // To ticks, not step counts: in seed 9 you die early and go back (ADR-0030), so ten thousand steps end before tick 9,000.
         var straight = Simulation.Create(TestContent.Db, 9);
         straight.Enqueue(new SetRationPolicy(9_000, RationPolicy.SelfFirst));
-        straight.Advance(10_000);
+        straight.AdvanceTo(10_000);
 
         var s = Simulation.Create(TestContent.Db, 9);
         s.Enqueue(new SetRationPolicy(9_000, RationPolicy.SelfFirst));
-        s.Advance(5_000);
+        s.AdvanceTo(5_000);
         Simulation r = Simulation.Restore(TestContent.Db, s.Snapshot());
         Assert.Single(r.World.PendingCommands);
-        r.Advance(5_000);
+        r.AdvanceTo(10_000);
 
         Assert.Equal(RationPolicy.SelfFirst, r.World.Policy);
         Assert.Single(r.World.CommandLog);
