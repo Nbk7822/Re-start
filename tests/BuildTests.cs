@@ -304,6 +304,22 @@ public class BuildTests
         Assert.Equal(JobKind.RepairRoof, JobPicker.Choose(w, sera)?.Kind);
     }
 
+    /// <summary>"... repaired a section of the shelter roof (1 of 3 now sound)": a section raised elsewhere, or one taken down, is not the shelter's (review of ADR-0027).</summary>
+    [Fact]
+    public void MendingTheShelterRoofCountsOnlyTheShelterRoof()
+    {
+        World w = WorkTests.Only(1, "oren");
+        Character oren = Cast(w, "oren");
+        Works(oren, ("repair_roof", 1));
+        Point yard = BuildPlanTests.Yard(w);
+        w.Map.Roof.Add(new RoofSection { Index = w.Map.Roof.Count, Id = w.NewId(), DefId = "roof", Area = new Rect(yard.X, yard.Y, 2, 2), Sound = true, BuiltBy = new List<int> { oren.Id } });
+        w.Map.Roof.Add(new RoofSection { Index = w.Map.Roof.Count, Id = w.NewId(), DefId = "roof", Area = new Rect(yard.X, yard.Y + 3, 2, 2), Removed = true, BuiltBy = new List<int> { oren.Id } });
+        SetTimber(w, 3);
+        Run(w, 4_000, () => w.Log.All.Any(e => e.Key == "event.work.roof_repaired"));
+        SimEvent mended = w.Log.All.Single(e => e.Key == "event.work.roof_repaired");
+        Assert.Equal("Oren repaired a section of the shelter roof (1 of 3 now sound).", EventText.Describe(w, mended));
+    }
+
     [Fact]
     public void TimberForPlansIsFelledAndTheFellingCitesThePlan()
     {

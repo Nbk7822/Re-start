@@ -122,9 +122,11 @@ public static class CampJobs
                 section.Sound = true;
                 section.MendedBy = c.Id; // those who sleep under it think the better of whoever mended it (ADR-0027)
                 c.Carrying = null;
-                int sound = w.Map.Roof.FindAll(r => r.Sound).Count;
+                // "of the shelter roof": the old camp's sections, not one raised elsewhere or taken down (ADR-0027 review).
+                List<RoofSection> shelter = w.Map.Roof.FindAll(r => r.BuiltBy.Count == 0 && !r.Removed);
+                int sound = shelter.FindAll(r => r.Sound).Count;
                 SimEvent e = JobRunner.Emit(w, SystemTag.Work, "event.work.roof_repaired", new[] { c.Id }, new[] { j.CauseEvent },
-                    EventArg.Char("a", c.Id), EventArg.Num("n", sound), EventArg.Num("total", w.Map.Roof.Count));
+                    EventArg.Char("a", c.Id), EventArg.Num("n", sound), EventArg.Num("total", shelter.Count));
                 foreach (Character m in w.Members()) MoodSystem.AddThought(w, m, "roof_sound", 0, e.Id);
                 foreach (Debt d in w.Debts)
                     if (d.Status == DebtStatus.Open && d.Kind == DebtKind.PromiseRest) Relations.Repay(w, d, e.Id);
