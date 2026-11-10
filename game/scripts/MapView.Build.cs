@@ -76,7 +76,7 @@ public partial class MapView
         switch (e)
         {
             case InputEventMouseMotion:
-                tool.Hover(MouseTile(clamp: tool.Dragging));
+                if (!(tool.Pinned && _host.Checking)) tool.Hover(MouseTile(clamp: tool.Dragging)); // a check's pinned gesture keeps its cursor
                 return false;
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press:
             {

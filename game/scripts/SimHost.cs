@@ -74,6 +74,12 @@ public partial class SimHost : Node
     public void FinishGesture() => Build.Release(World, Drafts, Order);
 
     /// <summary>
+    /// A check screenshot is being taken (RETURN_SCREENSHOT): the real pointer does not move a cursor that a check hook's
+    /// gesture pinned, so the picture does not depend on where the mouse happens to be on the machine (ADR-0027 review).
+    /// </summary>
+    public bool Checking { get; private set; }
+
+    /// <summary>
     /// The only way the view changes the world. While time runs, a choice is a tick-stamped command
     /// for the next tick, recorded and replayable like any other input. While paused it is a draft
     /// that a later choice for the same thing replaces; drafts go out when time moves.
@@ -138,6 +144,7 @@ public partial class SimHost : Node
         if (press != null) GetTree().CreateTimer(1.0).Timeout += () => PressForCheck(press);
 
         string? screenshot = Env("RETURN_SCREENSHOT");
+        Checking = screenshot != null;
         if (screenshot != null) ScreenshotAndQuit(ResolvePath(screenshot));
     }
 
