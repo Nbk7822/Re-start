@@ -83,8 +83,16 @@ public class ZoneCommandTests
 
         new MarkZone(0, 0, "stockpile", Zones.FromRect(new Rect(r.X - 1, r.Y - 1, r.W + 2, r.H + 2))).Apply(w);
         Assert.Null(Zones.ById(w, start));
-        Assert.Single(w.Map.Zones);
+        Assert.Single(w.Map.Zones, z => z.Kind == "stockpile");
         Assert.DoesNotContain(w.Log.All, e => e.Key == "event.world.zone_removed");
+
+        // A stockpile painted over the meeting place takes those tiles from it.
+        Zone meeting = w.Map.Zones.First(z => z.Kind == "meeting_place");
+        int before = Zones.Count(meeting.Tiles);
+        var corner = new Point(meeting.Tiles[0].X, meeting.Tiles[0].Y);
+        new MarkZone(0, 0, "stockpile", Zones.Canonical(new[] { corner })).Apply(w);
+        Assert.Equal(before - 1, Zones.Count(Zones.ById(w, meeting.Id)!.Tiles));
+        Assert.True(Zones.IsStores(w, Zones.UseZoneAt(w, corner)!));
     }
 
     [Fact]
@@ -151,18 +159,24 @@ public class ZoneCommandTests
         World w = sim.World;
         int start = Start(w).Id;
         sim.Enqueue(new MarkZone(5, start, "stockpile", Ruins(w)));
-        ZoneState queued = Assert.Single(StateApi.Zones(w));
+        IReadOnlyList<ZoneState> zones = StateApi.Zones(w);
+        Assert.Equal(new[] { "stockpile", "meeting_place" }, zones.Select(z => z.Kind));
+        ZoneState queued = zones[0];
         Assert.True(queued.Pending);
+        Assert.False(zones[1].Pending);
         Assert.Equal("in the covered ruins", queued.Place);
         Assert.Equal(new[] { "berries", "timber" }, queued.Items);
+        Assert.Equal("Meeting place", zones[1].Name);
+        Assert.Equal("by the hearth", zones[1].Place);
+        Assert.Empty(zones[1].Items);
 
         var drafts = new OrderDrafts();
         int draft = drafts.NewZoneId();
         drafts.Add(new MarkZone(0, draft, "stockpile", Zones.FromRect(w.Map.StartStockpile)));
         IReadOnlyList<ZoneState> shown = StateApi.Zones(w, drafts.All);
-        Assert.Equal(2, shown.Count);
-        Assert.Equal(draft, shown[1].Id);
-        Assert.Single(w.Map.Zones);
+        Assert.Equal(3, shown.Count);
+        Assert.Equal(draft, shown[2].Id);
+        Assert.Equal(2, w.Map.Zones.Count); // a draft changes nothing until time moves
     }
 
     [Fact]
@@ -197,7 +211,7 @@ public class ZoneCommandTests
         MarkZone sent = Assert.IsType<MarkZone>(Assert.Single(w.PendingCommands));
         Assert.Equal(0, sent.ZoneId);
         sim.Step();
-        Assert.Equal(2, w.Map.Zones.Count);
+        Assert.Equal(3, w.Map.Zones.Count);
     }
 }
 
@@ -224,7 +238,7 @@ public class ZoneDeterminismTests
         a.Advance(30_000);
         b.Advance(30_000);
         Assert.Equal(a.StateHash(), b.StateHash());
-        Assert.Equal(2, a.World.Map.Zones.Count);
+        Assert.Equal(3, a.World.Map.Zones.Count);
     }
 
     [Fact]

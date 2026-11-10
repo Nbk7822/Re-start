@@ -54,7 +54,7 @@ public static class StoryLog
         var notable = new List<SimEvent>();
         foreach (SimEvent e in all)
             if (e.Effects.Count > 0 || e.System is SystemTag.Incident or SystemTag.Combat or SystemTag.Growth or SystemTag.Culture || inStory.Contains(e.Id)
-                || IsZoneEvent(e))
+                || IsZoneEvent(e) || e.Key.StartsWith("event.mood.kept_away", StringComparison.Ordinal))
                 notable.Add(e);
         return new LogAnalysis(stories, notable);
     }

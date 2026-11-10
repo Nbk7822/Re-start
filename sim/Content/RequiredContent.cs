@@ -89,15 +89,16 @@ public static class RequiredContent
     }
 
     /// <summary>The zone kinds WorldGen lays out in every camp (ADR-0028).</summary>
-    public static readonly IReadOnlyList<string> Zones = new[] { "stockpile" };
+    public static readonly IReadOnlyList<string> Zones = new[] { "stockpile", "meeting_place" };
 
     /// <summary>The thoughts zones and the shared compliance rule give (ADR-0028), checked like <see cref="Thoughts"/>.</summary>
-    public static readonly IReadOnlyList<string> ZoneThoughts = new[] { "saw_rule_broken" };
+    public static readonly IReadOnlyList<string> ZoneThoughts = new[] { "saw_rule_broken", "sat_apart" };
 
     /// <summary>Every zone behaviour the simulation implements, with the layer it belongs on (ADR-0028).</summary>
     public static readonly IReadOnlyList<(string Behaviour, string Layer)> ZoneBehaviours = new (string, string)[]
     {
         ("stores", "use"),
+        ("gather", "use"),
     };
 
     /// <summary>Every need from a species' nature that the simulation has behaviour for, with the params that behaviour reads (ADR-0022).</summary>

@@ -78,6 +78,9 @@ public sealed class Character
     /// <summary>Needs that come from this person's nature (their species), beyond food, rest and company (ADR-0022).</summary>
     public List<NatureNeed> NatureNeeds { get; set; } = new();
 
+    /// <summary>The calendar day they last said they kept away from a meeting place (once a day at most; ADR-0028); −1 for never.</summary>
+    public int LastKeptAwayDay { get; set; } = -1;
+
     [JsonIgnore]
     public bool IsActive => Status is CharStatus.Member or CharStatus.Hostile;
 }

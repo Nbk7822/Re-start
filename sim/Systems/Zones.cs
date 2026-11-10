@@ -143,8 +143,9 @@ public static partial class Zones
     // ================= the world's zones =================
 
     /// <summary>
-    /// The camp starts with the demo's stockpile as a zone that keeps every item, on the rectangle
-    /// WorldGen laid out. Called last in world creation, so no id handed out before it moves.
+    /// The camp starts with the demo's stockpile, as a zone that keeps every item on the rectangle WorldGen
+    /// laid out, and a meeting place on the open ground round the hearth (step 2). Called last in world
+    /// creation, so no id handed out before it moves. Neither was anyone's choice: their MadeEvent is 0.
     /// </summary>
     public static void CreateStart(World w)
     {
@@ -152,6 +153,7 @@ public static partial class Zones
         foreach (ItemDef i in w.Content.Items) items.Add(i.Id);
         items.Sort(StringComparer.Ordinal);
         w.Map.Zones.Add(new Zone { Id = w.NewId(), Kind = "stockpile", Tiles = FromRect(w.Map.StartStockpile), Items = items });
+        w.Map.Zones.Add(new Zone { Id = w.NewId(), Kind = "meeting_place", Tiles = HearthRing(w) });
         Changed(w.Map);
     }
 

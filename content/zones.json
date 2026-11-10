@@ -1,3 +1,4 @@
 [
-  { "id": "stockpile", "nameKey": "zone.stockpile.name", "hintKey": "zone.stockpile.hint", "behaviour": "stores", "layer": "use", "color": "#c8b07a" }
+  { "id": "stockpile", "nameKey": "zone.stockpile.name", "hintKey": "zone.stockpile.hint", "behaviour": "stores", "layer": "use", "color": "#c8b07a" },
+  { "id": "meeting_place", "nameKey": "zone.meeting_place.name", "hintKey": "zone.meeting_place.hint", "behaviour": "gather", "layer": "use", "color": "#d39a58" }
 ]

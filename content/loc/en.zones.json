@@ -3,6 +3,10 @@
   "zone.stockpile.hint": "Where the camp keeps its goods",
   "zone.stockpile.a": "a stockpile",
   "zone.stockpile.the": "the stockpile",
+  "zone.meeting_place.name": "Meeting place",
+  "zone.meeting_place.hint": "Where people gather by the fire",
+  "zone.meeting_place.a": "a meeting place",
+  "zone.meeting_place.the": "the meeting place",
 
   "zone_check.outside": "Off the map",
   "zone_check.blocked": "Nothing can be kept here",
@@ -32,5 +36,9 @@
 
   "event.incident.stolen_unseen": "A thief made off with {n} {item} from the stockpile, out of sight of {b} on watch.",
 
-  "thought.saw_rule_broken": "Saw someone break the camp's rules"
+  "thought.saw_rule_broken": "Saw someone break the camp's rules",
+  "thought.sat_apart": "Sat apart from the others",
+
+  "event.mood.kept_away": "{a} kept away from the meeting place while {b} sat there.",
+  "event.mood.kept_away_fire": "{a} kept away from the fire while {b} sat there."
 }

@@ -9,7 +9,7 @@ namespace Return.Sim.Systems;
 /// critical hunger, rest (and the injured lie down), promises, the injured, a Generous offer of
 /// blood, eating, prioritised work, company, wandering. Returns a job with its target set; travel is
 /// started by <see cref="WorkSystem"/>. Never orders anyone; it only reads state (and draws Dice for
-/// wandering).
+/// wandering, and lets someone who keeps away from a meeting place say so: Zones.KeepAway).
 /// </summary>
 public static class JobPicker
 {
@@ -333,8 +333,28 @@ public static class JobPicker
         return spot == Point.None ? null : new Job { Kind = JobKind.Socialize, TargetId = best.Id, Target = spot };
     }
 
+    /// <summary>
+    /// The one wander rule (zones design 5.4, ADR-0028): the idle go to the meeting place they would
+    /// rather sit in (where the people they like are), and sit apart near where they sleep when every
+    /// meeting place holds someone they bear a grudge against; otherwise, or while the sun keeps them
+    /// under cover, they wander near where they stand, drifting back to the hearth from afar. Schedule's
+    /// free time slots in ahead of the meeting place (a species' own place) and after it (the hearth).
+    /// </summary>
     private static Job? WanderJob(World w, Character c, bool sunBlocked)
     {
+        if (!sunBlocked)
+        {
+            Zones.Gathering gathering = Zones.MeetingPlaceFor(w, c);
+            Point spot = Point.None;
+            if (gathering.Place != null) spot = Zones.TileIn(w, gathering.Place);
+            else if (gathering.Shunned != null)
+            {
+                Zones.KeepAway(w, c, gathering);
+                spot = Places.Near(w, Places.SleepSpot(w, c), 2);
+            }
+            if (spot != Point.None)
+                return new Job { Kind = JobKind.Wander, Target = spot, TargetId = w.Rng.Dice[DiceSystem.Work].Range(DiceId.WanderWait, 60, 181) };
+        }
         Point centre = sunBlocked ? c.Pos : (c.Pos.ChebyshevTo(w.Map.Hearth) > 8 ? w.Map.Hearth : c.Pos);
         int radius = sunBlocked ? 1 : 4;
         Point p = Places.Near(w, centre, radius);

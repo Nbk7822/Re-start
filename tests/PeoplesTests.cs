@@ -565,13 +565,15 @@ public class PeoplesTests
     [Fact]
     public void AWrongedDjinnLeftUnboundLetsTheFireLooseOnceAndThenLeaves()
     {
-        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "you", "mira");
+        // Without you in camp, so the djinn can only leave unbound: gathered at the fire, a djinn wronged by
+        // you trades insults with you until it leaves over that grudge first, another story (ADR-0028).
+        (Simulation s, Character qamar, NatureNeed need) = WithDjinn(1, "keep_watch", "timber", "nia", "mira");
         World w = s.World;
-        Character you = Cast(w, "you"), mira = Cast(w, "mira");
-        SimEvent wrong = w.Log.Emit(w, SystemTag.Social, "event.test.wrong", new[] { you.Id }, Array.Empty<long>());
-        Relations.FormGrudge(w, qamar, you, 50, wrong.Id);
+        Character nia = Cast(w, "nia"), mira = Cast(w, "mira");
+        SimEvent wrong = w.Log.Emit(w, SystemTag.Social, "event.test.wrong", new[] { nia.Id }, Array.Empty<long>());
+        Relations.FormGrudge(w, qamar, nia, 50, wrong.Id);
         Relations.ChangeOpinion(w, mira, qamar.Id, -60, 0);
-        Relations.ChangeOpinion(w, you, qamar.Id, -60, 0);
+        Relations.ChangeOpinion(w, nia, qamar.Id, -60, 0);
         foreach (RoofSection r in w.Map.Roof) r.Sound = true; // nobody else takes timber from the stockpile meanwhile
         Stock.Add(w, "timber", 5, w.Map.StartStockpile.Center);
         int timber = Stock.Count(w, "timber");

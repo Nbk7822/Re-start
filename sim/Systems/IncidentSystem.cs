@@ -48,7 +48,7 @@ public static class IncidentSystem
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, key, new[] { c.Id }, Array.Empty<long>(), null, EventArg.Char("a", c.Id));
         c.LastFoodEvent = e.Id;
         Growth.EnterWorld(w, c, e.Id);
-        Point near = Places.Adjacent(w, w.Map.Hearth, c.Pos);
+        Point near = Zones.ArrivalSpot(w, c.Pos); // received at the meeting place (ADR-0028)
         c.Job = new Job { Kind = JobKind.Arrive, Target = near, StartedTick = w.Tick, CauseEvent = e.Id };
         TravelSystem.Start(w, c, near);
         return e;

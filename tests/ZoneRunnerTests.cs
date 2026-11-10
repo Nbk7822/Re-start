@@ -26,7 +26,7 @@ public class ZoneRunnerTests
         string log = stdout.ToString();
         Assert.Contains("Day 1, 00:00 — You marked a stockpile in the covered ruins (9 tiles).", log);
         Assert.Contains("Day 1, 00:00 — You took away the stockpile by the hearth.", log);
-        Assert.Contains("Zones: a stockpile in the covered ruins (9 tiles).", log);
+        Assert.Contains("Zones: a meeting place by the hearth (24 tiles); a stockpile in the covered ruins (9 tiles).", log);
         Assert.DoesNotContain("spoiled in the damp", log);
     }
 
