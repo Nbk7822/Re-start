@@ -1,4 +1,5 @@
 using Return.Runner;
+using Return.Sim;
 
 namespace Return.Tests;
 
@@ -47,6 +48,66 @@ public class ScheduleRunnerTests
         var stderr = new StringWriter();
         Assert.Equal(2, Cli.Run(new[] { "soak", "--worlds", "1", "--years", "1", "--out", "unused", "--days", "siesta" }, new StringWriter(), stderr));
         Assert.Contains("--days", stderr.ToString());
+    }
+
+    /// <summary>
+    /// A return sends the world back mid-day and mid-turn (ADR-0030): the Days meter drops the day and the turn it was measuring
+    /// in the lost world, and the part day and the turn the world gone back to is in the middle of, rather than recording a part
+    /// day as a night's sleep or a turn of no length; whole days and turns after it are measured as before (merge review).
+    /// </summary>
+    [Fact]
+    public void TheDaysMeterStartsAfreshWhenTheWorldGoesBack()
+    {
+        World w = WorkTests.Only(1, "mira", "oren");
+        Character mira = w.Characters.First(c => c.CastKey == "mira"), oren = w.Characters.First(c => c.CastKey == "oren");
+        Assert.All(new[] { mira, oren }, c => Assert.Equal("human", c.SpeciesId));
+        long day = w.Content.World.TicksPerDay, hour = w.Content.World.TicksPerHour;
+        var meter = new DaysMeter();
+        void Post(Character c)
+        {
+            c.Asleep = false;
+            c.Pos = w.Map.WatchPost;
+            c.Job = new Job { Kind = JobKind.KeepWatch, Stage = 1, Target = w.Map.WatchPost };
+        }
+        void Run(long until)
+        {
+            for (; w.Tick < until; w.Tick += DaysMeter.EveryTicks) meter.Sample(w);
+        }
+
+        // Day 5 from 20:00: Mira keeps the watch. You die; the world goes back to day 4 at 21:00, Oren at the post.
+        w.Tick = 4 * day + 20 * hour;
+        Post(mira);
+        Run(w.Tick + 3 * hour);
+        w.Fate.Timeline++;
+        w.Tick = 3 * day + 21 * hour;
+        mira.Job = null;
+        Post(oren);
+        Run(w.Tick + hour);
+        Assert.All(meter.TurnTenths, n => Assert.Equal(0, n));
+        Assert.All(meter.AsleepTenths, n => Assert.Equal(0, n));
+        // Oren's turn began before the knot and the day gone back to began before it too: neither is measured when it ends.
+        oren.Job = null;
+        Run(4 * day);
+        Assert.All(meter.TurnTenths, n => Assert.Equal(0, n));
+        Assert.All(meter.AsleepTenths, n => Assert.Equal(0, n));
+
+        // Day 5 is lived whole: at its end each human's day is counted, and a turn begun and ended in view is measured.
+        Run(4 * day + 2 * hour);
+        Post(mira);
+        Run(4 * day + 4 * hour);
+        mira.Job = null;
+        Run(5 * day + DaysMeter.EveryTicks);
+        Assert.Equal(2, meter.AsleepTenths.Sum());
+        Assert.Equal(1, meter.TurnTenths[20]); // two hours
+
+        // A return whose knot lies after the last sample: the clock still moves on, but the timeline is new.
+        Post(mira);
+        Run(5 * day + 2 * hour);
+        w.Fate.Timeline++;
+        mira.Job = null;
+        Post(oren);
+        Run(5 * day + 3 * hour);
+        Assert.Equal(1, meter.TurnTenths.Sum());
     }
 
     [Fact]

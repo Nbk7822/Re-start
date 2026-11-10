@@ -7,7 +7,9 @@ namespace Return.Runner;
 /// <summary>
 /// The Schedule's soak measures for one world (ADR-0029; design 8.2), sampled every 30 ticks between steps: it only
 /// reads, so a world's log is the same whether it is measured or not. Hours asleep per human-day and turn lengths are
-/// kept as histograms in tenths of an hour, so totals over worlds never depend on order.
+/// kept as histograms in tenths of an hour, so totals over worlds never depend on order. A return (ADR-0030) sends the
+/// world back: the day and the turn the lost world was in end unmeasured, and so do the day and the turn the world gone
+/// back to is in the middle of, whose beginnings the meter never saw (merge review).
 /// </summary>
 internal sealed class DaysMeter
 {
@@ -19,25 +21,39 @@ internal sealed class DaysMeter
     public long NightSamples, NightAwakeOffWatch, WatchSamples, WatchKept;
 
     private readonly List<(int Id, int Asleep)> _today = new();
-    private int _day = -1, _watcher;
-    private long _watcherSince;
+    private int _day = -1, _watcher, _timeline;
+    private long _watcherSince, _lastTick = -1;
+
+    /// <summary>The day in progress began before the meter could see it (a return landed in it): dropped, not counted.</summary>
+    private bool _partDay;
 
     public void Sample(World w)
     {
         var def = w.Content.World;
         int day = Calendar.Day(w.Tick, def), hour = Calendar.Hour(w.Tick, def);
+        Character? watcher = null;
+        foreach (Character m in w.Characters)
+            if (m.Status == CharStatus.Member && !m.Asleep && m.Job is { Kind: JobKind.KeepWatch, Stage: >= 1 } j && m.Pos == j.Target) { watcher = m; break; }
+        int id = watcher?.Id ?? 0;
+        if (w.Fate.Timeline != _timeline || w.Tick < _lastTick)
+        {
+            // A return: start again without flushing. Whoever holds the post now took it before the knot (-1: not measured).
+            _timeline = w.Fate.Timeline;
+            _today.Clear();
+            _day = day;
+            _partDay = true;
+            _watcher = id;
+            _watcherSince = -1;
+        }
+        _lastTick = w.Tick;
         if (day != _day)
         {
             FlushDay();
             _day = day;
         }
-        Character? watcher = null;
-        foreach (Character m in w.Characters)
-            if (m.Status == CharStatus.Member && !m.Asleep && m.Job is { Kind: JobKind.KeepWatch, Stage: >= 1 } j && m.Pos == j.Target) { watcher = m; break; }
-        int id = watcher?.Id ?? 0;
         if (id != _watcher)
         {
-            if (_watcher != 0) Add(TurnTenths, (int)((w.Tick - _watcherSince) * 10 / def.TicksPerHour));
+            if (_watcher != 0 && _watcherSince >= 0) Add(TurnTenths, (int)((w.Tick - _watcherSince) * 10 / def.TicksPerHour));
             _watcher = id;
             _watcherSince = w.Tick;
         }
@@ -69,7 +85,9 @@ internal sealed class DaysMeter
     private void FlushDay()
     {
         // Samples are six minutes apart: ten make an hour, so a day's count is its hours asleep in tenths.
-        foreach ((int _, int asleep) in _today) Add(AsleepTenths, asleep);
+        if (!_partDay)
+            foreach ((int _, int asleep) in _today) Add(AsleepTenths, asleep);
+        _partDay = false;
         _today.Clear();
     }
 
