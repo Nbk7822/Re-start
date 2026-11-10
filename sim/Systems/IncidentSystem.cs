@@ -118,6 +118,7 @@ public static class IncidentSystem
         w.Weather.Raining = true;
         w.Weather.RainEndsTick = w.Tick + (long)hours * w.Content.World.TicksPerHour;
         w.Weather.RainEvent = e.Id;
+        Culture.Omens.OnSign(w, "rain", e); // the faithful may read it as a god's verdict on a recent deed (ADR-0023)
         return e;
     }
 
@@ -150,6 +151,7 @@ public static class IncidentSystem
             EventArg.Num("n", lost), EventArg.Item("item", "berries"));
         foreach (Character m in w.Members())
             if (w.Content.SpeciesById(m.SpeciesId).FoodSource == "berries") m.LastFoodEvent = e.Id;
+        Culture.Omens.OnSign(w, "food_spoils", e);
         return e;
     }
 
@@ -160,6 +162,7 @@ public static class IncidentSystem
         IncidentDef def = w.Content.IncidentById("work_accident");
         int damage = w.Rng.Dice[DiceSystem.Incident].Range(DiceId.AccidentDamage, def.Param("damageMin"), def.Param("damageMax") + 1);
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, "event.incident.work_accident", new[] { c.Id }, new[] { cause }, null, EventArg.Char("a", c.Id));
+        Culture.Omens.OnSign(w, "work_accident", e);
         CombatSystem.Hurt(w, c, damage, e.Id, "event.incident.died_accident", SystemTag.Incident);
         return e;
     }
@@ -198,6 +201,7 @@ public static class IncidentSystem
         SimEvent e = w.Log.Emit(w, SystemTag.Incident, item == "berries" ? "event.incident.windfall_berries" : "event.incident.windfall_timber",
             Array.Empty<int>(), Array.Empty<long>(), null, EventArg.Num("n", amount), EventArg.Item("item", item));
         foreach (Character m in w.Members()) MoodSystem.AddThought(w, m, "windfall", 0, e.Id);
+        Culture.Omens.OnSign(w, "windfall", e);
         return e;
     }
 

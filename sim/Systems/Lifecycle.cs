@@ -25,6 +25,7 @@ public static class Lifecycle
             MoodSystem.AddThought(w, m, "saw_death", c.Id, e.Id);
             if (Relations.Opinion(w, m.Id, c.Id) >= 30) MoodSystem.AddThought(w, m, "friend_died", c.Id, e.Id);
         }
+        Culture.Omens.OnSign(w, "death", e); // a member's death is a sign the faithful may read (ADR-0023)
         return e;
     }
 }
