@@ -897,8 +897,9 @@ public class GameViewTests
         Assert.Equal(at.X, (int)MathF.Floor(struck.X));
         Assert.Equal(at.Y, (int)MathF.Floor(struck.Y));
         Assert.Contains(gore.Decals, d => d.Kind == DecalKind.Splatter && d.Ichor == Ichor.Blood);
-        Assert.DoesNotContain(gore.Decals, d => d.Kind is DecalKind.Splatter or DecalKind.Drops or DecalKind.Pool
-            && (int)MathF.Floor(d.X) == at.X && (int)MathF.Floor(d.Y) == at.Y && d.Tick == blow);
+        // Varrow's own wound leaves no blood anywhere; the thief, who may stand on the same tile when they close, still bleeds.
+        long[] varrows = { (long)ArtHash.Of(ketil.Id, blow), (long)ArtHash.Of(ketil.Id, blow, 9) };
+        Assert.DoesNotContain(gore.Decals, d => d.Ichor == Ichor.Blood && varrows.Contains(d.Key));
     }
 
     [Fact]

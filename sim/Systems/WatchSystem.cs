@@ -152,11 +152,12 @@ public static class WatchSystem
 
     // ---- The night ----
 
+    /// <summary>The watch hours begin. Someone already at the post (a restored world, a mod) keeps it; otherwise the post starts empty.</summary>
     private static void BeginNight(World w, WatchState s)
     {
-        Reset(s);
+        if (s.WatcherId == 0) Reset(s);
         s.Active = true;
-        s.EmptySinceTick = w.Tick;
+        if (s.WatcherId == 0) s.EmptySinceTick = w.Tick;
     }
 
     /// <summary>The watch hours are over: the turn ends quietly, and the night's refusals and gaps are forgotten.</summary>
@@ -202,14 +203,16 @@ public static class WatchSystem
         if (s.WatcherId != 0)
         {
             Character? c = w.Find(s.WatcherId);
-            if (c is not { Status: CharStatus.Member } || c.Downed)
+            if (c is not { Status: CharStatus.Member } || c.Downed || (c.Health < JobPicker.InjuredBelow && c.Job is not { Kind: JobKind.Fight or JobKind.Flee }))
             {
-                if (c is { Downed: true }) s.GapEvent = c.LastHealthEvent; // struck down at the post: that is why it is empty
+                // Struck down or wounded at the post: that is why it is empty.
+                if (c is { Status: CharStatus.Member }) s.GapEvent = c.LastHealthEvent;
                 if (c != null) c.LastWatchEndTick = w.Tick;
                 Vacate(w, s);
             }
             else if (c.Job is { Kind: JobKind.KeepWatch or JobKind.Fight or JobKind.Flee }) { }
-            else if (inHours && Idle(c)) Post(w, c, s.TurnEvent); // back from a fight: to the post again, quietly
+            else if (inHours && !c.Asleep && c.Job is not { Kind: JobKind.Eat or JobKind.RequestBlood or JobKind.SeekCover })
+                Post(w, c, s.TurnEvent); // back from a fight with the turn not done: to the post again, quietly
             else
             {
                 c.LastWatchEndTick = w.Tick;
@@ -430,12 +433,14 @@ public static class WatchSystem
 
     /// <summary>
     /// The post stands empty and nobody is on the way: the most eligible awake, idle person takes it, unasked (no
-    /// refusal, no roll). After a whole watch hour with nobody there and nothing yet to explain it: "Nobody kept the watch."
+    /// refusal, no roll), but never someone who already kept a turn tonight (lead's call: a watcher who left an
+    /// unrelieved post is not sent back to it). After a whole watch hour with nobody there and nothing yet to explain
+    /// it: "Nobody kept the watch."
     /// </summary>
     private static void EmptyPost(World w, WatchState s)
     {
         long cause = !s.FirstTurnTaken && w.WatchEvent != 0 ? w.WatchEvent : s.GapEvent;
-        foreach (Character c in Candidates(w, s, null, awakeOnly: true))
+        foreach (Character c in Candidates(w, s, null, awakeOnly: true, offWatchSince: NightStart(w)))
             if (SendToPost(w, s, c, cause)) return;
         if (s.GapEvent != 0 || s.UnkeptSaid || s.EmptySinceTick < 0 || w.Tick - s.EmptySinceTick < w.Content.World.TicksPerHour) return;
         SimEvent e = w.Log.Emit(w, SystemTag.Work, "event.work.watch_unkept", Array.Empty<int>(),
@@ -450,13 +455,13 @@ public static class WatchSystem
     /// due); id. Never the downed, anyone who refused tonight, the asker, those the sun keeps in, or those who never
     /// keep watch. An awake person in no state for it (hurt, tired, hungry, or bearing the asker a grudge) is not sent.
     /// </summary>
-    private static List<Character> Candidates(World w, WatchState s, Character? asker, bool awakeOnly)
+    private static List<Character> Candidates(World w, WatchState s, Character? asker, bool awakeOnly, long offWatchSince = long.MaxValue)
     {
         var found = new List<(Character C, int Asleep, int Nature, int Priority, long Since, int Opinion)>();
         foreach (Character c in w.Characters)
         {
             if (c.Status != CharStatus.Member || c.Downed || c.Id == asker?.Id || c.Id == s.WatcherId || c.Id == s.IncomingId || c.Id == s.WakerId) continue;
-            if (s.Refusals.Exists(r => r.RefuserId == c.Id)) continue;
+            if (s.Refusals.Exists(r => r.RefuserId == c.Id) || (c.LastWatchEndTick != 0 && c.LastWatchEndTick >= offWatchSince)) continue;
             int priority = JobPicker.PriorityOf(c, WorkId);
             if (priority <= 0 || Places.Species(w, c).RefusesWork.Contains(WorkId)) continue;
             if (Places.BurnsInDaylight(w, c) && Places.SunDanger(w)) continue;
@@ -524,6 +529,14 @@ public static class WatchSystem
     }
 
     private static long TurnTicks(World w) => (long)w.Content.World.Schedule.WatchTurnHours * w.Content.World.TicksPerHour;
+
+    /// <summary>The tick tonight's watch hours began.</summary>
+    private static long NightStart(World w)
+    {
+        WorldDef def = w.Content.World;
+        long start = w.Tick / def.TicksPerDay * def.TicksPerDay + (long)w.WatchFrom * def.TicksPerHour;
+        return start > w.Tick ? start - def.TicksPerDay : start;
+    }
 
     /// <summary>Ticks until the watch hours end.</summary>
     private static long TicksLeft(World w)
