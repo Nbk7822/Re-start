@@ -46,18 +46,26 @@ public static class Rations
                 c.SkippedRation = true;
                 c.LastFoodEvent = e.Id;
             }
-            BreakMealPromisesTo(w, c);
-            TakeSomeoneElsesShare(w, c, food);
+            if (!BreakMealPromisesTo(w, c)) TakeSomeoneElsesShare(w, c, food);
         }
     }
 
-    /// <summary>A promised meal is a first claim on food: sharing food out and leaving its creditor out while they are hungry breaks it (as in the demo).</summary>
-    private static void BreakMealPromisesTo(World w, Character c)
+    /// <summary>
+    /// A promised meal is a first claim on food: sharing food out and leaving its creditor out while
+    /// they are hungry breaks it (as in the demo), unless a keeper of guest-right is already bringing
+    /// the guest food (ADR-0023). True if someone is.
+    /// </summary>
+    private static bool BreakMealPromisesTo(World w, Character c)
     {
-        if (c.HungerStage < 1) return;
+        if (c.HungerStage < 1) return false;
+        bool hosted = false;
         foreach (Debt d in w.Debts)
             if (d.Status == DebtStatus.Open && d.Kind == DebtKind.PromiseMeal && d.CreditorId == c.Id)
+            {
+                if (Culture.Hospitality.Underway(w, d)) { hosted = true; continue; }
                 Relations.Break(w, d, c.LastFoodEvent);
+            }
+        return hosted;
     }
 
     /// <summary>

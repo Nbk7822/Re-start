@@ -33,6 +33,10 @@ public static class JobPicker
             if (spot != Point.None) return new Job { Kind = JobKind.SeekCover, Target = spot, CauseEvent = c.LastHealthEvent };
         }
 
+        // Guest-bread: a keeper of guest-right feeds a promised guest before their own hunger, unless starving (ADR-0023).
+        Job? guest = Culture.Hospitality.GuestJob(w, c, sunBlocked);
+        if (guest != null) return guest;
+
         if (c.Food < NeedsSystem.HungryBelow)
         {
             if (sp.DrinksBlood && !BloodJobs.RecentlyRebuffed(w, c))

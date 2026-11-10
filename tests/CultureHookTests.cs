@@ -269,6 +269,188 @@ public class CultureHookTests
         Assert.Equal("event.social.blood_offered", w.Log.All.Last().Key);
     }
 
+    // ---- O1, O2, H2: how a people weighs a promise ----
+
+    private static SimEvent Mark(World w, string key, params int[] actors) => w.Log.Emit(w, SystemTag.Incident, key, actors, Array.Empty<long>());
+
+    [Fact]
+    public void PromisesWeighByCulture()
+    {
+        World w = Camp(TestContent.Db, 1, "you", "mira", "oren", "nia");
+        Character you = Cast(w, "you"), mira = Cast(w, "mira"), oren = Cast(w, "oren"), nia = Cast(w, "nia");
+        Belong(mira, "hearth"); Belong(oren, "hearth"); Belong(nia, "reed");
+        Hold(w, "hearth", "clasp_greeting");
+        Hold(w, "reed", "no_touch_greeting");
+        SimEvent why = Mark(w, "event.test.why");
+
+        // The Hearthfolk hold a promise heavy (150%): a heavier grudge, and word spreads to their kin.
+        Assert.Equal(150, Ways.OathWeightPct(w, mira));
+        SimEvent broken = Relations.Break(w, Relations.FormDebt(w, you, mira, DebtKind.PromiseMeal, 1, why.Id, w.Tick + 100), why.Id);
+        Assert.Equal(60, Relations.ActiveGrudge(w, mira.Id, you.Id)!.Intensity);
+        Assert.Equal(-30 * 150 / 100, Relations.Opinion(w, mira.Id, you.Id));
+        SimEvent spread = w.Log.All.Single(e => e.Key == "event.culture.word_spread");
+        Assert.Equal(SystemTag.Culture, spread.System);
+        Assert.Equal(new[] { broken.Id }, spread.Causes);
+        Assert.Equal(new[] { you.Id, oren.Id }, spread.Actors);
+        Assert.Contains(oren.Thoughts, t => t.DefId == "heard_oath_broken" && t.AboutId == you.Id && t.CauseEvent == spread.Id);
+        Assert.DoesNotContain(nia.Thoughts, t => t.DefId == "heard_oath_broken");
+        Assert.Equal("Word that you broke a promise spread among " + w.Content.Loc.Get(Ways.CultureById(w, "hearth")!.NameKey) + ".",
+            Return.Sim.Api.EventText.Describe(w, spread));
+
+        // The Reed Folk take a promise lightly (50%): a lighter grudge, and no word spreads.
+        Assert.Equal(50, Ways.OathWeightPct(w, nia));
+        Relations.Break(w, Relations.FormDebt(w, you, nia, DebtKind.PromiseMeal, 1, why.Id, w.Tick + 100), why.Id);
+        Assert.Equal(20, Relations.ActiveGrudge(w, nia.Id, you.Id)!.Intensity);
+        Assert.Single(w.Log.All, e => e.Key == "event.culture.word_spread");
+
+        // A kept promise warms by the same weight.
+        Relations.Repay(w, Relations.FormDebt(w, mira, oren, DebtKind.PromiseMeal, 1, why.Id, w.Tick + 100), why.Id);
+        Assert.Equal(14 * 150 / 100, Relations.Opinion(w, oren.Id, mira.Id));
+    }
+
+    [Fact]
+    public void AWrongedGuestHoldsAHeavierGrudge()
+    {
+        World w = Camp(TestContent.Db, 1, "you", "hollis");
+        Character you = Cast(w, "you"), hollis = Cast(w, "hollis");
+        Belong(hollis, "night");
+        Hold(w, "night", "veiled_greeting", "guest_bread");
+        hollis.ArrivedTick = 10;
+        w.Tick = 20;
+        SimEvent why = Mark(w, "event.test.why");
+        SimEvent broken = Relations.Break(w, Relations.FormDebt(w, you, hollis, DebtKind.PromiseMeal, 1, why.Id, w.Tick + 100), why.Id);
+        SimEvent wronged = w.Log.All.Single(e => e.Key == "event.culture.guest_bread.wronged");
+        Assert.Equal(SystemTag.Culture, wronged.System);
+        Assert.Equal(new[] { broken.Id }, wronged.Causes);
+        Grudge g = Relations.ActiveGrudge(w, hollis.Id, you.Id)!;
+        Assert.Equal(60, g.Intensity); // 40 × 150% at an oath weight of 100%
+        Assert.Equal(wronged.Id, g.CauseEvent);
+        Assert.Contains(hollis.Thoughts, t => t.DefId == "guest_right_broken" && t.CauseEvent == wronged.Id);
+        Assert.DoesNotContain(hollis.Thoughts, t => t.DefId == "promise_broken");
+        Assert.Contains(w.Culture.Deeds, d => d.Kind == DeedKind.GuestWronged && d.EventId == wronged.Id && d.DoerId == you.Id);
+        Assert.Contains(w.Culture.Deeds, d => d.Kind == DeedKind.OathBroken && d.EventId == broken.Id);
+
+        // After their first week they are no longer a guest.
+        Character mira = Cast(w, "mira");
+        mira.Status = CharStatus.Member;
+        Belong(mira, "night");
+        mira.ArrivedTick = 10;
+        w.Tick = 10 + 8L * w.Content.World.TicksPerDay;
+        Relations.Break(w, Relations.FormDebt(w, you, mira, DebtKind.PromiseMeal, 1, why.Id, w.Tick + 100), why.Id);
+        Assert.Single(w.Log.All, e => e.Key == "event.culture.guest_bread.wronged");
+        Assert.Equal(40, Relations.ActiveGrudge(w, mira.Id, you.Id)!.Intensity);
+    }
+
+    // ---- H1: guest-bread ----
+
+    private static (World W, Character You, Character Host, Character Guest, Debt Promise) GuestCamp(ContentDb db)
+    {
+        World w = Camp(db, 1, "you", "mira", "hollis");
+        Character you = Cast(w, "you"), mira = Cast(w, "mira"), hollis = Cast(w, "hollis");
+        you.Traits = new List<string> { "practical", "anxious" };
+        Belong(mira, "night"); Belong(hollis, "reed");
+        Hold(w, "night", "veiled_greeting", "guest_bread");
+        Hold(w, "reed", "no_touch_greeting");
+        w.Tick = 2L * w.Content.World.TicksPerDay + 10L * w.Content.World.TicksPerHour;
+        hollis.ArrivedTick = w.Tick - 300;
+        hollis.Food = 280;
+        SimEvent arrived = Mark(w, "event.test.arrived", hollis.Id);
+        Debt promise = Relations.FormDebt(w, you, hollis, DebtKind.PromiseMeal, 1, arrived.Id, w.Tick + 48L * 300);
+        hollis.LastFoodEvent = promise.FormedEvent;
+        Stock.Take(w, "berries", 99);
+        return (w, you, mira, hollis, promise);
+    }
+
+    private static void RunJob(World w, Character c, int ticks = 3_000)
+    {
+        for (int t = 0; t < ticks && c.Job != null; t++)
+        {
+            TravelSystem.Step(w);
+            if (JobRunner.Tick(w, c, c.Job)) c.Job = null;
+            w.Tick++;
+        }
+        Assert.Null(c.Job);
+    }
+
+    [Fact]
+    public void GuestBreadKeepsTheCampsPromise()
+    {
+        (World w, Character you, Character mira, Character hollis, Debt promise) = GuestCamp(TestContent.Db);
+        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        w.Reservations.Add(new Reservation { CharacterId = mira.Id, Count = 1 });
+        mira.Food = 400; // hungry enough to hold a share, not starving
+
+        Job? job = JobPicker.Choose(w, mira);
+        Assert.Equal(JobKind.KeepPromise, job?.Kind);
+        Assert.Equal(promise.Id, job!.TargetId);
+        Assert.Single(w.Culture.GuestOffers, o => o.HostId == mira.Id && o.DebtId == promise.Id && o.Accepted);
+        long hunger = hollis.LastFoodEvent;
+        mira.Job = job;
+        RunJob(w, mira);
+
+        SimEvent shared = w.Log.All.Single(e => e.Key == "event.culture.guest_bread.shared");
+        Assert.Equal(SystemTag.Culture, shared.System);
+        Assert.Equal(new[] { promise.FormedEvent, hunger }.Distinct(), shared.Causes);
+        SimEvent kept = w.Log.All.Single(e => e.Key == "event.social.promise_kept");
+        Assert.Contains(shared.Id, kept.Causes);
+        SimEvent owes = w.Log.All.Single(e => e.Key == "event.social.owes_meal");
+        Assert.Equal(new[] { kept.Id }, owes.Causes);
+        Assert.Equal(new[] { hollis.Id, mira.Id }, owes.Actors);
+        Assert.False(Rations.HasReservation(w, mira.Id));
+        Assert.Equal(shared.Id, mira.LastFoodEvent);
+        Assert.Equal(DebtStatus.Repaid, promise.Status);
+        Assert.Contains(hollis.Thoughts, t => t.DefId == "guest_bread_received" && t.AboutId == mira.Id);
+        Assert.Contains(w.Culture.Deeds, d => d.Kind == DeedKind.GuestHonoured && d.DoerId == mira.Id);
+    }
+
+    [Fact]
+    public void WithNoShareTheHostPicksTheGuestAMeal()
+    {
+        (World w, _, Character mira, Character hollis, Debt promise) = GuestCamp(TestContent.Db);
+        Bush bush = w.Map.Bushes.First();
+        bush.Berries = 1;
+        foreach (Bush b in w.Map.Bushes) if (b != bush) b.Berries = 0;
+        Job? job = JobPicker.Choose(w, mira);
+        Assert.Equal(JobKind.KeepPromise, job?.Kind);
+        Assert.Equal(bush.Pos, job!.Target);
+        mira.Job = job;
+        RunJob(w, mira, 6_000);
+        Assert.Equal(0, bush.Berries);
+        Assert.Single(w.Log.All, e => e.Key == "event.culture.guest_bread.foraged");
+        Assert.Equal(DebtStatus.Repaid, promise.Status);
+        Assert.True(hollis.Food > 280);
+    }
+
+    [Fact]
+    public void AHostDecidesOncePerPromise()
+    {
+        (World w, _, Character mira, _, Debt promise) = GuestCamp(Forced(("guest_bread", "offerPermille", 0)));
+        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        w.Reservations.Add(new Reservation { CharacterId = mira.Id, Count = 1 });
+        Assert.NotEqual(JobKind.KeepPromise, JobPicker.Choose(w, mira)?.Kind);
+        long draws = w.Rng.Dice[DiceSystem.Culture].Draws;
+        Assert.Single(w.Culture.GuestOffers, o => o.HostId == mira.Id && o.DebtId == promise.Id && !o.Accepted);
+        Assert.NotEqual(JobKind.KeepPromise, JobPicker.Choose(w, mira)?.Kind);
+        Assert.Equal(draws, w.Rng.Dice[DiceSystem.Culture].Draws);
+        Assert.Single(w.Culture.GuestOffers);
+    }
+
+    [Fact]
+    public void AShareOutDoesNotBreakAPromiseWhileAHostIsOnTheWay()
+    {
+        (World w, Character you, Character mira, Character hollis, Debt promise) = GuestCamp(TestContent.Db);
+        hollis.HungerStage = 1;
+        you.Food = 100; mira.Food = 900;
+        Stock.Add(w, "berries", 1, w.Map.Stockpile.Center);
+        mira.Job = new Job { Kind = JobKind.KeepPromise, TargetId = promise.Id, Target = w.Map.Stockpile.Center };
+        Rations.Assign(w); // you are hungrier: Hollis is left out, hungry
+        Assert.Equal(DebtStatus.Open, promise.Status);
+        mira.Job = null;
+        hollis.SkippedRation = false;
+        Rations.Assign(w);
+        Assert.Equal(DebtStatus.Broken, promise.Status);
+    }
+
     [Fact]
     public void StancesShiftWarmthInsultAndConsent()
     {

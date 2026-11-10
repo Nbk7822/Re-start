@@ -123,7 +123,7 @@ public static class Relations
         d.ClosedEvent = e.Id;
         Character? creditor = w.Find(d.CreditorId);
         if (d.IsPromise && creditor != null && creditor.Status == CharStatus.Member)
-            MoodSystem.AddThought(w, creditor, "promise_kept", d.DebtorId, e.Id);
+            MoodSystem.AddThought(w, creditor, "promise_kept", d.DebtorId, e.Id, Culture.Ways.OathWeightPct(w, creditor));
         Culture.Omens.RecordDeed(w, d.IsPromise ? DeedKind.OathKept : DeedKind.DebtRepaid, e.Id, d.DebtorId);
         return e;
     }
@@ -136,11 +136,9 @@ public static class Relations
             EventArg.Char("a", d.DebtorId), EventArg.Char("b", d.CreditorId));
         d.ClosedEvent = e.Id;
         Character? creditor = w.Find(d.CreditorId), debtor = w.Find(d.DebtorId);
+        // The thought and grudge weigh by the creditor's ways; a wronged guest and word among kin follow (ADR-0023).
         if (creditor != null && debtor != null && creditor.Status == CharStatus.Member)
-        {
-            MoodSystem.AddThought(w, creditor, "promise_broken", debtor.Id, e.Id);
-            FormGrudge(w, creditor, debtor, 40, e.Id);
-        }
+            Culture.Promises.Broken(w, d, e, creditor, debtor);
         Culture.Omens.RecordDeed(w, DeedKind.OathBroken, e.Id, d.DebtorId);
         return e;
     }

@@ -67,7 +67,8 @@ public class SocialTests
         Debt d = Relations.FormDebt(w, you, mira, DebtKind.PromiseMeal, 1, 0, w.Tick + 1_000);
         Relations.Repay(w, d, d.FormedEvent);
         Assert.Equal(DebtStatus.Repaid, d.Status);
-        Assert.Equal(14, Relations.Opinion(w, mira.Id, you.Id));
+        // A promise weighs by the creditor's ways (ADR-0023): 14 at 100%.
+        Assert.Equal(14 * Return.Sim.Systems.Culture.Ways.OathWeightPct(w, mira) / 100, Relations.Opinion(w, mira.Id, you.Id));
         Assert.Contains(w.Log.All, e => e.Effects.Any(f => f.Kind == EffectKind.DebtRepaid && f.RefId == d.Id));
     }
 
@@ -83,7 +84,9 @@ public class SocialTests
         Assert.Contains(w.Log.All, e => e.Effects.Any(f => f.Kind == EffectKind.DebtBroken && f.RefId == d.Id));
         Grudge g = Assert.Single(w.Grudges);
         Assert.Equal(mira.Id, g.HolderId);
-        Assert.Equal(-30, Relations.Opinion(w, mira.Id, you.Id));
+        int pct = Return.Sim.Systems.Culture.Ways.OathWeightPct(w, mira); // a promise weighs by the creditor's ways (ADR-0023)
+        Assert.Equal(-30 * pct / 100, Relations.Opinion(w, mira.Id, you.Id));
+        Assert.Equal(40 * pct / 100, g.Intensity);
     }
 
     [Fact]

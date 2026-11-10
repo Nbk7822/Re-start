@@ -52,7 +52,7 @@ public static class RequiredContent
     {
         ("greeting", new[] { "breachPermille" }, new[] { "breach" }),
         ("blood_stance", new[] { "consentBias", "offers" }, Array.Empty<string>()),
-        ("guest_right", new[] { "offerPermille", "wrongedGrudgePct" }, new[] { "shared", "wronged" }),
+        ("guest_right", new[] { "offerPermille", "wrongedGrudgePct" }, new[] { "shared", "foraged", "wronged" }),
         ("leader_last", Array.Empty<string>(), new[] { "offended", "honoured" }),
         ("debt_of_honour", new[] { "minDebtAgeHours" }, new[] { "repaid" }),
         ("festival", new[] { "season", "hours", "feastPerHead", "forgive" }, new[] { "begins", "forgave" }),
